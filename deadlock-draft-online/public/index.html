@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deadlock Draft</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0f1a;color:#eaeaea;min-height:100vh;overflow-x:hidden}
+:root{--t1:#e94560;--t1l:#ff6b81;--t2:#0f9b8e;--t2l:#2ed8c3;--ban:#cc4444;--gold:#f5c518;--panel:#141428;--card:#1a1a32}
+.hidden{display:none!important}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+
+/* ── SHARED ────────────────────────────────── */
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px 20px;text-align:center}
+.screen.active{display:flex}
+.screen h1{font-size:2.2rem;color:var(--gold);margin-bottom:8px}
+.screen h2{font-size:1.4rem;color:var(--gold);margin-bottom:6px}
+.screen p{color:#aaa;font-size:.92rem;max-width:540px;line-height:1.6;margin-bottom:16px}
+.input-field{background:#1a1a32;border:2px solid #2a2a44;color:#eee;padding:12px 16px;border-radius:8px;font-size:1rem;width:100%;max-width:320px;outline:none;text-align:center}
+.input-field:focus{border-color:var(--gold)}
+.btn-main{padding:14px 36px;font-size:1rem;font-weight:700;border:none;border-radius:10px;color:#fff;background:#886611;transition:all .2s;margin:6px}
+.btn-main:hover{filter:brightness(1.15);transform:scale(1.02)}
+.btn-main:disabled{opacity:.35;cursor:default;transform:none;filter:none}
+.btn-main.t1{background:var(--t1)}.btn-main.t2{background:var(--t2)}
+.btn-sm{padding:8px 18px;border:none;border-radius:6px;font-size:.85rem;font-weight:600;color:#eee;background:#333;transition:all .15s}
+.btn-sm:hover{filter:brightness(1.2)}
+.error-msg{color:var(--ban);font-size:.85rem;margin-top:8px;min-height:20px}
+.code-display{font-size:2.5rem;font-weight:700;letter-spacing:8px;color:var(--gold);margin:8px 0;font-family:monospace}
+
+/* ── LOBBY ─────────────────────────────────── */
+.lobby-row{display:flex;gap:24px;margin:20px 0;flex-wrap:wrap;justify-content:center}
+.lobby-slot{width:260px;background:var(--panel);border-radius:12px;padding:20px;border:2px solid #2a2a44;text-align:center}
+.lobby-slot.t1{border-color:var(--t1)}.lobby-slot.t2{border-color:var(--t2)}
+.lobby-slot h3{font-size:1.1rem;margin-bottom:10px}
+.lobby-slot.t1 h3{color:var(--t1)}.lobby-slot.t2 h3{color:var(--t2)}
+.lobby-slot .cap-name{font-size:1rem;font-weight:600;padding:10px;background:#1a1a2e;border-radius:6px;margin:6px 0}
+.lobby-slot .empty{color:#444;font-style:italic;padding:10px}
+.you-tag{color:var(--gold);font-size:.7rem;font-weight:700;margin-left:6px}
+.share-box{background:#1a1a32;border:1px solid #333;border-radius:8px;padding:10px 16px;font-size:.85rem;color:#aaa;margin:10px 0;word-break:break-all;max-width:440px}
+.share-box span{color:var(--gold);font-weight:600}
+.timer-select{display:flex;align-items:center;gap:10px;color:#aaa;font-size:.9rem;margin:10px 0}
+.timer-select select{background:#1a1a32;border:1px solid #333;color:#eee;padding:6px 10px;border-radius:6px;font-size:.9rem}
+
+/* ── DRAFT ─────────────────────────────────── */
+.draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
+.draft-top{text-align:center;padding:12px 16px 8px;background:linear-gradient(180deg,#16162e,#0f0f1a);border-bottom:1px solid #222}
+.draft-prompt{font-size:1.3rem;font-weight:700;color:var(--gold)}
+.draft-sub{font-size:.83rem;color:#aaa;margin-top:3px}
+.timer-bar{margin-top:8px;display:flex;align-items:center;justify-content:center;gap:10px}
+.timer-num{font-size:1.8rem;font-weight:700;font-family:monospace;min-width:60px}
+.timer-num.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.5}}
+.timer-track{width:200px;height:6px;background:#222;border-radius:3px;overflow:hidden}
+.timer-fill{height:100%;background:var(--gold);transition:width .3s linear;border-radius:3px}
+
+.draft-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
+
+.hero-card{
+  width:105px;background:var(--card);border:2px solid #2a2a44;border-radius:8px;cursor:pointer;
+  transition:all .15s;display:flex;flex-direction:column;align-items:center;padding:7px 4px 5px;position:relative;overflow:hidden;
+}
+.hero-card:hover:not(.disabled){border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 14px rgba(245,197,24,.13)}
+.hero-card img{width:68px;height:68px;border-radius:6px;object-fit:cover;background:#111}
+.hero-card .hl{margin-top:4px;font-size:.68rem;font-weight:600;text-align:center;line-height:1.15;color:#ccc}
+.hero-card.sel{border-color:var(--gold);background:#2a2a10;box-shadow:0 0 12px rgba(245,197,24,.2)}
+.hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--gold);font-size:1rem;font-weight:700}
+.hero-card.banned{border-color:#441111;pointer-events:none;opacity:.35}
+.hero-card.banned::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
+.hero-card.disabled{pointer-events:none;opacity:.25}
+.hero-card.opp{border-color:#333;opacity:.7}
+
+.draft-bottom{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #222}
+.status-text{font-size:.85rem;color:#888}
+.status-text .hi{color:var(--gold);font-weight:700}
+
+/* ── REVEAL / COMPLETE ─────────────────────── */
+.rcols{display:flex;gap:40px;margin:16px 0 24px;justify-content:center;flex-wrap:wrap}
+.rcol{text-align:center;min-width:200px;max-width:280px}
+.rcol h3{font-size:1.1rem;margin-bottom:10px}
+.rcol.t1 h3{color:var(--t1)}.rcol.t2 h3{color:var(--t2)}
+.rh{display:flex;align-items:center;gap:10px;margin:5px auto;font-size:.88rem;font-weight:600;max-width:220px}
+.rh img{width:34px;height:34px;border-radius:5px;object-fit:cover}
+.rh.ov{color:var(--ban);text-decoration:line-through}.rh.ov img{filter:grayscale(1) brightness(.4)}
+.rh.champ{font-size:1.15rem}.rh.champ img{width:52px;height:52px;box-shadow:0 0 14px var(--gold)}
+.rl{margin-top:10px;font-size:.7rem;color:#555;letter-spacing:1px}
+.waiting-text{color:#666;font-size:.85rem;margin-top:8px}
+</style>
+</head>
+<body>
+
+<!-- ═══════ HOME ═══════ -->
+<div class="screen active" id="home">
+  <h1>⚡ Deadlock Draft</h1>
+  <p>Two captains, one link. Create a lobby or join with a code.</p>
+  <input class="input-field" id="nameInput" placeholder="Your name" maxlength="20">
+  <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-main" onclick="createLobby()">Create Lobby</button>
+  </div>
+  <div style="color:#555;margin:20px 0 12px;font-size:.85rem">— or join an existing lobby —</div>
+  <input class="input-field" id="codeInput" placeholder="Lobby code" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;font-weight:700">
+  <div style="margin-top:10px">
+    <button class="btn-main" style="background:#333" onclick="joinLobby()">Join Lobby</button>
+  </div>
+  <div class="error-msg" id="homeErr"></div>
+</div>
+
+<!-- ═══════ LOBBY ═══════ -->
+<div class="screen" id="lobby">
+  <h2>Lobby</h2>
+  <div class="code-display" id="lobbyCode"></div>
+  <div class="share-box">Share this link: <span id="shareLink"></span></div>
+  <div class="lobby-row">
+    <div class="lobby-slot t1">
+      <h3 id="lt1name">Team Amber</h3>
+      <div id="lt1cap"></div>
+    </div>
+    <div class="lobby-slot t2">
+      <h3 id="lt2name">Team Jade</h3>
+      <div id="lt2cap"></div>
+    </div>
+  </div>
+  <div id="lobbyHostCtrl">
+    <button class="btn-sm" onclick="swapTeams()" style="margin-bottom:10px">⇄ Swap Teams</button>
+    <div class="timer-select">
+      <label>Phase timer:</label>
+      <select id="timerSel" onchange="updateTimer()">
+        <option value="30">30s</option>
+        <option value="60" selected>60s</option>
+        <option value="90">90s</option>
+        <option value="120">120s</option>
+      </select>
+    </div>
+    <button class="btn-main" id="startBtn" onclick="startDraft()" disabled>Start Draft — Phases Mode</button>
+  </div>
+  <div id="lobbyGuestMsg" class="hidden" style="color:#888;margin-top:10px">Waiting for host to start the draft…</div>
+  <div class="error-msg" id="lobbyErr"></div>
+</div>
+
+<!-- ═══════ DRAFT ═══════ -->
+<div class="screen" id="draft" style="padding:0">
+  <div class="draft-app">
+    <div class="draft-top">
+      <div class="draft-prompt" id="draftPrompt"></div>
+      <div class="draft-sub" id="draftSub"></div>
+      <div class="timer-bar" id="timerBarWrap">
+        <div class="timer-num" id="timerNum">60</div>
+        <div class="timer-track"><div class="timer-fill" id="timerFill"></div></div>
+      </div>
+    </div>
+    <div class="draft-body" id="draftGrid"></div>
+    <div class="draft-bottom">
+      <div class="status-text" id="statusText"></div>
+      <button class="btn-main" id="lockBtn" onclick="lockIn()" disabled>🔒 Lock In (0/6)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ REVEAL ═══════ -->
+<div class="screen" id="revealScreen" style="overflow-y:auto">
+  <h2 id="rvTitle"></h2>
+  <p id="rvDesc"></p>
+  <div class="rcols" id="rvCols"></div>
+  <button class="btn-main" id="rvBtn" onclick="advance()">Continue →</button>
+  <p class="waiting-text hidden" id="rvWait">Waiting for host to continue…</p>
+</div>
+
+<!-- ═══════ COMPLETE ═══════ -->
+<div class="screen" id="completeScreen" style="overflow-y:auto">
+  <h1>✦ DRAFT COMPLETE ✦</h1>
+  <p>Each team plays as their champion — a full squad of 6!</p>
+  <div class="rcols" id="compCols"></div>
+  <button class="btn-main" id="resetBtn" onclick="resetDraft()">New Draft</button>
+  <p class="waiting-text hidden" id="resetWait">Waiting for host to reset…</p>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let S = null;
+let selected = new Set();
+let timerInterval = null;
+
+const urlCode = new URLSearchParams(window.location.search).get("lobby");
+if (urlCode) document.getElementById("codeInput").value = urlCode;
+
+function heroImg(name, sz=28) {
+  const w=name.replace(/ /g,"_");
+  const ini=name.split(/[\s&]+/).map(x=>x[0]).join("").slice(0,2);
+  return `<img src="https://deadlock.wiki/Special:FilePath/${w}_card.png" width="${sz}" height="${sz}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#222;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#888">${ini}</span>`;
+}
+function esc(s){return s.replace(/'/g,"\\'");}
+
+// ═══════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════
+function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");}
+
+// ═══════════════════════════════════════════════
+//  HOME
+// ═══════════════════════════════════════════════
+function createLobby(){
+  const name=document.getElementById("nameInput").value.trim();
+  if(!name){document.getElementById("homeErr").textContent="Enter your name first.";return;}
+  socket.emit("createLobby",{name,timerDuration:60});
+}
+function joinLobby(code){
+  const name=document.getElementById("nameInput").value.trim();
+  if(!name){document.getElementById("homeErr").textContent="Enter your name first.";return;}
+  const c=code||document.getElementById("codeInput").value.trim();
+  if(!c){document.getElementById("homeErr").textContent="Enter a lobby code.";return;}
+  socket.emit("joinLobby",{code:c,name});
+}
+
+// ═══════════════════════════════════════════════
+//  LOBBY
+// ═══════════════════════════════════════════════
+function swapTeams(){socket.emit("switchTeam");}
+function updateTimer(){socket.emit("updateTimer",{duration:parseInt(document.getElementById("timerSel").value)});}
+function startDraft(){socket.emit("startDraft");}
+function advance(){socket.emit("advancePhase");}
+function resetDraft(){socket.emit("resetDraft");}
+
+// ═══════════════════════════════════════════════
+//  DRAFT ACTIONS
+// ═══════════════════════════════════════════════
+function toggleHero(hero){
+  if(!S)return;
+  const phase=S.phase;
+  let maxSel=6;
+  if(phase==="phase1") maxSel=6;
+  else if(phase==="phase2") maxSel=S.banTarget||0;
+  else if(phase==="phase3") maxSel=1;
+
+  if(selected.has(hero)){selected.delete(hero);}
+  else{if(selected.size>=maxSel)return;selected.add(hero);}
+  renderDraft();
+}
+
+function lockIn(){
+  if(!S)return;
+  if(S.phase==="phase1") socket.emit("lockPicks",{heroes:[...selected]});
+  else if(S.phase==="phase2") socket.emit("lockBans",{heroes:[...selected]});
+  else if(S.phase==="phase3") socket.emit("lockFinal",{hero:[...selected][0]});
+  selected=new Set();
+}
+
+// ═══════════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════════
+function startLocalTimer(){clearInterval(timerInterval);timerInterval=setInterval(tickTimer,250);}
+function tickTimer(){
+  if(!S||!S.timerEnd)return;
+  const rem=Math.max(0,Math.ceil((S.timerEnd-Date.now())/1000));
+  const pct=S.timerDuration>0?(rem/S.timerDuration)*100:0;
+  const el=document.getElementById("timerNum");
+  const fill=document.getElementById("timerFill");
+  if(el){el.textContent=rem;el.classList.toggle("urgent",rem<=10);}
+  if(fill)fill.style.width=pct+"%";
+}
+
+// ═══════════════════════════════════════════════
+//  MAIN STATE HANDLER
+// ═══════════════════════════════════════════════
+socket.on("state",(state)=>{
+  S=state;
+  const p=S.phase;
+  if(p==="waiting"){renderLobby();showScreen("lobby");}
+  else if(p==="phase1"||p==="phase2"||p==="phase3"){
+    if(document.getElementById("draft").classList.contains("active")===false) selected=new Set();
+    renderDraft();showScreen("draft");startLocalTimer();
+  }
+  else if(p==="phase1_reveal"||p==="phase2_reveal"){renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
+  else if(p==="complete"){renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
+});
+
+socket.on("lobbyCreated",({code})=>{history.replaceState(null,"","?lobby="+code);});
+socket.on("joined",({code})=>{history.replaceState(null,"","?lobby="+code);});
+socket.on("err",(msg)=>{
+  const h=document.getElementById("homeErr"),l=document.getElementById("lobbyErr");
+  if(document.getElementById("home").classList.contains("active"))h.textContent=msg;
+  else if(l)l.textContent=msg;
+});
+
+// ═══════════════════════════════════════════════
+//  RENDER: LOBBY
+// ═══════════════════════════════════════════════
+function renderLobby(){
+  document.getElementById("lobbyCode").textContent=S.code;
+  document.getElementById("shareLink").textContent=location.origin+"?lobby="+S.code;
+  document.getElementById("lt1name").textContent=S.teamNames[0];
+  document.getElementById("lt2name").textContent=S.teamNames[1];
+
+  [0,1].forEach(t=>{
+    const el=document.getElementById(t===0?"lt1cap":"lt2cap");
+    const cap=S.captains[t];
+    if(cap){
+      const isMe=cap.id===socket.id;
+      el.innerHTML=`<div class="cap-name">${cap.name}${isMe?'<span class="you-tag">YOU</span>':''}</div>`;
+    } else {
+      el.innerHTML=`<div class="empty">Waiting for captain…</div>`;
+    }
+  });
+
+  const isHost=S.isHost;
+  document.getElementById("lobbyHostCtrl").classList.toggle("hidden",!isHost);
+  document.getElementById("lobbyGuestMsg").classList.toggle("hidden",isHost);
+  document.getElementById("startBtn").disabled=!S.captains[0]||!S.captains[1];
+  document.getElementById("timerSel").value=S.timerDuration;
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: DRAFT
+// ═══════════════════════════════════════════════
+function renderDraft(){
+  const prompt=document.getElementById("draftPrompt");
+  const sub=document.getElementById("draftSub");
+  const grid=document.getElementById("draftGrid");
+  const lockBtn=document.getElementById("lockBtn");
+  const status=document.getElementById("statusText");
+  const timerWrap=document.getElementById("timerBarWrap");
+  const myC=S.myTeam===0?"var(--t1)":"var(--t2)";
+  const myName=S.teamNames[S.myTeam];
+
+  timerWrap.classList.toggle("hidden",!S.timerEnd);
+
+  if(S.phase==="phase1"){
+    const locked=S.myLocked;
+    prompt.innerHTML=`Phase 1 — <span style="color:${myC}">${myName}: Pick 6 Heroes</span>`;
+    sub.textContent=locked?"Locked in! Waiting for opponent…":"Select 6 heroes for your team's pool, then lock in.";
+
+    const bans=new Set(S.bans||[]);
+    grid.innerHTML=(S.heroes||[]).map(h=>{
+      let cls="hero-card";
+      if(bans.has(h))cls+=" banned";
+      else if(locked)cls+=" disabled"+(selected.has(h)?" sel":"");
+      else if(selected.has(h))cls+=" sel";
+      return`<div class="${cls}" onclick="toggleHero('${esc(h)}')">${heroImg(h,68)}<div class="hl">${h}</div></div>`;
+    }).join("");
+
+    lockBtn.style.display=locked?"none":"inline-block";
+    lockBtn.textContent=`🔒 Lock In (${selected.size}/6)`;
+    lockBtn.disabled=selected.size!==6;
+    status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked":"picking…"}`:`Select ${6-selected.size} more hero${6-selected.size!==1?"es":""}`;
+
+  } else if(S.phase==="phase2"){
+    const locked=S.myLocked;
+    const bt=S.banTarget||0;
+    const oppName=S.teamNames[1-S.myTeam];
+
+    if(bt===0){
+      prompt.innerHTML=`Phase 2 — No Bans Needed`;
+      sub.textContent="Opponent's pool is small enough. Waiting…";
+      grid.innerHTML=`<p style="color:#666;padding:40px">Nothing to ban — waiting for opponent.</p>`;
+      lockBtn.style.display="none";
+    } else {
+      prompt.innerHTML=`Phase 2 — <span style="color:${myC}">Ban ${bt} of ${oppName}'s Heroes</span>`;
+      sub.textContent=locked?"Locked in! Waiting for opponent…":`Select ${bt} hero${bt>1?"es":""} to ban from ${oppName}'s pool.`;
+
+      grid.innerHTML=(S.oppPool||[]).map(h=>{
+        let cls="hero-card opp";
+        if(locked)cls+=" disabled"+(S.myBans?.includes(h)?" sel":"");
+        else if(selected.has(h))cls+=" sel";
+        return`<div class="${cls}" onclick="toggleHero('${esc(h)}')">${heroImg(h,68)}<div class="hl">${h}</div></div>`;
+      }).join("");
+
+      lockBtn.style.display=locked?"none":"inline-block";
+      lockBtn.textContent=`🔒 Lock Bans (${selected.size}/${bt})`;
+      lockBtn.disabled=selected.size!==bt;
+    }
+    status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked":"deciding…"}`:``;
+
+  } else if(S.phase==="phase3"){
+    const locked=S.myLocked;
+    const skip=S.skipPhase3;
+
+    if(skip){
+      prompt.innerHTML=`Phase 3 — <span style="color:${myC}">Forced Pick!</span>`;
+      sub.textContent=`Only 1 hero left — auto-selected. Waiting for opponent…`;
+      grid.innerHTML=(S.myPool||[]).map(h=>`<div class="hero-card sel">${heroImg(h,68)}<div class="hl">${h}</div></div>`).join("");
+      lockBtn.style.display="none";
+    } else {
+      prompt.innerHTML=`Phase 3 — <span style="color:${myC}">${myName}: Choose Your Champion</span>`;
+      sub.textContent=locked?`Locked in! Waiting for opponent…`:"Pick 1 hero from your remaining pool!";
+
+      grid.innerHTML=(S.myPool||[]).map(h=>{
+        let cls="hero-card";
+        if(locked)cls+=" disabled"+(S.myChoice===h?" sel":"");
+        else if(selected.has(h))cls+=" sel";
+        return`<div class="${cls}" onclick="toggleHero('${esc(h)}')">${heroImg(h,68)}<div class="hl">${h}</div></div>`;
+      }).join("");
+
+      lockBtn.style.display=locked?"none":"inline-block";
+      lockBtn.textContent=`🔒 Lock Champion (${selected.size}/1)`;
+      lockBtn.disabled=selected.size!==1;
+    }
+    status.innerHTML=locked||skip?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked":"choosing…"}`:"";
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: REVEAL
+// ═══════════════════════════════════════════════
+function renderReveal(){
+  const title=document.getElementById("rvTitle");
+  const desc=document.getElementById("rvDesc");
+  const cols=document.getElementById("rvCols");
+  const btn=document.getElementById("rvBtn");
+  const wait=document.getElementById("rvWait");
+
+  btn.style.display=S.isHost?"inline-block":"none";
+  wait.classList.toggle("hidden",S.isHost);
+
+  if(S.phase==="phase1_reveal"){
+    title.textContent="Phase 1 — Picks Revealed!";
+    const ov=S.overlaps||[];
+    desc.textContent=ov.length>0?`${ov.length} overlap${ov.length>1?"s":""} — both teams picked the same hero, so ${ov.length>1?"they're":"it's"} BANNED!`:"No overlaps — all picks survive!";
+
+    let html="";
+    [0,1].forEach(t=>{
+      html+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
+      (S.allPicks[t]||[]).forEach(h=>{
+        const isOv=ov.includes(h);
+        html+=`<div class="rh${isOv?' ov':''}">${heroImg(h,34)} ${h}${isOv?' (BANNED)':''}</div>`;
+      });
+      html+=`</div>`;
+    });
+    cols.innerHTML=html;
+
+  } else if(S.phase==="phase2_reveal"){
+    title.textContent="Phase 2 — Bans Revealed!";
+    desc.textContent="Each captain banned heroes from the opponent's pool.";
+
+    let html="";
+    [0,1].forEach(t=>{
+      const oppT=1-t;
+      html+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
+      html+=`<div class="rl">BANNED FROM ${S.teamNames[oppT].toUpperCase()}</div>`;
+      (S.phase2Banned[t]||[]).forEach(h=>{html+=`<div class="rh ov">${heroImg(h,34)} ${h}</div>`;});
+      // Show this team's remaining pool
+      const pool=t===S.myTeam?S.myPool:S.oppPool;
+      html+=`<div class="rl" style="margin-top:12px">REMAINING</div>`;
+      (pool||[]).forEach(h=>{html+=`<div class="rh">${heroImg(h,34)} ${h}</div>`;});
+      html+=`</div>`;
+    });
+    cols.innerHTML=html;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: COMPLETE
+// ═══════════════════════════════════════════════
+function renderComplete(){
+  const cols=document.getElementById("compCols");
+  const btn=document.getElementById("resetBtn");
+  const wait=document.getElementById("resetWait");
+  btn.style.display=S.isHost?"inline-block":"none";
+  wait.classList.toggle("hidden",S.isHost);
+
+  let html="";
+  [0,1].forEach(t=>{
+    html+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
+    if(S.champions[t])html+=`<div class="rh champ">${heroImg(S.champions[t],52)} ${S.champions[t]}</div>`;
+    else html+=`<div class="rh" style="color:#555">No champion</div>`;
+    html+=`</div>`;
+  });
+  cols.innerHTML=html;
+}
+</script>
+</body>
+</html>

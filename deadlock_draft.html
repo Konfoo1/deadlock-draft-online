@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deadlock Draft Tool</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0f1a;color:#eaeaea;min-height:100vh;overflow-x:hidden}
+:root{
+  --t1:#e94560;--t1l:#ff6b81;--t1bg:rgba(233,69,96,.12);
+  --t2:#0f9b8e;--t2l:#2ed8c3;--t2bg:rgba(15,155,142,.12);
+  --ban:#cc4444;--gold:#f5c518;--panel:#141428;--card:#1a1a32;
+  --surface:#10101e;--hover:#252545;--dim:#555;
+}
+.hidden{display:none!important}
+button{cursor:pointer;font-family:inherit}
+
+/* ── MODE SELECT ──────────────────────────────────── */
+#modeSelect{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px}
+#modeSelect h1{font-size:2.4rem;color:var(--gold);margin-bottom:8px;text-align:center}
+#modeSelect .subtitle{color:#888;margin-bottom:40px;font-size:1rem;text-align:center}
+.mode-cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:1100px}
+.mode-card{
+  background:var(--card);border:2px solid #2a2a44;border-radius:14px;padding:28px 24px;
+  width:320px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;
+}
+.mode-card:hover{border-color:var(--gold);transform:translateY(-4px);box-shadow:0 8px 30px rgba(245,197,24,.12)}
+.mode-card h2{font-size:1.25rem;color:var(--gold);margin-bottom:10px}
+.mode-card p{font-size:.85rem;color:#aaa;line-height:1.5}
+.mode-card .tag{display:inline-block;font-size:.65rem;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:4px;margin-bottom:10px;background:#1a1a32;color:#888;border:1px solid #333}
+.mode-card .order{margin-top:14px;font-size:.72rem;color:#666;line-height:1.7;font-family:monospace}
+
+/* ── SHARED LAYOUT ────────────────────────────────── */
+.app{display:flex;flex-direction:column;height:100vh}
+.top-bar{text-align:center;padding:14px 16px 10px;background:linear-gradient(180deg,#16162e,#0f0f1a);border-bottom:1px solid #222;position:relative}
+.prompt{font-size:1.4rem;font-weight:700;color:var(--gold)}
+.sub-prompt{font-size:.85rem;color:#aaa;margin-top:4px}
+.phase-bar{margin-top:8px;display:flex;justify-content:center;gap:6px}
+.dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;border:2px solid #333;color:#555;background:#111;transition:all .3s}
+.dot.active{transform:scale(1.25);box-shadow:0 0 12px rgba(245,197,24,.4);border-color:var(--gold);color:var(--gold)}
+.dot.done{opacity:.45}
+.dot.ban{border-color:var(--ban)}.dot.t1{border-color:var(--t1)}.dot.t2{border-color:var(--t2)}
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ── TEAM PANELS ──────────────────────────────────── */
+.team-panel{width:220px;min-width:200px;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.team-panel.left{border-right:2px solid var(--t1)}
+.team-panel.right{border-left:2px solid var(--t2)}
+.team-name-input{background:transparent;border:none;border-bottom:2px solid #333;color:inherit;font-size:1.05rem;font-weight:700;text-align:center;padding:4px 0 6px;outline:none;width:100%;transition:border-color .2s}
+.t1c{color:var(--t1)}.t2c{color:var(--t2)}
+.t1c:focus{border-bottom-color:var(--t1)}.t2c:focus{border-bottom-color:var(--t2)}
+.section-label{font-size:.65rem;font-weight:700;letter-spacing:2px;text-align:center;margin-top:10px;padding:4px 0;border-top:1px solid #222;color:#555}
+.slot{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;min-height:34px;transition:all .3s}
+.slot.empty{border:1px dashed #2a2a44}
+.slot img{width:26px;height:26px;border-radius:4px;object-fit:cover}
+.slot .sn{font-size:.8rem;font-weight:600}
+.slot.ban-slot .sn{color:var(--ban);text-decoration:line-through}
+.slot.pick-slot.t1 .sn{color:var(--t1l)}.slot.pick-slot.t2 .sn{color:var(--t2l)}
+
+/* ── HERO GRID ────────────────────────────────────── */
+.hero-grid{flex:1;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
+.hero-card{
+  width:105px;background:var(--card);border:2px solid #2a2a44;border-radius:8px;cursor:pointer;
+  transition:all .15s;display:flex;flex-direction:column;align-items:center;padding:7px 4px 5px;position:relative;overflow:hidden;
+}
+.hero-card:hover:not(.disabled):not(.banned){border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 14px rgba(245,197,24,.13)}
+.hero-card img{width:68px;height:68px;border-radius:6px;object-fit:cover;background:#111;transition:filter .3s}
+.hero-card .hl{margin-top:4px;font-size:.68rem;font-weight:600;text-align:center;line-height:1.15;color:#ccc}
+.hero-card.banned{border-color:#441111;cursor:default;pointer-events:none}
+.hero-card.banned img{filter:grayscale(1) brightness(.3)}.hero-card.banned .hl{color:#553333;text-decoration:line-through}
+.hero-card.banned::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1.1rem;font-weight:700}
+.hero-card.picked-t1{border-color:var(--t1);cursor:default;pointer-events:none}
+.hero-card.picked-t1 img{box-shadow:0 0 8px var(--t1)}.hero-card.picked-t1 .hl{color:var(--t1l)}
+.hero-card.picked-t2{border-color:var(--t2);cursor:default;pointer-events:none}
+.hero-card.picked-t2 img{box-shadow:0 0 8px var(--t2)}.hero-card.picked-t2 .hl{color:var(--t2l)}
+.hero-card.disabled{pointer-events:none;opacity:.35}
+.hero-card.sel{border-color:var(--gold);background:#2a2a10;box-shadow:0 0 12px rgba(245,197,24,.2)}
+.hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--gold);font-size:1rem;font-weight:700}
+
+/* ── BOTTOM BAR ───────────────────────────────────── */
+.bottom-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #222}
+.btn{padding:8px 18px;border:none;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;color:#eee}
+.btn:hover{filter:brightness(1.2)}.btn:disabled{opacity:.35;cursor:default;filter:none}
+.btn-undo{background:#333}.btn-reset{background:#553333}.btn-random{background:#335533}
+.btn-lock{background:#886611;font-size:1rem;padding:10px 28px}
+.btn-back{background:#333;position:absolute;top:14px;left:16px;font-size:.8rem;padding:6px 14px;border-radius:6px;border:none;color:#ccc;cursor:pointer;z-index:10}
+.btn-back:hover{background:#444}
+
+/* ── FULLSCREEN OVERLAYS ──────────────────────────── */
+.fs{position:fixed;inset:0;background:#0f0f1a;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;overflow-y:auto}
+.fs h1{font-size:2rem;margin-bottom:12px}
+.fs p{color:#aaa;font-size:1rem;max-width:560px;line-height:1.6;margin-bottom:24px}
+.fs .bb{padding:16px 48px;font-size:1.1rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;color:#fff;transition:all .2s}
+.fs .bb:hover{filter:brightness(1.15);transform:scale(1.03)}
+.bb.t1b{background:var(--t1)}.bb.t2b{background:var(--t2)}.bb.gb{background:#886611}
+
+/* ── REVEAL CARDS ─────────────────────────────────── */
+.rcols{display:flex;gap:50px;margin:20px 0 30px;justify-content:center;flex-wrap:wrap}
+.rcol{text-align:center;min-width:200px}
+.rcol h2{font-size:1.2rem;margin-bottom:12px}
+.rcol.t1 h2{color:var(--t1)}.rcol.t2 h2{color:var(--t2)}
+.rh{display:flex;align-items:center;gap:10px;margin:6px auto;font-size:.9rem;font-weight:600;justify-content:flex-start;max-width:220px}
+.rh img{width:36px;height:36px;border-radius:5px;object-fit:cover}
+.rh.ov{color:var(--ban);text-decoration:line-through}
+.rh.ov img{filter:grayscale(1) brightness(.4)}
+.rh.fp{font-size:1.1rem}.rh.fp img{width:48px;height:48px;box-shadow:0 0 12px var(--gold)}
+
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ═══════ MODE SELECT ═══════ -->
+<div id="modeSelect">
+  <h1>⚡ Deadlock Draft</h1>
+  <p class="subtitle">Choose a draft format to begin.</p>
+  <div class="mode-cards">
+    <div class="mode-card" onclick="startDraft('statlocker')">
+      <span class="tag">SEQUENTIAL</span>
+      <h2>Statlocker Draft</h2>
+      <p>Classic alternating draft. Teams take turns picking and banning one hero at a time in a strategic interleaved order.</p>
+      <div class="order">1P → 2P → 1B → 2B → 2P → 1P → 2B → 1B → 1B → 2B → 1P → 2P</div>
+    </div>
+    <div class="mode-card" onclick="startDraft('phases')">
+      <span class="tag">SIMULTANEOUS</span>
+      <h2>Phases</h2>
+      <p>Both teams secretly pick 6 heroes (overlaps are banned), then each team bans 4 of the opponent's picks, leaving 2. Then choose your final champion.</p>
+      <div class="order">Phase 1: Pick 6 → Phase 2: Ban 4 of opponent's → Phase 3: Choose 1</div>
+    </div>
+    <div class="mode-card" onclick="startDraft('bansFirst')">
+      <span class="tag">SIMULTANEOUS</span>
+      <h2>Bans First</h2>
+      <p>Ban 3 each first, then pick 5 (overlaps banned), then each team bans 2 from the opponent's picks, then final hero revealed at the end.</p>
+      <div class="order">Ban 3 → Pick 5 → Opp Bans 2 → Final Pick</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SEQUENTIAL DRAFT (Type 1) ═══════ -->
+<div id="seqScreen" class="app hidden">
+  <div class="top-bar">
+    <button class="btn-back" onclick="backToMenu()">← Modes</button>
+    <div class="prompt" id="seqPrompt"></div>
+    <div class="sub-prompt" id="seqSub"></div>
+    <div class="phase-bar" id="seqDots"></div>
+  </div>
+  <div class="main">
+    <div class="team-panel left" id="seqPA"></div>
+    <div class="hero-grid" id="seqGrid"></div>
+    <div class="team-panel right" id="seqPB"></div>
+  </div>
+  <div class="bottom-bar">
+    <div>
+      <button class="btn btn-undo" id="seqUndoBtn" disabled onclick="seqUndo()">⟵ Undo</button>
+      <button class="btn btn-reset" style="margin-left:8px" onclick="seqReset()">Reset</button>
+    </div>
+    <button class="btn btn-random" id="seqRandBtn" onclick="seqRandomize()">🎲 Randomize</button>
+  </div>
+</div>
+
+<!-- ═══════ SIMULTANEOUS ACTION SCREEN ═══════ -->
+<div id="simScreen" class="app hidden">
+  <div class="top-bar">
+    <button class="btn-back" onclick="backToMenu()">← Modes</button>
+    <div class="prompt" id="simPrompt"></div>
+    <div class="sub-prompt" id="simSub"></div>
+    <div class="phase-bar" id="simDots"></div>
+  </div>
+  <div class="main">
+    <div class="team-panel left" id="simPA"></div>
+    <div class="hero-grid" id="simGrid"></div>
+    <div class="team-panel right" id="simPB"></div>
+  </div>
+  <div class="bottom-bar">
+    <div></div>
+    <button class="btn btn-lock" id="lockBtn" disabled onclick="simLockIn()">🔒 Lock In (0/0)</button>
+  </div>
+</div>
+
+<!-- ═══════ HANDOFF SCREEN ═══════ -->
+<div id="handoff" class="fs hidden">
+  <h1 id="hoTitle"></h1>
+  <p id="hoDesc"></p>
+  <button class="bb gb" id="hoBtn" onclick="hoReady()">Ready</button>
+</div>
+
+<!-- ═══════ REVEAL SCREEN ═══════ -->
+<div id="reveal" class="fs hidden">
+  <h1 id="rvTitle" style="color:var(--gold)"></h1>
+  <p id="rvDesc"></p>
+  <div class="rcols" id="rvCols"></div>
+  <button class="bb gb" id="rvBtn" onclick="rvNext()">Continue →</button>
+</div>
+
+<!-- ═══════ COMPLETE SCREEN ═══════ -->
+<div id="complete" class="fs hidden">
+  <h1 style="color:var(--gold)">✦ DRAFT COMPLETE ✦</h1>
+  <p>Each team plays as their chosen hero — a full squad of 6!</p>
+  <div class="rcols" id="compCols"></div>
+  <button class="bb gb" onclick="backToMenu()">New Draft</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  HEROES & HELPERS
+// ═══════════════════════════════════════════════════════
+const HEROES=[
+  "Abrams","Apollo","Bebop","Billy","Calico","Celeste","Drifter","Doorman","Dynamo",
+  "Graves","Grey Talon","Haze","Holliday","Infernus",
+  "Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina",
+  "Mirage","Mo & Krill","Paradox","Pocket","Rem","Seven",
+  "Shiv","Sinclair","Silver","Venator","Vindicta","Viscous",
+  "Vyper","Warden","Wraith","Yamato"
+].sort();
+
+function hi(name,sz=28){
+  const w=name.replace(/ /g,"_");
+  const ini=name.split(/[\s&]+/).map(x=>x[0]).join("").slice(0,2);
+  return `<img src="https://deadlock.wiki/Special:FilePath/${w}_card.png" width="${sz}" height="${sz}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#222;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#888">${ini}</span>`;
+}
+function esc(s){return s.replace(/'/g,"\\'");}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ═══════════════════════════════════════════════════════
+//  GLOBAL STATE
+// ═══════════════════════════════════════════════════════
+let mode=null;
+let teamNames=["Team Amber","Team Jade"];
+const screens=["modeSelect","seqScreen","simScreen","handoff","reveal","complete"];
+function show(id){screens.forEach(s=>document.getElementById(s).classList.toggle("hidden",s!==id));}
+function backToMenu(){mode=null;show("modeSelect");}
+function startDraft(m){mode=m; if(m==="statlocker"){seqInit();show("seqScreen");}else{simInit();simStartPhase();}}
+
+// ═══════════════════════════════════════════════════════
+//  TYPE 1: STATLOCKER SEQUENTIAL DRAFT
+// ═══════════════════════════════════════════════════════
+const SORD=[
+  {t:0,a:"PICK"},{t:1,a:"PICK"},{t:0,a:"BAN"},{t:1,a:"BAN"},
+  {t:1,a:"PICK"},{t:0,a:"PICK"},{t:1,a:"BAN"},{t:0,a:"BAN"},
+  {t:0,a:"BAN"},{t:1,a:"BAN"},{t:0,a:"PICK"},{t:1,a:"PICK"},
+];
+let sq={s:0,b:[[],[]],p:[[],[]]};
+
+function seqInit(){sq={s:0,b:[[],[]],p:[[],[]]};seqR();}
+function sqUsed(){return new Set([...sq.b[0],...sq.b[1],...sq.p[0],...sq.p[1]]);}
+
+function seqPick(h){
+  if(sq.s>=SORD.length||sqUsed().has(h))return;
+  const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].push(h);sq.s++;seqR();
+  if(sq.s>=SORD.length)seqComplete();
+}
+function seqUndo(){
+  if(!sq.s)return;sq.s--;const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].pop();seqR();
+}
+function seqReset(){seqInit();}
+function seqRandomize(){
+  const av=HEROES.filter(h=>!sqUsed().has(h));shuffle(av);let i=0;
+  while(sq.s<SORD.length&&i<av.length){const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].push(av[i++]);sq.s++;}
+  seqR();if(sq.s>=SORD.length)seqComplete();
+}
+
+function seqR(){
+  const pr=document.getElementById("seqPrompt"),sub=document.getElementById("seqSub");
+  if(sq.s>=SORD.length){pr.innerHTML="✦ DRAFT COMPLETE ✦";pr.style.color="var(--gold)";sub.textContent="Click a team's pick to discuss your final choice.";}
+  else{const{t,a}=SORD[sq.s];const c=t?'var(--t2)':'var(--t1)';const n=a==="BAN"?sq.b[t].length+1:sq.p[t].length+1;pr.innerHTML=`<span style="color:${c}">${teamNames[t]}</span> — ${a} #${n}`;pr.style.color="";sub.textContent=a==="BAN"?"Select a hero to ban.":"Select a hero to pick.";}
+  document.getElementById("seqDots").innerHTML=SORD.map((d,i)=>{let c="dot";c+=d.a==="BAN"?" ban":d.t===0?" t1":" t2";if(i<sq.s)c+=" done";if(i===sq.s)c+=" active";return`<div class="${c}">${d.t+1}${d.a==="BAN"?"B":"P"}</div>`;}).join("");
+  [0,1].forEach(t=>{
+    const el=document.getElementById(t?"seqPB":"seqPA");
+    let h=`<input class="team-name-input ${t?'t2c':'t1c'}" value="${teamNames[t]}" oninput="teamNames[${t}]=this.value;seqR()">`;
+    h+=`<div class="section-label">BANS</div>`;
+    for(let i=0;i<3;i++){if(i<sq.b[t].length)h+=`<div class="slot ban-slot">${hi(sq.b[t][i])} <span class="sn">✕ ${sq.b[t][i]}</span></div>`;else h+=`<div class="slot empty"><span class="sn" style="color:#333">—</span></div>`;}
+    h+=`<div class="section-label">PICKS</div>`;
+    for(let i=0;i<3;i++){if(i<sq.p[t].length)h+=`<div class="slot pick-slot t${t+1}">${hi(sq.p[t][i])} <span class="sn">★ ${sq.p[t][i]}</span></div>`;else h+=`<div class="slot empty"><span class="sn" style="color:#333">—</span></div>`;}
+    el.innerHTML=h;
+  });
+  const used=sqUsed(),banned=new Set([...sq.b[0],...sq.b[1]]);
+  document.getElementById("seqGrid").innerHTML=HEROES.map(h=>{let c="hero-card";if(banned.has(h))c+=" banned";else if(sq.p[0].includes(h))c+=" picked-t1";else if(sq.p[1].includes(h))c+=" picked-t2";return`<div class="${c}" onclick="seqPick('${esc(h)}')">${hi(h,68)}<div class="hl">${h}</div></div>`;}).join("");
+  document.getElementById("seqUndoBtn").disabled=!sq.s;
+  document.getElementById("seqRandBtn").disabled=sq.s>=SORD.length;
+}
+
+function seqComplete(){
+  show("complete");
+  let h="";
+  [0,1].forEach(t=>{
+    h+=`<div class="rcol t${t+1}"><h2>${teamNames[t]}</h2>`;
+    sq.p[t].forEach(x=>{h+=`<div class="rh">${hi(x,40)} ${x}</div>`;});
+    h+=`<div style="margin-top:14px;font-size:.7rem;color:#555;letter-spacing:1px">BANNED</div>`;
+    sq.b[t].forEach(x=>{h+=`<div class="rh ov">${hi(x,30)} ${x}</div>`;});
+    h+=`</div>`;
+  });
+  document.getElementById("compCols").innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════
+//  TYPES 2 & 3: SIMULTANEOUS PHASE ENGINE
+// ═══════════════════════════════════════════════════════
+const SPHASES={
+  phases:[
+    {label:"Phase 1 — Pick 6 Heroes",desc:"Secretly pick 6 potential heroes. If both teams pick the same hero, it gets BANNED!",action:"simPick",count:6,banOverlaps:true},
+    {label:"Phase 2 — Ban Opponent's Picks",desc:"Ban 4 of the enemy team's picks, leaving them with only 2!",action:"oppBan",count:4},
+    {label:"Phase 3 — Final Pick",desc:"Choose 1 of your remaining heroes — your team's champion!",action:"finalPick"},
+  ],
+  bansFirst:[
+    {label:"Phase 1 — Ban 3 Heroes",desc:"Each team secretly bans 3 heroes from the pool.",action:"simBan",count:3},
+    {label:"Phase 2 — Pick 5 Heroes",desc:"Each team secretly picks 5 heroes. If both teams pick the same hero, it gets BANNED!",action:"simPick",count:5,banOverlaps:true},
+    {label:"Phase 3 — Ban 2 Opponent Picks",desc:"Ban 2 heroes from your opponent's remaining pool!",action:"oppBan",count:2},
+    {label:"Phase 4 — Final Pick",desc:"Choose your team's champion from your remaining heroes!",action:"finalPick"},
+  ],
+};
+
+let sm={pi:0,turn:0,pend:[[],[]],bans:null,pools:null,finals:null,sel:null};
+
+function simInit(){
+  sm={pi:0,turn:0,pend:[[],[]],bans:new Set(),pools:[new Set(),new Set()],finals:[null,null],sel:new Set()};
+}
+function cPhases(){return SPHASES[mode];}
+function cPhase(){return cPhases()[sm.pi];}
+
+function simHeroes(ti){
+  const p=cPhase();
+  switch(p.action){
+    case"simPick":return HEROES.filter(h=>!sm.bans.has(h)&&!sm.pools[0].has(h)&&!sm.pools[1].has(h));
+    case"simBan":return HEROES.filter(h=>!sm.bans.has(h));
+    case"selfBan":return[...sm.pools[ti]];
+    case"oppBan":return[...sm.pools[1-ti]];
+    case"finalPick":return[...sm.pools[ti]];
+  }
+}
+function simCount(ti){
+  const p=cPhase();
+  switch(p.action){
+    case"simPick":return p.count;
+    case"simBan":return p.count;
+    case"selfBan":return Math.max(0,sm.pools[ti].size-(p.keepCount||2));
+    case"oppBan":return Math.min(p.count||2,sm.pools[1-ti].size-1);
+    case"finalPick":return 1;
+  }
+}
+
+function simStartPhase(){
+  sm.turn=0;sm.pend=[[],[]];sm.sel=new Set();
+  simHandoff(0);
+}
+
+function simHandoff(ti){
+  show("handoff");
+  const p=cPhase(),c=ti?'var(--t2)':'var(--t1)';
+  document.getElementById("hoTitle").innerHTML=`<span style="color:${c}">${teamNames[ti]}</span>, get ready!`;
+  document.getElementById("hoDesc").textContent=p.label+" — "+p.desc;
+  const b=document.getElementById("hoBtn");
+  b.className=`bb ${ti?'t2b':'t1b'}`;
+  b.textContent=`${teamNames[ti]}: I'm Ready`;
+  sm.turn=ti;
+}
+
+function hoReady(){simShowAction(sm.turn);}
+
+function simShowAction(ti){
+  show("simScreen");
+  sm.sel=new Set();
+  const p=cPhase(),heroes=simHeroes(ti),need=simCount(ti);
+  const c=ti?'var(--t2)':'var(--t1)';
+  const al={simPick:"PICK",simBan:"BAN",selfBan:"BAN YOUR OWN",oppBan:"BAN OPPONENT'S",finalPick:"FINAL PICK"}[p.action];
+
+  document.getElementById("simPrompt").innerHTML=`<span style="color:${c}">${teamNames[ti]}</span> — ${al}`;
+  document.getElementById("simSub").textContent=`${p.desc} (Select ${need})`;
+
+  // Phase dots
+  document.getElementById("simDots").innerHTML=cPhases().map((ph,i)=>{
+    let cls="dot";if(i<sm.pi)cls+=" done";if(i===sm.pi)cls+=" active";
+    cls+=ph.action.includes("Ban")||ph.action==="simBan"?" ban":" t1";
+    return`<div class="${cls}">${i+1}</div>`;
+  }).join("");
+
+  // Side panels — show what's visible (hide the other team's secrets)
+  [0,1].forEach(t=>{
+    const el=document.getElementById(t?"simPB":"simPA");
+    let h=`<input class="team-name-input ${t?'t2c':'t1c'}" value="${teamNames[t]}" oninput="teamNames[${t}]=this.value">`;
+    // Only show pool for the acting team (or both if already revealed)
+    if(sm.pools[t].size>0){
+      h+=`<div class="section-label">${teamNames[t].toUpperCase()} POOL</div>`;
+      [...sm.pools[t]].forEach(x=>{h+=`<div class="slot pick-slot t${t+1}">${hi(x)} <span class="sn">${x}</span></div>`;});
+    }
+    if(sm.finals[t]){
+      h+=`<div class="section-label">CHAMPION</div>`;
+      h+=`<div class="slot pick-slot t${t+1}">${hi(sm.finals[t])} <span class="sn">★ ${sm.finals[t]}</span></div>`;
+    }
+    el.innerHTML=h;
+  });
+
+  // Hero grid
+  document.getElementById("simGrid").innerHTML=heroes.map(h=>{
+    return`<div class="hero-card" data-hero="${esc(h)}" onclick="simToggle('${esc(h)}',${ti})">${hi(h,68)}<div class="hl">${h}</div></div>`;
+  }).join("");
+
+  simUpdLock(need);
+}
+
+function simToggle(hero,ti){
+  const need=simCount(ti);
+  if(sm.sel.has(hero))sm.sel.delete(hero);
+  else{if(sm.sel.size>=need)return;sm.sel.add(hero);}
+  // Update visuals
+  document.querySelectorAll("#simGrid .hero-card").forEach(card=>{
+    const h=card.getAttribute("data-hero");
+    card.classList.toggle("sel",sm.sel.has(h));
+  });
+  simUpdLock(need);
+}
+
+function simUpdLock(need){
+  const b=document.getElementById("lockBtn");
+  b.textContent=`🔒 Lock In (${sm.sel.size}/${need})`;
+  b.disabled=sm.sel.size!==need;
+}
+
+function simLockIn(){
+  sm.pend[sm.turn]=[...sm.sel];sm.sel=new Set();
+  if(sm.turn===0){simHandoff(1);}
+  else{simProcess();}
+}
+
+function simProcess(){
+  const p=cPhase();let overlaps=[];
+  switch(p.action){
+    case"simPick":
+      sm.pend[0].forEach(h=>sm.pools[0].add(h));
+      sm.pend[1].forEach(h=>sm.pools[1].add(h));
+      if(p.banOverlaps){
+        overlaps=sm.pend[0].filter(h=>sm.pend[1].includes(h));
+        overlaps.forEach(h=>{sm.pools[0].delete(h);sm.pools[1].delete(h);sm.bans.add(h);});
+      }
+      break;
+    case"simBan":
+      sm.pend[0].forEach(h=>sm.bans.add(h));
+      sm.pend[1].forEach(h=>sm.bans.add(h));
+      break;
+    case"selfBan":
+      sm.pend[0].forEach(h=>sm.pools[0].delete(h));
+      sm.pend[1].forEach(h=>sm.pools[1].delete(h));
+      break;
+    case"oppBan":
+      sm.pend[0].forEach(h=>sm.pools[1].delete(h));
+      sm.pend[1].forEach(h=>sm.pools[0].delete(h));
+      break;
+    case"finalPick":
+      sm.finals[0]=sm.pend[0][0];sm.finals[1]=sm.pend[1][0];
+      break;
+  }
+  simReveal(p,overlaps);
+}
+
+function simReveal(phase,overlaps){
+  show("reveal");
+  const isFinal=phase.action==="finalPick";
+  document.getElementById("rvTitle").textContent=isFinal?"✦ Champions Revealed! ✦":phase.label+" — Results";
+  document.getElementById("rvDesc").textContent=isFinal?"Each team plays as their chosen hero!":
+    overlaps.length?`${overlaps.length} overlap(s) banned!`:
+    phase.action==="simBan"?"These heroes are now banned.":
+    phase.action==="selfBan"?"Each team narrowed their pool.":
+    phase.action==="oppBan"?"Each team banned from the opponent's pool.":"";
+
+  let h="";
+  [0,1].forEach(t=>{
+    h+=`<div class="rcol t${t+1}"><h2>${teamNames[t]}</h2>`;
+    if(isFinal){
+      const x=sm.finals[t];
+      h+=`<div class="rh fp">${hi(x,48)} ${x}</div>`;
+      const rest=[...sm.pools[t]].filter(r=>r!==x);
+      if(rest.length){h+=`<div style="margin-top:12px;font-size:.7rem;color:#555">Remaining pool:</div>`;rest.forEach(r=>{h+=`<div class="rh" style="opacity:.5">${hi(r,30)} ${r}</div>`;});}
+    } else {
+      // Show what this team selected
+      const label={simPick:"Picked",simBan:"Banned",selfBan:"Removed",oppBan:"Banned from opponent"}[phase.action];
+      h+=`<div style="font-size:.7rem;color:#666;margin-bottom:6px">${label}:</div>`;
+      sm.pend[t].forEach(x=>{
+        const isOv=overlaps.includes(x);
+        h+=`<div class="rh${isOv?' ov':''}">${hi(x,36)} ${x}${isOv?' (overlap!)':''}</div>`;
+      });
+      // Show remaining pool after this phase
+      if(phase.action==="selfBan"||phase.action==="oppBan"||phase.action==="simPick"){
+        if(sm.pools[t].size>0){
+          h+=`<div style="margin-top:10px;font-size:.7rem;color:#666">Remaining pool (${sm.pools[t].size}):</div>`;
+          [...sm.pools[t]].forEach(x=>{h+=`<div class="rh" style="font-size:.82rem">${hi(x,30)} ${x}</div>`;});
+        }
+      }
+    }
+    h+=`</div>`;
+  });
+  document.getElementById("rvCols").innerHTML=h;
+
+  const btn=document.getElementById("rvBtn");
+  if(isFinal){btn.textContent="New Draft";btn.onclick=backToMenu;}
+  else{btn.textContent="Continue to Next Phase →";btn.onclick=rvNext;}
+}
+
+function rvNext(){
+  sm.pi++;sm.pend=[[],[]];
+  if(sm.pi>=cPhases().length){backToMenu();return;}
+  simStartPhase();
+}
+</script>
+</body>
+</html>
