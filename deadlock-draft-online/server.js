@@ -74,6 +74,7 @@ function stateFor(lobby, sid) {
     captains: lobby.captains.map(c => c ? { name: c.name, id: c.id } : null),
     spectators: lobby.spectators.map(t => t.map(s => ({ name: s.name, id: s.id }))),
     unassigned: lobby.unassigned.map(u => ({ name: u.name, id: u.id })),
+    ready: [...lobby.ready],
     bans: [...lobby.bans],
     heroes: HEROES,
     // Spectator preferences: aggregate for the captain to see
@@ -86,11 +87,18 @@ function stateFor(lobby, sid) {
       s.myPicks = lobby.picks[myTeam] || [];
       s.myLocked = lobby.locked[myTeam];
       s.oppLocked = lobby.locked[oppTeam];
+    } else if (myTeam >= 0) {
+      // Team spectators see their captain's picks in real-time
+      s.myPicks = lobby.picks[myTeam] || [];
+      s.myLocked = lobby.locked[myTeam];
+      s.oppLocked = lobby.locked[oppTeam];
     } else {
-      // Spectators see their team captain's picks in real-time
-      s.myPicks = myTeam >= 0 ? (lobby.picks[myTeam] || []) : [];
-      s.myLocked = myTeam >= 0 ? lobby.locked[myTeam] : false;
-      s.oppLocked = myTeam >= 0 ? lobby.locked[oppTeam] : false;
+      // Unassigned neutral spectators: see lock status but no picks
+      s.myPicks = [];
+      s.myLocked = false;
+      s.oppLocked = false;
+      s.locked0 = lobby.locked[0];
+      s.locked1 = lobby.locked[1];
     }
   }
 
@@ -99,6 +107,9 @@ function stateFor(lobby, sid) {
       s.myPool = [...(lobby.pools[myTeam] || [])];
       s.oppPool = [...(lobby.pools[oppTeam] || [])];
     } else {
+      // Unassigned neutral spectators see both teams' pools
+      s.pool0 = [...(lobby.pools[0] || [])];
+      s.pool1 = [...(lobby.pools[1] || [])];
       s.myPool = []; s.oppPool = [];
     }
     s.overlaps = lobby.overlaps || [];
@@ -129,6 +140,11 @@ function stateFor(lobby, sid) {
 
   if (lobby.phase === "complete") {
     s.champions = lobby.champions || [null, null];
+    // Unassigned also see champions
+    if (role === "unassigned") {
+      s.pool0 = [...(lobby.pools[0] || [])];
+      s.pool1 = [...(lobby.pools[1] || [])];
+    }
   }
 
   return s;
@@ -281,9 +297,10 @@ io.on("connection", (socket) => {
       timerDuration: timerDuration || 60,
       phase: "waiting",
       teamNames: ["Team 1", "Team 2"],
-      captains: [{ id: socket.id, name }, null], // host is captain 1
+      captains: [null, null], // only filled via captain link
+      ready: [false, false], // captain ready state
       spectators: [[], []], // [team0 specs, team1 specs]
-      unassigned: [], // people who joined but haven't picked a team
+      unassigned: [{ id: socket.id, name }], // host starts unassigned
       picks: [[], []], pools: [[], []], origPicks: [[], []],
       bans: new Set(), overlaps: [],
       phase2Bans: [[], []], phase2Banned: [[], []],
@@ -334,25 +351,47 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
-  // Spectator/unassigned picks a team
+  // Move between groups: team 0, team 1, or -1 for unassigned
   socket.on("joinTeam", ({ team }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby) return;
+    if (!lobby || lobby.phase !== "waiting") return;
     const me = findPerson(lobby, socket.id);
     if (!me) return;
-    const t = team === 0 ? 0 : 1;
-    let playerName = "Player";
 
+    // Extract player name and remove from current position
+    let playerName = "Player";
     if (me.role === "unassigned") {
       playerName = lobby.unassigned[me.idx]?.name || "Player";
       lobby.unassigned.splice(me.idx, 1);
     } else if (me.role === "spectator") {
       playerName = lobby.spectators[me.team][me.idx]?.name || "Player";
       lobby.spectators[me.team].splice(me.idx, 1);
+    } else if (me.role === "captain") {
+      playerName = lobby.captains[me.team]?.name || "Player";
+      lobby.captains[me.team] = null;
+      lobby.ready[me.team] = false;
     } else return;
 
-    lobby.spectators[t].push({ id: socket.id, name: playerName });
+    // Place into new group
+    if (team === -1) {
+      // Move to unassigned
+      lobby.unassigned.push({ id: socket.id, name: playerName });
+    } else {
+      const t = team === 0 ? 0 : 1;
+      lobby.spectators[t].push({ id: socket.id, name: playerName });
+    }
+    broadcast(lobby);
+  });
+
+  // Captain toggles ready state
+  socket.on("toggleReady", () => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.phase !== "waiting") return;
+    const t = lobby.captains[0]?.id === socket.id ? 0 : lobby.captains[1]?.id === socket.id ? 1 : -1;
+    if (t === -1) return;
+    lobby.ready[t] = !lobby.ready[t];
     broadcast(lobby);
   });
 
@@ -369,6 +408,7 @@ io.on("connection", (socket) => {
     const lobby = lobbies.get(myLobby);
     if (!lobby || socket.id !== lobby.hostId) return;
     if (!lobby.captains[0] || !lobby.captains[1]) return socket.emit("err", "Need 2 captains.");
+    if (!lobby.ready[0] || !lobby.ready[1]) return socket.emit("err", "Both captains must be ready.");
     startPhase1(lobby);
   });
 
@@ -435,6 +475,7 @@ io.on("connection", (socket) => {
     const lobby = lobbies.get(myLobby);
     if (!lobby || socket.id !== lobby.hostId) return;
     clearTimer(lobby); lobby.phase = "waiting";
+    lobby.ready = [false, false];
     broadcast(lobby);
   });
 
@@ -445,7 +486,7 @@ io.on("connection", (socket) => {
     if (lobby.phase === "waiting") {
       // Remove from wherever they are
       for (let t = 0; t < 2; t++) {
-        if (lobby.captains[t]?.id === socket.id) lobby.captains[t] = null;
+        if (lobby.captains[t]?.id === socket.id) { lobby.captains[t] = null; lobby.ready[t] = false; }
         lobby.spectators[t] = lobby.spectators[t].filter(s => s.id !== socket.id);
       }
       lobby.unassigned = lobby.unassigned.filter(u => u.id !== socket.id);
