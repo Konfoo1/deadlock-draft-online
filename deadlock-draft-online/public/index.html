@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <title>PwR Deadlock Draft</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -251,6 +252,8 @@ input,select{font-family:inherit}
 .std-hero-card-ban::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
 .std-hero-card-picked{border-color:#1a2a1a!important;opacity:.2!important;pointer-events:none!important}
 .std-bottom{display:flex;justify-content:center;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #2a2a35;gap:16px}
+.std-bottom .btn-main{background:var(--phase-accent-dim)}
+.std-bottom .btn-main:hover:not(:disabled){box-shadow:0 4px 20px var(--phase-glow)}
 .std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--phase-accent);font-weight:700}
 
 /* ── Turn timeline ──────────────────────── */
@@ -259,9 +262,9 @@ input,select{font-family:inherit}
   width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;
   font-size:.7rem;font-weight:700;border:2px solid #222;transition:all .3s;
 }
-.std-turn-pip.ban-pip{background:#1a0808;color:#844}
-.std-turn-pip.pick-pip{background:#081a08;color:#484}
-.std-turn-pip.done-pip{opacity:.3}
+.std-turn-pip.ban-pip{background:#1a0808;color:#cc4444}
+.std-turn-pip.pick-pip{background:#081a08;color:#44cc66}
+.std-turn-pip.done-pip{opacity:.35}
 .std-turn-pip.active-pip{border-color:var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);transform:scale(1.3)}
 .std-turn-pip.t1-pip{border-color:var(--t1m);color:var(--t1l)}
 .std-turn-pip.t1-pip.ban-pip{background:rgba(232,122,32,.1)}
@@ -408,6 +411,7 @@ input,select{font-family:inherit}
     </div>
     <div class="std-bottom">
       <div class="std-status" id="stdStatus"></div>
+      <button class="btn-main orange" id="stdConfirmBtn" onclick="stdConfirm()" style="display:none" disabled>Confirm</button>
     </div>
   </div>
 </div>
@@ -524,6 +528,7 @@ let timerInterval = null;
 let lastDraftPhase = null; // track phase for animation
 let lastStdStep = -1; // track std draft step for animation
 let chosenMode = null; // selected game mode
+let stdSelected = null; // captain's pending hero selection in standard draft
 
 // URL params
 const params = new URLSearchParams(window.location.search);
@@ -1063,7 +1068,10 @@ function renderReveal(){
       h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
       h+=`<div class="rl">BANNED FROM ${S.teamNames[oppT].toUpperCase()}</div>`;
       (S.phase2Banned[t]||[]).forEach(x=>{h+=`<div class="rh ov">${heroImg(x,34)} ${x}</div>`;});
-      const pool=t===(S.myTeam??0)?S.myPool:S.oppPool;
+      // Resolve pool: team players use myPool/oppPool, unassigned uses pool0/pool1
+      let pool;
+      if(S.myTeam>=0){pool=t===S.myTeam?S.myPool:S.oppPool;}
+      else{pool=t===0?S.pool0:S.pool1;}
       h+=`<div class="rl" style="margin-top:10px">REMAINING</div>`;
       (pool||[]).forEach(x=>{h+=`<div class="rh">${heroImg(x,34)} ${x}</div>`;});
       h+=`</div>`;});
@@ -1101,8 +1109,15 @@ function stdClickHero(hero){
     }
     renderStdDraft();return;
   }
-  // Captain action
-  socket.emit("stdAction",{hero});
+  // Captain selects (toggle) — must confirm with button
+  if(stdSelected===hero){stdSelected=null;}
+  else{stdSelected=hero;}
+  renderStdDraft();
+}
+function stdConfirm(){
+  if(!S||!S.std||!stdSelected)return;
+  socket.emit("stdAction",{hero:stdSelected});
+  stdSelected=null;
 }
 
 // ═══════════════════════════════════════════
@@ -1229,6 +1244,9 @@ function renderStdDraft(){
   const prefs=S.specPrefs?.[myTeam]||{};
   const canVote=isSpec&&!isComplete;
 
+  // Clear stdSelected if turn changed (server advanced)
+  if(stepChanged)stdSelected=null;
+
   grid.innerHTML=heroes.map((h,i)=>{
     let cls="hero-card";
     const isBanned=std.bans[0].includes(h)||std.bans[1].includes(h);
@@ -1237,6 +1255,7 @@ function renderStdDraft(){
 
     if(isBanned){cls+=" std-hero-card-ban";}
     else if(isPicked){cls+=" std-hero-card-picked";}
+    else if(isMyTurn&&stdSelected===h){cls+=" sel";}
     else if(canVote&&specPrefs.has(h)){cls+=" sel";}
     else if(!isMyTurn&&!canVote){cls+=" disabled";}
 
@@ -1246,10 +1265,28 @@ function renderStdDraft(){
       ${heroImg(h,68)}<div class="pref-badge">${prefCount}👍</div><div class="hl">${h}</div></div>`;
   }).join("");
 
+  // Confirm button
+  const confirmBtn=document.getElementById("stdConfirmBtn");
+  if(isMyTurn){
+    confirmBtn.style.display="inline-block";
+    const actionLabel=activeTurn.type==="ban"?"Ban":"Pick";
+    if(stdSelected){
+      confirmBtn.disabled=false;
+      confirmBtn.textContent=`Confirm ${actionLabel}: ${stdSelected}`;
+    } else {
+      confirmBtn.disabled=true;
+      confirmBtn.textContent=`Select a hero to ${actionLabel}`;
+    }
+  } else {
+    confirmBtn.style.display="none";
+  }
+
   // Status bar
   const statusEl=document.getElementById("stdStatus");
   if(isComplete){
     statusEl.innerHTML=`<span class="hi">Draft complete!</span>`;
+  } else if(isMyTurn&&stdSelected){
+    statusEl.innerHTML=`<span class="hi">${stdSelected}</span> selected — click Confirm to lock in`;
   } else if(isMyTurn){
     statusEl.innerHTML=`<span class="hi">Your turn!</span> Click a hero to ${activeTurn.type}`;
   } else if(isCap){

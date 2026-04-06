@@ -21,14 +21,17 @@ const HEROES = [
 ].sort();
 
 // ═══════════════════════════════════════════════════════════
-//  STANDARD DRAFT TURN ORDER — Snake draft, 2 bans + 12 picks = 14 turns
+//  STANDARD DRAFT TURN ORDER — Snake draft, 4 bans + 12 picks = 16 turns
 // ═══════════════════════════════════════════════════════════
 const STD_TURNS = [
-  // Ban Phase
+  // Ban Phase 1
   {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase — snake order
+  // Pick Phase 1 — snake order (2 rounds)
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
+  // Ban Phase 2
+  {type:"ban",team:0},{type:"ban",team:1},
+  // Pick Phase 2 — snake order (1 round)
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
 ];
 
