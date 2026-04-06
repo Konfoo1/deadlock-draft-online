@@ -13,9 +13,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0f;color:#e0e0e
   --t1:#e84420;--t1m:#e87a20;--t1l:#f0c040;--t1bg:linear-gradient(135deg,#2a0a0a,#2a1a0a,#2a2210);--t1glow:rgba(232,68,32,.25);
   /* Team 2: Archmother — dark blue/light blue/white ice */
   --t2:#1a3a7a;--t2m:#4a8adf;--t2l:#c0dfff;--t2bg:linear-gradient(135deg,#0a0a2a,#0a1a3a,#102040);--t2glow:rgba(74,138,223,.25);
-  --ban:#cc4444;--panel:#12121a;--card:#1a1a22;--surface:#0e0e14;
+  --ban:#cc4444;--pick:#44cc66;--panel:#12121a;--card:#1a1a22;--surface:#0e0e14;
   --border:#2a2a35;--text:#e0e0e0;--dim:#666;
+  /* Phase accent — overridden dynamically */
+  --phase-accent:#e87a20;--phase-accent-light:#f5a04a;--phase-accent-dim:#7a4010;--phase-glow:rgba(232,122,32,.3);
 }
+/* Ban phase accent override */
+body.phase-ban{--phase-accent:#cc4444;--phase-accent-light:#ff7777;--phase-accent-dim:#6a2222;--phase-glow:rgba(204,68,68,.3)}
+/* Pick phase accent override */
+body.phase-pick{--phase-accent:#44cc66;--phase-accent-light:#77ffaa;--phase-accent-dim:#1a5a2a;--phase-glow:rgba(68,204,102,.3)}
 .hidden{display:none!important}
 button{cursor:pointer;font-family:inherit}
 input,select{font-family:inherit}
@@ -116,19 +122,19 @@ input,select{font-family:inherit}
 /* ── PHASE BANNER ───────────────────────── */
 .phase-banner{
   width:100%;background:linear-gradient(180deg,#12121a,#0a0a0f);
-  border-bottom:2px solid var(--accent);padding:14px 20px 10px;text-align:center;
+  border-bottom:2px solid var(--phase-accent);padding:14px 20px 10px;text-align:center;transition:border-color .4s;
 }
 .phase-steps{display:flex;justify-content:center;gap:0;margin-bottom:10px}
 .phase-step{display:flex;flex-direction:column;align-items:center;padding:0 14px;position:relative}
 .phase-step::after{content:'';position:absolute;top:14px;right:-2px;width:4px;height:4px;border-radius:50%;background:#2a2a35}
 .phase-step:last-child::after{display:none}
 .phase-step .num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;border:2px solid #2a2a35;color:#444;background:#12121a;transition:all .4s}
-.phase-step.active .num{border-color:var(--accent);color:var(--accent);background:#2a1a0a;box-shadow:0 0 14px rgba(232,122,32,.35);transform:scale(1.2)}
+.phase-step.active .num{border-color:var(--phase-accent);color:var(--phase-accent);background:color-mix(in srgb,var(--phase-accent) 12%,#12121a);box-shadow:0 0 14px var(--phase-glow);transform:scale(1.2)}
 .phase-step.done .num{border-color:#3a3a45;color:#555;background:#1a1a22}
 .phase-step .plabel{font-size:.6rem;color:#444;margin-top:3px;letter-spacing:.5px;transition:color .3s}
-.phase-step.active .plabel{color:var(--accent)}
+.phase-step.active .plabel{color:var(--phase-accent)}
 
-.phase-title{font-size:1.3rem;font-weight:700;color:var(--accent);animation:fadeIn .3s ease-out}
+.phase-title{font-size:1.3rem;font-weight:700;color:var(--phase-accent);animation:fadeIn .3s ease-out;transition:color .4s}
 .phase-desc{font-size:.85rem;color:#777;margin-top:4px;max-width:500px;margin-left:auto;margin-right:auto}
 .phase-role-tag{display:inline-block;font-size:.65rem;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:4px;margin-bottom:6px;animation:scaleIn .3s ease-out}
 .phase-role-tag.captain-tag{background:var(--accent-dim);color:var(--accent-light)}
@@ -137,10 +143,10 @@ input,select{font-family:inherit}
 
 /* ── TIMER ──────────────────────────────── */
 .timer-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px}
-.timer-num{font-size:1.8rem;font-weight:700;font-family:monospace;min-width:55px;color:var(--accent);transition:color .3s}
+.timer-num{font-size:1.8rem;font-weight:700;font-family:monospace;min-width:55px;color:var(--phase-accent);transition:color .3s}
 .timer-num.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
 .timer-track{width:200px;height:6px;background:#1a1a22;border-radius:3px;overflow:hidden}
-.timer-fill{height:100%;background:linear-gradient(90deg,var(--t1),var(--accent));transition:width .3s linear;border-radius:3px}
+.timer-fill{height:100%;background:linear-gradient(90deg,var(--phase-accent-dim),var(--phase-accent));transition:width .3s linear, background .4s;border-radius:3px}
 .timer-fill.urgent{background:linear-gradient(90deg,#cc4444,#ff6666)}
 
 /* ── HERO GRID ──────────────────────────── */
@@ -152,12 +158,12 @@ input,select{font-family:inherit}
 }
 .draft-body.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
 .draft-body.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
-.hero-card:hover:not(.disabled):not(.banned){transform:translateY(-3px);box-shadow:0 6px 18px rgba(232,122,32,.2)}
+.hero-card:hover:not(.disabled):not(.banned){transform:translateY(-3px);box-shadow:0 6px 18px var(--phase-glow)}
 .hero-card img{width:68px;height:68px;border-radius:6px;object-fit:cover;background:#111118;transition:filter .2s}
 .hero-card .hl{margin-top:4px;font-size:.68rem;font-weight:600;text-align:center;line-height:1.15;color:#999;transition:color .2s}
 .hero-card:hover:not(.disabled):not(.banned) .hl{color:#ddd}
-.hero-card.sel{border-color:var(--accent);background:rgba(232,122,32,.1);box-shadow:0 0 14px rgba(232,122,32,.3)}
-.hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--accent);font-size:1rem;font-weight:700;animation:scaleIn .2s ease-out}
+.hero-card.sel{border-color:var(--phase-accent);background:color-mix(in srgb,var(--phase-accent) 10%,transparent);box-shadow:0 0 14px var(--phase-glow)}
+.hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--phase-accent);font-size:1rem;font-weight:700;animation:scaleIn .2s ease-out}
 .hero-card.banned{border-color:#2a0a0a;pointer-events:none;opacity:.25;animation:banStrike .4s ease-out both}
 .hero-card.banned::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
 .hero-card.disabled{pointer-events:none;opacity:.15}
@@ -165,8 +171,10 @@ input,select{font-family:inherit}
 .hero-card.has-pref .pref-badge{display:block}
 
 .draft-bottom{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #2a2a35}
+.draft-bottom .btn-main{background:var(--phase-accent-dim)}
+.draft-bottom .btn-main:hover{box-shadow:0 4px 20px var(--phase-glow)}
 .status-text{font-size:.85rem;color:#666}
-.status-text .hi{color:var(--accent);font-weight:700}
+.status-text .hi{color:var(--phase-accent);font-weight:700}
 
 /* ── REVEAL / COMPLETE ──────────────────── */
 .rcols{display:flex;gap:40px;margin:16px 0 24px;justify-content:center;flex-wrap:wrap}
@@ -211,9 +219,9 @@ input,select{font-family:inherit}
 .std-draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
 .std-draft-header{
   width:100%;background:linear-gradient(180deg,#12121a,#0a0a0f);
-  border-bottom:2px solid var(--accent);padding:12px 20px 10px;text-align:center;
+  border-bottom:2px solid var(--phase-accent);padding:12px 20px 10px;text-align:center;transition:border-color .4s;
 }
-.std-turn-indicator{font-size:1.2rem;font-weight:700;color:var(--accent);margin-bottom:4px;animation:fadeIn .3s ease-out}
+.std-turn-indicator{font-size:1.2rem;font-weight:700;color:var(--phase-accent);margin-bottom:4px;animation:fadeIn .3s ease-out;transition:color .4s}
 .std-turn-sub{font-size:.82rem;color:#777;margin-bottom:6px}
 .std-draft-content{flex:1;display:flex;overflow:hidden}
 .std-side-panel{
@@ -235,7 +243,7 @@ input,select{font-family:inherit}
 .std-hero-slot.ban-slot{background:rgba(204,68,68,.08);color:var(--ban);font-size:.75rem}
 .std-hero-slot.ban-slot img{filter:grayscale(.8) brightness(.5);width:24px;height:24px}
 .std-hero-slot.empty-slot{background:rgba(255,255,255,.02);color:#333;font-style:italic;border:1px dashed #222}
-.std-hero-slot.active-slot{border:1px solid var(--accent);box-shadow:0 0 10px rgba(232,122,32,.2);animation:glowPulse 2s infinite}
+.std-hero-slot.active-slot{border:1px solid var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);animation:glowPulse 2s infinite}
 .std-center{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
 .std-center.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
 .std-center.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
@@ -243,20 +251,26 @@ input,select{font-family:inherit}
 .std-hero-card-ban::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
 .std-hero-card-picked{border-color:#1a2a1a!important;opacity:.2!important;pointer-events:none!important}
 .std-bottom{display:flex;justify-content:center;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #2a2a35;gap:16px}
-.std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--accent);font-weight:700}
+.std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--phase-accent);font-weight:700}
 
 /* ── Turn timeline ──────────────────────── */
 .std-timeline{display:flex;gap:3px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap}
 .std-turn-pip{
-  width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;
-  font-size:.55rem;font-weight:700;border:1px solid #222;transition:all .3s;
+  width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:.55rem;font-weight:700;border:2px solid #222;transition:all .3s;
 }
-.std-turn-pip.ban-pip{background:#1a0a0a;color:#644}
-.std-turn-pip.pick-pip{background:#0a1a0a;color:#464}
-.std-turn-pip.done-pip{opacity:.35}
-.std-turn-pip.active-pip{border-color:var(--accent);box-shadow:0 0 8px rgba(232,122,32,.4);transform:scale(1.2)}
-.std-turn-pip.t1-pip{border-color:rgba(232,68,32,.3)}
-.std-turn-pip.t2-pip{border-color:rgba(74,138,223,.3)}
+.std-turn-pip.ban-pip{background:#1a0808;color:#844}
+.std-turn-pip.pick-pip{background:#081a08;color:#484}
+.std-turn-pip.done-pip{opacity:.3}
+.std-turn-pip.active-pip{border-color:var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);transform:scale(1.3)}
+.std-turn-pip.t1-pip{border-color:var(--t1);color:var(--t1m)}
+.std-turn-pip.t1-pip.ban-pip{background:rgba(232,68,32,.08)}
+.std-turn-pip.t1-pip.pick-pip{background:rgba(232,68,32,.06)}
+.std-turn-pip.t2-pip{border-color:var(--t2m);color:var(--t2m)}
+.std-turn-pip.t2-pip.ban-pip{background:rgba(74,138,223,.08)}
+.std-turn-pip.t2-pip.pick-pip{background:rgba(74,138,223,.06)}
+.std-turn-pip.done-pip.t1-pip{border-color:rgba(232,68,32,.15);color:rgba(232,122,32,.3)}
+.std-turn-pip.done-pip.t2-pip{border-color:rgba(74,138,223,.15);color:rgba(74,138,223,.3)}
 
 /* ── BACKGROUND CANVAS ─────────────────── */
 #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
@@ -497,6 +511,13 @@ function esc(s){return s.replace(/'/g,"\\'");}
 
 function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");}
 
+// Set body class for ban/pick phase accent colors
+function setPhaseAccent(type){
+  document.body.classList.remove("phase-ban","phase-pick");
+  if(type==="ban")document.body.classList.add("phase-ban");
+  else if(type==="pick")document.body.classList.add("phase-pick");
+}
+
 // ═══════════════════════════════════════════
 //  HOME
 // ═══════════════════════════════════════════
@@ -599,7 +620,7 @@ function tickTimer(){
 socket.on("state",(state)=>{
   S=state;
   const p=S.phase;
-  if(p==="waiting"){lastDraftPhase=null;lastStdStep=-1;renderLobby();showScreen("lobby");}
+  if(p==="waiting"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);renderLobby();showScreen("lobby");}
   else if(p==="phase1"||p==="phase2"||p==="phase3"){
     if(!document.getElementById("draft").classList.contains("active")){selected=new Set();specPrefs=new Set();}
     renderDraft();showScreen("draft");startLocalTimer();
@@ -607,8 +628,8 @@ socket.on("state",(state)=>{
   else if(p==="std_drafting"){
     renderStdDraft();showScreen("stdDraft");startStdTimer();
   }
-  else if(p==="phase1_reveal"||p==="phase2_reveal"){lastDraftPhase=null;renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
-  else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
+  else if(p==="phase1_reveal"||p==="phase2_reveal"){lastDraftPhase=null;setPhaseAccent(null);renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
+  else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
 });
 
 socket.on("lobbyCreated",({code})=>history.replaceState(null,"","?lobby="+code));
@@ -746,6 +767,9 @@ function renderDraft(){
   const myName=S.myTeam>=0?S.teamNames[S.myTeam]:"";
   const info=PHASE_INFO[pi];
   const grid=document.getElementById("draftGrid");
+  // Set accent color based on phase type
+  if(S.phase==="phase2")setPhaseAccent("ban");
+  else setPhaseAccent("pick");
   // Only animate cards on phase change, not every re-render
   const phaseChanged=lastDraftPhase!==S.phase;
   if(phaseChanged){grid.classList.add("animate-cards");lastDraftPhase=S.phase;}
@@ -983,6 +1007,9 @@ function renderStdDraft(){
   const totalSteps=std.totalSteps;
   const isComplete=step>=totalSteps;
   const activeTurn=std.activeTurn;
+  // Set accent color based on current turn type
+  if(!isComplete&&activeTurn)setPhaseAccent(activeTurn.type);
+  else setPhaseAccent("pick");
 
   // Team names
   document.getElementById("stdT1Name").textContent=S.teamNames[0];

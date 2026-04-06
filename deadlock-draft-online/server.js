@@ -21,20 +21,14 @@ const HEROES = [
 ].sort();
 
 // ═══════════════════════════════════════════════════════════
-//  STANDARD DRAFT TURN ORDER (10 bans + 12 picks = 22 turns)
+//  STANDARD DRAFT TURN ORDER — Snake draft, 2 bans + 12 picks = 14 turns
 // ═══════════════════════════════════════════════════════════
 const STD_TURNS = [
-  // Ban Phase 1
-  {type:"ban",team:0},{type:"ban",team:1},{type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 1
-  {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
-  // Ban Phase 2
-  {type:"ban",team:1},{type:"ban",team:0},{type:"ban",team:1},{type:"ban",team:0},
-  // Pick Phase 2
-  {type:"pick",team:1},{type:"pick",team:0},{type:"pick",team:0},{type:"pick",team:1},
-  // Ban Phase 3
+  // Ban Phase
   {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 3
+  // Pick Phase — snake order
+  {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
+  {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
 ];
 
