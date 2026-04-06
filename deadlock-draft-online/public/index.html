@@ -149,9 +149,9 @@ input,select{font-family:inherit}
 .hero-card{
   width:105px;background:var(--card);border:2px solid #2a2a35;border-radius:8px;cursor:pointer;
   transition:all .2s;display:flex;flex-direction:column;align-items:center;padding:7px 4px 5px;position:relative;overflow:hidden;
-  animation:cardEnter .3s ease-out both;
 }
-.hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
+.draft-body.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
+.draft-body.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
 .hero-card:hover:not(.disabled):not(.banned){transform:translateY(-3px);box-shadow:0 6px 18px rgba(232,122,32,.2)}
 .hero-card img{width:68px;height:68px;border-radius:6px;object-fit:cover;background:#111118;transition:filter .2s}
 .hero-card .hl{margin-top:4px;font-size:.68rem;font-weight:600;text-align:center;line-height:1.15;color:#999;transition:color .2s}
@@ -185,6 +185,78 @@ input,select{font-family:inherit}
 .rcol.t2 .rh.champ img{box-shadow:0 0 20px var(--t2glow)}
 .rl{margin-top:10px;font-size:.7rem;color:#444;letter-spacing:1px}
 .waiting-text{color:#444;font-size:.85rem;margin-top:8px}
+
+/* ── MODE SELECT ───────────────────────── */
+.mode-cards{display:flex;gap:24px;margin:24px 0;flex-wrap:wrap;justify-content:center}
+.mode-card{
+  width:300px;background:var(--panel);border:2px solid var(--border);border-radius:14px;padding:28px 22px;
+  cursor:pointer;transition:all .35s;text-align:center;position:relative;overflow:hidden;
+  animation:scaleIn .4s ease-out both;
+}
+.mode-card:nth-child(2){animation-delay:.1s}
+.mode-card:hover{transform:translateY(-6px);border-color:var(--accent);box-shadow:0 8px 30px rgba(232,122,32,.2)}
+.mode-card.wip{opacity:.7}
+.mode-card.wip:hover{border-color:#555;box-shadow:0 8px 20px rgba(255,255,255,.05)}
+.mode-card .mode-icon{font-size:2.4rem;margin-bottom:10px}
+.mode-card .mode-title{font-size:1.15rem;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,var(--t1),var(--accent),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.mode-card.wip .mode-title{background:linear-gradient(135deg,#666,#999);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.mode-card .mode-desc{font-size:.82rem;color:#888;line-height:1.5}
+.mode-card .mode-badge{display:inline-block;font-size:.6rem;font-weight:700;letter-spacing:1.5px;padding:3px 10px;border-radius:4px;margin-top:10px}
+.mode-card .mode-badge.live{background:rgba(68,204,68,.12);color:#4c4;border:1px solid rgba(68,204,68,.2)}
+.mode-card .mode-badge.coming{background:rgba(255,255,255,.06);color:#666;border:1px solid #333}
+.mode-back-btn{margin-top:16px;padding:10px 24px;font-size:.85rem;border:1px solid #333;border-radius:8px;background:transparent;color:#888;cursor:pointer;transition:all .2s}
+.mode-back-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── STANDARD DRAFT LAYOUT ─────────────── */
+.std-draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
+.std-draft-header{
+  width:100%;background:linear-gradient(180deg,#12121a,#0a0a0f);
+  border-bottom:2px solid var(--accent);padding:12px 20px 10px;text-align:center;
+}
+.std-turn-indicator{font-size:1.2rem;font-weight:700;color:var(--accent);margin-bottom:4px;animation:fadeIn .3s ease-out}
+.std-turn-sub{font-size:.82rem;color:#777;margin-bottom:6px}
+.std-draft-content{flex:1;display:flex;overflow:hidden}
+.std-side-panel{
+  width:220px;min-width:180px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:12px;overflow-y:auto;
+}
+.std-side-panel.right{border-right:none;border-left:1px solid var(--border)}
+.std-side-panel h3{font-size:.85rem;font-weight:800;margin-bottom:8px;letter-spacing:1px}
+.std-side-panel.t1 h3{background:linear-gradient(90deg,var(--t1),var(--t1m),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.std-side-panel.t2 h3{background:linear-gradient(90deg,var(--t2),var(--t2m),var(--t2l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.std-section-label{font-size:.6rem;font-weight:700;letter-spacing:1.5px;color:#444;margin:10px 0 6px;text-transform:uppercase}
+.std-hero-slot{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;margin:3px 0;
+  border-radius:6px;font-size:.8rem;font-weight:600;min-height:38px;
+  animation:fadeIn .3s ease-out both;
+}
+.std-hero-slot img{width:30px;height:30px;border-radius:4px;object-fit:cover}
+.std-hero-slot.pick-slot{background:rgba(255,255,255,.04);color:#ccc}
+.std-hero-slot.ban-slot{background:rgba(204,68,68,.08);color:var(--ban);font-size:.75rem}
+.std-hero-slot.ban-slot img{filter:grayscale(.8) brightness(.5);width:24px;height:24px}
+.std-hero-slot.empty-slot{background:rgba(255,255,255,.02);color:#333;font-style:italic;border:1px dashed #222}
+.std-hero-slot.active-slot{border:1px solid var(--accent);box-shadow:0 0 10px rgba(232,122,32,.2);animation:glowPulse 2s infinite}
+.std-center{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
+.std-center.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
+.std-center.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
+.std-hero-card-ban{border-color:#2a0a0a!important;opacity:.25!important;pointer-events:none!important}
+.std-hero-card-ban::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
+.std-hero-card-picked{border-color:#1a2a1a!important;opacity:.2!important;pointer-events:none!important}
+.std-bottom{display:flex;justify-content:center;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #2a2a35;gap:16px}
+.std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--accent);font-weight:700}
+
+/* ── Turn timeline ──────────────────────── */
+.std-timeline{display:flex;gap:3px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap}
+.std-turn-pip{
+  width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:.55rem;font-weight:700;border:1px solid #222;transition:all .3s;
+}
+.std-turn-pip.ban-pip{background:#1a0a0a;color:#644}
+.std-turn-pip.pick-pip{background:#0a1a0a;color:#464}
+.std-turn-pip.done-pip{opacity:.35}
+.std-turn-pip.active-pip{border-color:var(--accent);box-shadow:0 0 8px rgba(232,122,32,.4);transform:scale(1.2)}
+.std-turn-pip.t1-pip{border-color:rgba(232,68,32,.3)}
+.std-turn-pip.t2-pip{border-color:rgba(74,138,223,.3)}
 
 /* ── BACKGROUND CANVAS ─────────────────── */
 #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
@@ -223,6 +295,63 @@ input,select{font-family:inherit}
   </div>
 
   <div class="error-msg" id="homeErr"></div>
+</div>
+
+<!-- ═══════ MODE SELECT ═══════ -->
+<div class="screen" id="modeSelect">
+  <h1>⚡ PwR Draft</h1>
+  <p>Choose your game mode</p>
+  <div class="mode-cards">
+    <div class="mode-card" onclick="selectMode('phase')">
+      <div class="mode-icon">⚔️</div>
+      <div class="mode-title">Deadlock Clone Wars Phase Draft</div>
+      <div class="mode-desc">Both teams secretly pick 6 heroes — overlaps get banned! Ban from the opponent's pool, then choose your champion. Each team plays as ONE hero, 6v6 same-hero showdown.</div>
+      <div class="mode-badge live">READY TO PLAY</div>
+    </div>
+    <div class="mode-card wip" onclick="selectMode('standard')">
+      <div class="mode-icon">🎯</div>
+      <div class="mode-title">Standard Deadlock Draft</div>
+      <div class="mode-desc">Classic MOBA-style captain's draft. Captains alternate banning and picking heroes in a snake order. Each team builds a unique roster of 6 heroes.</div>
+      <div class="mode-badge coming">WORK IN PROGRESS</div>
+    </div>
+  </div>
+  <button class="mode-back-btn" onclick="showScreen('home')">← Back</button>
+</div>
+
+<!-- ═══════ STANDARD DRAFT ═══════ -->
+<div class="screen" id="stdDraft" style="padding:0">
+  <div class="std-draft-app">
+    <div class="std-draft-header">
+      <div class="phase-role-tag captain-tag" id="stdRoleTag">CAPTAIN</div>
+      <div class="std-turn-indicator" id="stdTurnIndicator">Ban Phase</div>
+      <div class="std-turn-sub" id="stdTurnSub">Team 1 is banning...</div>
+      <div class="std-timeline" id="stdTimeline"></div>
+      <div class="timer-bar" id="stdTimerWrap">
+        <div class="timer-num" id="stdTimerNum">60</div>
+        <div class="timer-track"><div class="timer-fill" id="stdTimerFill"></div></div>
+      </div>
+    </div>
+    <div class="std-draft-content">
+      <div class="std-side-panel t1" id="stdPanel0">
+        <h3 id="stdT1Name">Hidden King</h3>
+        <div class="std-section-label">PICKS</div>
+        <div id="stdPicks0"></div>
+        <div class="std-section-label">BANS</div>
+        <div id="stdBans0"></div>
+      </div>
+      <div class="std-center" id="stdGrid"></div>
+      <div class="std-side-panel t2 right" id="stdPanel1">
+        <h3 id="stdT2Name">Archmother</h3>
+        <div class="std-section-label">PICKS</div>
+        <div id="stdPicks1"></div>
+        <div class="std-section-label">BANS</div>
+        <div id="stdBans1"></div>
+      </div>
+    </div>
+    <div class="std-bottom">
+      <div class="std-status" id="stdStatus"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════ LOBBY ═══════ -->
@@ -334,6 +463,9 @@ let S = null;
 let selected = new Set();
 let specPrefs = new Set(); // spectator's highlighted heroes
 let timerInterval = null;
+let lastDraftPhase = null; // track phase for animation
+let lastStdStep = -1; // track std draft step for animation
+let chosenMode = null; // selected game mode
 
 // URL params
 const params = new URLSearchParams(window.location.search);
@@ -371,7 +503,13 @@ function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classL
 function createLobby(){
   const name=document.getElementById("nameInput").value.trim();
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
-  socket.emit("createLobby",{name,timerDuration:60});
+  // Show mode select screen instead of immediately creating
+  showScreen("modeSelect");
+}
+function selectMode(mode){
+  chosenMode=mode;
+  const name=document.getElementById("nameInput").value.trim();
+  socket.emit("createLobby",{name,timerDuration:60,mode});
 }
 function joinManual(){
   const name=document.getElementById("nameInput").value.trim();
@@ -461,13 +599,16 @@ function tickTimer(){
 socket.on("state",(state)=>{
   S=state;
   const p=S.phase;
-  if(p==="waiting"){renderLobby();showScreen("lobby");}
+  if(p==="waiting"){lastDraftPhase=null;lastStdStep=-1;renderLobby();showScreen("lobby");}
   else if(p==="phase1"||p==="phase2"||p==="phase3"){
     if(!document.getElementById("draft").classList.contains("active")){selected=new Set();specPrefs=new Set();}
     renderDraft();showScreen("draft");startLocalTimer();
   }
-  else if(p==="phase1_reveal"||p==="phase2_reveal"){renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
-  else if(p==="complete"){renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
+  else if(p==="std_drafting"){
+    renderStdDraft();showScreen("stdDraft");startStdTimer();
+  }
+  else if(p==="phase1_reveal"||p==="phase2_reveal"){lastDraftPhase=null;renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
+  else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
 });
 
 socket.on("lobbyCreated",({code})=>history.replaceState(null,"","?lobby="+code));
@@ -604,6 +745,11 @@ function renderDraft(){
   const isSpec=S.role==="spectator";
   const myName=S.myTeam>=0?S.teamNames[S.myTeam]:"";
   const info=PHASE_INFO[pi];
+  const grid=document.getElementById("draftGrid");
+  // Only animate cards on phase change, not every re-render
+  const phaseChanged=lastDraftPhase!==S.phase;
+  if(phaseChanged){grid.classList.add("animate-cards");lastDraftPhase=S.phase;}
+  else{grid.classList.remove("animate-cards");}
 
   // Phase steps
   document.getElementById("phaseSteps").innerHTML=PHASE_INFO.map((p,i)=>{
@@ -629,7 +775,6 @@ function renderDraft(){
   // Timer
   document.getElementById("timerWrap").classList.toggle("hidden",!S.timerEnd);
 
-  const grid=document.getElementById("draftGrid");
   const lockBtn=document.getElementById("lockBtn");
   const status=document.getElementById("statusText");
   const prefs=S.specPrefs?.[S.myTeam]||{};
@@ -804,11 +949,203 @@ function renderReveal(){
 }
 
 // ═══════════════════════════════════════════
+//  STANDARD DRAFT TIMER
+// ═══════════════════════════════════════════
+function startStdTimer(){clearInterval(timerInterval);timerInterval=setInterval(tickStdTimer,250);}
+function tickStdTimer(){
+  if(!S||!S.timerEnd)return;
+  const rem=Math.max(0,Math.ceil((S.timerEnd-Date.now())/1000));
+  const pct=S.timerDuration>0?(rem/S.timerDuration)*100:0;
+  const el=document.getElementById("stdTimerNum");
+  const fill=document.getElementById("stdTimerFill");
+  if(el){el.textContent=rem;el.classList.toggle("urgent",rem<=10);}
+  if(fill){fill.style.width=pct+"%";fill.classList.toggle("urgent",rem<=10);}
+}
+
+// ═══════════════════════════════════════════
+//  STANDARD DRAFT: HERO CLICK
+// ═══════════════════════════════════════════
+function stdClickHero(hero){
+  if(!S||!S.std)return;
+  socket.emit("stdAction",{hero});
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: STANDARD DRAFT
+// ═══════════════════════════════════════════
+function renderStdDraft(){
+  if(!S||!S.std)return;
+  const std=S.std;
+  const isCap=S.role==="captain";
+  const myTeam=S.myTeam;
+  const step=std.step;
+  const turns=std.turns;
+  const totalSteps=std.totalSteps;
+  const isComplete=step>=totalSteps;
+  const activeTurn=std.activeTurn;
+
+  // Team names
+  document.getElementById("stdT1Name").textContent=S.teamNames[0];
+  document.getElementById("stdT2Name").textContent=S.teamNames[1];
+
+  // Role tag
+  const roleTag=document.getElementById("stdRoleTag");
+  if(isCap){
+    roleTag.className="phase-role-tag captain-tag"+(myTeam===1?" t2-cap":"");
+    roleTag.textContent="CAPTAIN — "+S.teamNames[myTeam];
+  } else if(S.role==="spectator"){
+    roleTag.className="phase-role-tag spectator-tag";
+    roleTag.textContent="PLAYER — "+S.teamNames[myTeam];
+  } else {
+    roleTag.className="phase-role-tag spectator-tag";
+    roleTag.textContent="SPECTATOR";
+  }
+
+  // Turn indicator
+  const turnInd=document.getElementById("stdTurnIndicator");
+  const turnSub=document.getElementById("stdTurnSub");
+  if(isComplete){
+    turnInd.textContent="Draft Complete!";
+    turnSub.textContent="All picks and bans are locked in.";
+  } else {
+    const actionWord=activeTurn.type==="ban"?"BAN":"PICK";
+    const teamName=S.teamNames[activeTurn.team];
+    const isMyTurn=isCap&&myTeam===activeTurn.team;
+    turnInd.textContent=actionWord+" PHASE";
+    if(isMyTurn){
+      turnSub.textContent="Your turn to "+actionWord.toLowerCase()+"!";
+      turnSub.style.color="var(--accent)";
+    } else {
+      turnSub.textContent=teamName+" is "+actionWord.toLowerCase()+"ing...";
+      turnSub.style.color="#777";
+    }
+  }
+
+  // Timeline pips
+  const timeline=document.getElementById("stdTimeline");
+  let tlHtml="";
+  for(let i=0;i<totalSteps;i++){
+    const t=turns[i];
+    let cls="std-turn-pip";
+    cls+=t.type==="ban"?" ban-pip":" pick-pip";
+    cls+=t.team===0?" t1-pip":" t2-pip";
+    if(i<step)cls+=" done-pip";
+    if(i===step)cls+=" active-pip";
+    const label=t.type==="ban"?"B":"P";
+    tlHtml+=`<div class="${cls}">${label}</div>`;
+  }
+  timeline.innerHTML=tlHtml;
+
+  // Timer
+  document.getElementById("stdTimerWrap").classList.toggle("hidden",!S.timerEnd||isComplete);
+
+  // Side panels — picks and bans
+  const allUsed=new Set([...std.bans[0],...std.bans[1],...std.picks[0],...std.picks[1]]);
+
+  [0,1].forEach(t=>{
+    // Picks — 6 slots
+    const picksEl=document.getElementById("stdPicks"+t);
+    let ph="";
+    for(let i=0;i<6;i++){
+      const hero=std.picks[t][i];
+      const isNextSlot=!hero&&std.picks[t].length===i&&!isComplete&&activeTurn&&activeTurn.type==="pick"&&activeTurn.team===t;
+      if(hero){
+        ph+=`<div class="std-hero-slot pick-slot">${heroImg(hero,30)} ${hero}</div>`;
+      } else {
+        ph+=`<div class="std-hero-slot empty-slot${isNextSlot?' active-slot':''}">Pick ${i+1}</div>`;
+      }
+    }
+    picksEl.innerHTML=ph;
+
+    // Bans
+    const bansEl=document.getElementById("stdBans"+t);
+    let bh="";
+    const teamBans=std.bans[t];
+    if(teamBans.length===0){
+      // Show empty slots based on how many bans this team will make
+      const isNextBan=!isComplete&&activeTurn&&activeTurn.type==="ban"&&activeTurn.team===t;
+      bh+=`<div class="std-hero-slot empty-slot${isNextBan?' active-slot':''}">—</div>`;
+    } else {
+      teamBans.forEach(h=>{
+        bh+=`<div class="std-hero-slot ban-slot">${heroImg(h,24)} ${h}</div>`;
+      });
+      // Show active slot if it's this team's ban turn
+      if(!isComplete&&activeTurn&&activeTurn.type==="ban"&&activeTurn.team===t){
+        bh+=`<div class="std-hero-slot empty-slot active-slot">—</div>`;
+      }
+    }
+    bansEl.innerHTML=bh;
+  });
+
+  // Hero grid — center
+  const grid=document.getElementById("stdGrid");
+  const heroes=S.heroes||[];
+  const stepChanged=lastStdStep!==step;
+  if(stepChanged){grid.classList.add("animate-cards");lastStdStep=step;}
+  // Only animate on first render
+  if(lastStdStep===step&&grid.children.length>0){grid.classList.remove("animate-cards");}
+
+  const isMyTurn=isCap&&!isComplete&&activeTurn&&myTeam===activeTurn.team;
+
+  grid.innerHTML=heroes.map((h,i)=>{
+    let cls="hero-card";
+    const isBanned=std.bans[0].includes(h)||std.bans[1].includes(h);
+    const isPicked=std.picks[0].includes(h)||std.picks[1].includes(h);
+
+    if(isBanned){cls+=" std-hero-card-ban";}
+    else if(isPicked){cls+=" std-hero-card-picked";}
+    else if(!isMyTurn){cls+=" disabled";}
+
+    const clickable=!isBanned&&!isPicked&&isMyTurn;
+    return`<div class="${cls}" style="--i:${i}"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
+      ${heroImg(h,68)}<div class="hl">${h}</div></div>`;
+  }).join("");
+
+  // Status bar
+  const statusEl=document.getElementById("stdStatus");
+  if(isComplete){
+    statusEl.innerHTML=`<span class="hi">Draft complete!</span>`;
+  } else if(isMyTurn){
+    statusEl.innerHTML=`<span class="hi">Your turn!</span> Click a hero to ${activeTurn.type}`;
+  } else if(isCap){
+    statusEl.innerHTML=`Waiting for ${S.teamNames[activeTurn.team]} to ${activeTurn.type}...`;
+  } else {
+    statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (Turn ${step+1}/${totalSteps})`;
+  }
+}
+
+// ═══════════════════════════════════════════
 //  RENDER: COMPLETE
 // ═══════════════════════════════════════════
 function renderComplete(){
   document.getElementById("resetBtn").style.display=S.isHost?"inline-block":"none";
   document.getElementById("resetWait").classList.toggle("hidden",S.isHost);
+
+  // Standard draft complete — show 6 picks + bans per team
+  if(S.mode==="standard"&&S.std){
+    const std=S.std;
+    document.querySelector("#completeScreen p").textContent="Each team drafted 6 unique heroes for their roster!";
+    let h="";
+    [0,1].forEach(t=>{
+      h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
+      h+=`<div class="rl">ROSTER</div>`;
+      (std.picks[t]||[]).forEach((x,i)=>{
+        h+=`<div class="rh" style="animation-delay:${i*.1}s">${heroImg(x,40)} ${x}</div>`;
+      });
+      if(std.bans[t].length>0){
+        h+=`<div class="rl" style="margin-top:10px">BANNED</div>`;
+        std.bans[t].forEach(x=>{
+          h+=`<div class="rh ov" style="font-size:.8rem">${heroImg(x,28)} ${x}</div>`;
+        });
+      }
+      h+=`</div>`;
+    });
+    document.getElementById("compCols").innerHTML=h;
+    return;
+  }
+
+  // Phase draft complete — single champion per team
+  document.querySelector("#completeScreen p").textContent="Each team plays as their champion — a full squad of 6!";
   let h="";
   [0,1].forEach(t=>{
     h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
@@ -825,14 +1162,14 @@ function renderComplete(){
   const ctx=c.getContext("2d");
   let W,H,mx=0.5,my=0.5,tmx=0.5,tmy=0.5;
   const particles=[];
-  const PCOUNT=50;
+  const PCOUNT=30; // fewer particles for a calmer feel
 
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   resize();window.addEventListener("resize",resize);
 
   document.addEventListener("mousemove",e=>{tmx=e.clientX/W;tmy=e.clientY/H;});
 
-  // Particle class
+  // Particle class — slow, gentle drifters
   function Particle(){
     this.reset();
     this.y=Math.random()*H;
@@ -840,29 +1177,30 @@ function renderComplete(){
   Particle.prototype.reset=function(){
     this.x=Math.random()*W;
     this.y=-10;
-    this.vx=(Math.random()-.5)*.3;
-    this.vy=Math.random()*.4+.1;
-    this.r=Math.random()*2.5+.5;
+    this.vx=(Math.random()-.5)*.08; // very slow horizontal drift
+    this.vy=Math.random()*.12+.03;  // very slow downward drift
+    this.r=Math.random()*2+.8;
     this.life=1;
-    this.decay=Math.random()*.003+.001;
-    // Team color: left half warm, right half cool
+    this.decay=Math.random()*.0008+.0003; // much longer lifespan
     this.warm=Math.random()<.5;
   };
   Particle.prototype.update=function(){
-    // Subtle attraction toward cursor
-    const dx=(mx*W-this.x)*0.0003;
-    const dy=(my*H-this.y)*0.0003;
+    // Very gentle attraction toward cursor
+    const dx=(mx*W-this.x)*0.00008;
+    const dy=(my*H-this.y)*0.00008;
     this.vx+=dx;this.vy+=dy;
+    // Dampen velocity so they don't speed up
+    this.vx*=.998;this.vy*=.998;
     this.x+=this.vx;this.y+=this.vy;
     this.life-=this.decay;
     if(this.life<=0||this.y>H+10||this.x<-10||this.x>W+10)this.reset();
   };
   Particle.prototype.draw=function(){
-    const a=this.life*.35;
+    const a=this.life*.25; // subtler opacity
     if(this.warm){
-      ctx.fillStyle=`rgba(232,${80+Math.random()*40},32,${a})`;
+      ctx.fillStyle=`rgba(232,100,32,${a})`;
     } else {
-      ctx.fillStyle=`rgba(74,${120+Math.random()*40},223,${a})`;
+      ctx.fillStyle=`rgba(74,140,223,${a})`;
     }
     ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();
   };
@@ -870,8 +1208,8 @@ function renderComplete(){
   for(let i=0;i<PCOUNT;i++){particles.push(new Particle());}
 
   function frame(){
-    // Smooth cursor follow
-    mx+=(tmx-mx)*.06;my+=(tmy-my)*.06;
+    // Smooth, slow cursor follow
+    mx+=(tmx-mx)*.025;my+=(tmy-my)*.025;
 
     ctx.clearRect(0,0,W,H);
 
