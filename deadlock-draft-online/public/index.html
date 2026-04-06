@@ -128,10 +128,10 @@ input,select{font-family:inherit}
 .phase-step{display:flex;flex-direction:column;align-items:center;padding:0 14px;position:relative}
 .phase-step::after{content:'';position:absolute;top:14px;right:-2px;width:4px;height:4px;border-radius:50%;background:#2a2a35}
 .phase-step:last-child::after{display:none}
-.phase-step .num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;border:2px solid #2a2a35;color:#444;background:#12121a;transition:all .4s}
+.phase-step .num{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;border:2px solid #2a2a35;color:#444;background:#12121a;transition:all .4s}
 .phase-step.active .num{border-color:var(--phase-accent);color:var(--phase-accent);background:color-mix(in srgb,var(--phase-accent) 12%,#12121a);box-shadow:0 0 14px var(--phase-glow);transform:scale(1.2)}
 .phase-step.done .num{border-color:#3a3a45;color:#555;background:#1a1a22}
-.phase-step .plabel{font-size:.6rem;color:#444;margin-top:3px;letter-spacing:.5px;transition:color .3s}
+.phase-step .plabel{font-size:.7rem;color:#444;margin-top:4px;letter-spacing:.5px;transition:color .3s}
 .phase-step.active .plabel{color:var(--phase-accent)}
 
 .phase-title{font-size:1.3rem;font-weight:700;color:var(--phase-accent);animation:fadeIn .3s ease-out;transition:color .4s}
@@ -254,22 +254,22 @@ input,select{font-family:inherit}
 .std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--phase-accent);font-weight:700}
 
 /* ── Turn timeline ──────────────────────── */
-.std-timeline{display:flex;gap:3px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap}
+.std-timeline{display:flex;gap:4px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap}
 .std-turn-pip{
-  width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;
-  font-size:.55rem;font-weight:700;border:2px solid #222;transition:all .3s;
+  width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700;border:2px solid #222;transition:all .3s;
 }
 .std-turn-pip.ban-pip{background:#1a0808;color:#844}
 .std-turn-pip.pick-pip{background:#081a08;color:#484}
 .std-turn-pip.done-pip{opacity:.3}
 .std-turn-pip.active-pip{border-color:var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);transform:scale(1.3)}
-.std-turn-pip.t1-pip{border-color:var(--t1);color:var(--t1m)}
-.std-turn-pip.t1-pip.ban-pip{background:rgba(232,68,32,.08)}
-.std-turn-pip.t1-pip.pick-pip{background:rgba(232,68,32,.06)}
+.std-turn-pip.t1-pip{border-color:var(--t1m);color:var(--t1l)}
+.std-turn-pip.t1-pip.ban-pip{background:rgba(232,122,32,.1)}
+.std-turn-pip.t1-pip.pick-pip{background:rgba(232,122,32,.08)}
 .std-turn-pip.t2-pip{border-color:var(--t2m);color:var(--t2m)}
 .std-turn-pip.t2-pip.ban-pip{background:rgba(74,138,223,.08)}
 .std-turn-pip.t2-pip.pick-pip{background:rgba(74,138,223,.06)}
-.std-turn-pip.done-pip.t1-pip{border-color:rgba(232,68,32,.15);color:rgba(232,122,32,.3)}
+.std-turn-pip.done-pip.t1-pip{border-color:rgba(232,122,32,.2);color:rgba(240,192,64,.3)}
 .std-turn-pip.done-pip.t2-pip{border-color:rgba(74,138,223,.15);color:rgba(74,138,223,.3)}
 
 /* ── BACK BUTTON (top-left) ────────────── */
@@ -363,13 +363,11 @@ input,select{font-family:inherit}
   <p>Choose your game mode</p>
   <div class="mode-cards">
     <div class="mode-card" onclick="selectMode('phase')">
-      <div class="mode-icon">⚔️</div>
       <div class="mode-title">Deadlock Clone Wars Phase Draft</div>
-      <div class="mode-desc">Both teams secretly pick 6 heroes — overlaps get banned! Ban from the opponent's pool, then choose your champion. Each team plays as ONE hero, 6v6 same-hero showdown.</div>
+      <div class="mode-desc">Both teams secretly pick 6 heroes — overlaps get banned! Ban from the opponent's pool, then choose your final hero. Each team plays as ONE hero, 6v6 same-hero showdown.</div>
       <div class="mode-badge live">READY TO PLAY</div>
     </div>
     <div class="mode-card wip" onclick="selectMode('standard')">
-      <div class="mode-icon">🎯</div>
       <div class="mode-title">Standard Deadlock Draft</div>
       <div class="mode-desc">Classic MOBA-style captain's draft. Captains alternate banning and picking heroes in a snake order. Each team builds a unique roster of 6 heroes.</div>
       <div class="mode-badge coming">WORK IN PROGRESS</div>
@@ -510,7 +508,7 @@ input,select{font-family:inherit}
 <!-- ═══════ COMPLETE ═══════ -->
 <div class="screen" id="completeScreen" style="overflow-y:auto">
   <h1>✦ DRAFT COMPLETE ✦</h1>
-  <p>Each team plays as their champion — a full squad of 6!</p>
+  <p>Each team plays as their chosen hero — a full squad of 6!</p>
   <div class="rcols" id="compCols"></div>
   <button class="btn-main orange" id="resetBtn" onclick="resetDraft()">New Draft</button>
   <p class="waiting-text hidden" id="resetWait">Waiting for host…</p>
@@ -722,6 +720,7 @@ socket.on("state",(state)=>{
     renderDraft();showScreen("draft");startLocalTimer();
   }
   else if(p==="std_drafting"){
+    if(!document.getElementById("stdDraft").classList.contains("active")){specPrefs=new Set();}
     renderStdDraft();showScreen("stdDraft");startStdTimer();
   }
   else if(p==="phase1_reveal"||p==="phase2_reveal"){lastDraftPhase=null;setPhaseAccent(null);renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
@@ -851,7 +850,7 @@ function renderLobby(){
 const PHASE_INFO = [
   {num:"1",label:"PICK",title:"Pick 6 Heroes",desc_cap:"Select 6 heroes for your team's pool. Both captains pick secretly — overlapping picks get BANNED!",desc_spec:"Your captain is picking 6 heroes. Tap heroes to highlight your preferences!"},
   {num:"2",label:"BAN",title:"Ban Opponent's Heroes",desc_cap:"Ban heroes from the opponent's pool to force them into a tough choice.",desc_spec:"Your captain is banning the opponent's heroes. Tap to suggest bans!"},
-  {num:"3",label:"PICK",title:"Choose Your Champion",desc_cap:"Pick your team's final hero from the remaining pool!",desc_spec:"Your captain is choosing the final hero. Tap your preference!"},
+  {num:"3",label:"PICK",title:"Choose Your Hero",desc_cap:"Pick your team's final hero from the remaining pool!",desc_spec:"Your captain is choosing the final hero. Tap your preference!"},
 ];
 
 function phaseIdx(){return S.phase==="phase1"?0:S.phase==="phase2"?1:S.phase==="phase3"?2:-1;}
@@ -940,13 +939,15 @@ function renderDraft(){
 
   } else if(S.phase==="phase2"){
     if(isNeutral){
-      // Neutral spectator: show both pools read-only
+      // Neutral spectator: show both pools side-by-side
       const p0=S.pool0||[];const p1=S.pool1||[];
-      let html=`<div style="text-align:center;padding:10px"><div style="color:var(--accent);font-weight:700;margin-bottom:6px">${S.teamNames[0]} Pool</div>`;
+      let html=`<div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:10px;width:100%">`;
+      html+=`<div style="flex:1;min-width:200px;max-width:400px;text-align:center"><div style="background:linear-gradient(90deg,var(--t1),var(--t1m),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;margin-bottom:8px">${S.teamNames[0]} Pool</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`;
       html+=p0.map(h=>`<div class="hero-card disabled">${heroImg(h,68)}<div class="hl">${h}</div></div>`).join("");
-      html+=`<div style="color:#888;font-weight:700;margin:14px 0 6px">${S.teamNames[1]} Pool</div>`;
+      html+=`</div></div>`;
+      html+=`<div style="flex:1;min-width:200px;max-width:400px;text-align:center"><div style="background:linear-gradient(90deg,var(--t2),var(--t2m),var(--t2l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;margin-bottom:8px">${S.teamNames[1]} Pool</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`;
       html+=p1.map(h=>`<div class="hero-card disabled">${heroImg(h,68)}<div class="hl">${h}</div></div>`).join("");
-      html+=`</div>`;
+      html+=`</div></div></div>`;
       grid.innerHTML=html;
       lockBtn.style.display="none";
       status.innerHTML=`<span class="hi">Spectating</span> — Captains are banning`;
@@ -987,14 +988,16 @@ function renderDraft(){
   } else if(S.phase==="phase3"){
     if(isNeutral){
       const p0=S.pool0||[];const p1=S.pool1||[];
-      let html=`<div style="text-align:center;padding:10px"><div style="color:var(--accent);font-weight:700;margin-bottom:6px">${S.teamNames[0]} Remaining</div>`;
+      let html=`<div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:10px;width:100%">`;
+      html+=`<div style="flex:1;min-width:200px;max-width:400px;text-align:center"><div style="background:linear-gradient(90deg,var(--t1),var(--t1m),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;margin-bottom:8px">${S.teamNames[0]} Remaining</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`;
       html+=p0.map(h=>`<div class="hero-card disabled">${heroImg(h,68)}<div class="hl">${h}</div></div>`).join("");
-      html+=`<div style="color:#888;font-weight:700;margin:14px 0 6px">${S.teamNames[1]} Remaining</div>`;
+      html+=`</div></div>`;
+      html+=`<div style="flex:1;min-width:200px;max-width:400px;text-align:center"><div style="background:linear-gradient(90deg,var(--t2),var(--t2m),var(--t2l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;margin-bottom:8px">${S.teamNames[1]} Remaining</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`;
       html+=p1.map(h=>`<div class="hero-card disabled">${heroImg(h,68)}<div class="hl">${h}</div></div>`).join("");
-      html+=`</div>`;
+      html+=`</div></div></div>`;
       grid.innerHTML=html;
       lockBtn.style.display="none";
-      status.innerHTML=`<span class="hi">Spectating</span> — Captains choosing champions`;
+      status.innerHTML=`<span class="hi">Spectating</span> — Captains choosing final hero`;
     } else {
       const locked=S.myLocked;
       const skip=S.skipPhase3;
@@ -1017,9 +1020,9 @@ function renderDraft(){
 
         if(isCap){
           lockBtn.style.display=locked?"none":"inline-block";
-          lockBtn.textContent=`🔒 Lock Champion (${selected.size}/1)`;
+          lockBtn.textContent=`🔒 Lock Hero (${selected.size}/1)`;
           lockBtn.disabled=selected.size!==1;
-          status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked ✓":"choosing…"}`:"Pick your team's champion!";
+          status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked ✓":"choosing…"}`:"Pick your team's hero!";
         } else {
           lockBtn.style.display="none";
           status.innerHTML=locked?"Captain chose!":"Tap your preference!";
@@ -1087,6 +1090,18 @@ function tickStdTimer(){
 // ═══════════════════════════════════════════
 function stdClickHero(hero){
   if(!S||!S.std)return;
+  // Spectators/players vote for a hero (1 at a time)
+  if(S.role==="spectator"){
+    if(specPrefs.has(hero)){
+      specPrefs.delete(hero);socket.emit("specPref",{hero,on:false});
+    } else {
+      for(const prev of specPrefs){socket.emit("specPref",{hero:prev,on:false});}
+      specPrefs.clear();
+      specPrefs.add(hero);socket.emit("specPref",{hero,on:true});
+    }
+    renderStdDraft();return;
+  }
+  // Captain action
   socket.emit("stdAction",{hero});
 }
 
@@ -1209,19 +1224,26 @@ function renderStdDraft(){
   if(lastStdStep===step&&grid.children.length>0){grid.classList.remove("animate-cards");}
 
   const isMyTurn=isCap&&!isComplete&&activeTurn&&myTeam===activeTurn.team;
+  const isSpec=S.role==="spectator";
+  const isNeutral=S.role==="unassigned";
+  const prefs=S.specPrefs?.[myTeam]||{};
+  const canVote=isSpec&&!isComplete;
 
   grid.innerHTML=heroes.map((h,i)=>{
     let cls="hero-card";
     const isBanned=std.bans[0].includes(h)||std.bans[1].includes(h);
     const isPicked=std.picks[0].includes(h)||std.picks[1].includes(h);
+    const prefCount=prefs[h]||0;
 
     if(isBanned){cls+=" std-hero-card-ban";}
     else if(isPicked){cls+=" std-hero-card-picked";}
-    else if(!isMyTurn){cls+=" disabled";}
+    else if(canVote&&specPrefs.has(h)){cls+=" sel";}
+    else if(!isMyTurn&&!canVote){cls+=" disabled";}
 
-    const clickable=!isBanned&&!isPicked&&isMyTurn;
+    if(prefCount>0&&isCap)cls+=" has-pref";
+    const clickable=!isBanned&&!isPicked&&(isMyTurn||canVote);
     return`<div class="${cls}" style="--i:${i}"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
-      ${heroImg(h,68)}<div class="hl">${h}</div></div>`;
+      ${heroImg(h,68)}<div class="pref-badge">${prefCount}👍</div><div class="hl">${h}</div></div>`;
   }).join("");
 
   // Status bar
@@ -1232,6 +1254,8 @@ function renderStdDraft(){
     statusEl.innerHTML=`<span class="hi">Your turn!</span> Click a hero to ${activeTurn.type}`;
   } else if(isCap){
     statusEl.innerHTML=`Waiting for ${S.teamNames[activeTurn.team]} to ${activeTurn.type}...`;
+  } else if(isSpec){
+    statusEl.innerHTML=`Tap a hero to vote for your captain — ${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing (Turn ${step+1}/${totalSteps})`;
   } else {
     statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (Turn ${step+1}/${totalSteps})`;
   }
@@ -1267,8 +1291,8 @@ function renderComplete(){
     return;
   }
 
-  // Phase draft complete — single champion per team
-  document.querySelector("#completeScreen p").textContent="Each team plays as their champion — a full squad of 6!";
+  // Phase draft complete — single hero per team
+  document.querySelector("#completeScreen p").textContent="Each team plays as their chosen hero — a full squad of 6!";
   let h="";
   [0,1].forEach(t=>{
     h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
