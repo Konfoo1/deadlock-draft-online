@@ -393,19 +393,30 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
-  socket.on("joinAsCaptain", ({ code, name }) => {
+  socket.on("joinAsCaptain", ({ code, name, team }) => {
     const c = code.toUpperCase();
     const lobby = lobbies.get(c);
     if (!lobby) return socket.emit("err", "Lobby not found.");
     if (lobby.phase !== "waiting") return socket.emit("err", "Draft already in progress.");
     if (findPerson(lobby, socket.id)) { broadcast(lobby); return; }
-    if (!lobby.captains[1]) {
-      lobby.captains[1] = { id: socket.id, name };
-    } else if (!lobby.captains[0]) {
-      lobby.captains[0] = { id: socket.id, name };
-      lobby.hostId = socket.id;
+    // If team preference provided, try that slot first
+    if (team === 0 || team === 1) {
+      if (!lobby.captains[team]) {
+        lobby.captains[team] = { id: socket.id, name };
+      } else if (!lobby.captains[1 - team]) {
+        lobby.captains[1 - team] = { id: socket.id, name };
+      } else {
+        return socket.emit("err", "Both captain slots are filled.");
+      }
     } else {
-      return socket.emit("err", "Both captain slots are filled.");
+      // No preference — fill first available
+      if (!lobby.captains[1]) {
+        lobby.captains[1] = { id: socket.id, name };
+      } else if (!lobby.captains[0]) {
+        lobby.captains[0] = { id: socket.id, name };
+      } else {
+        return socket.emit("err", "Both captain slots are filled.");
+      }
     }
     myLobby = c; socket.join(c);
     socket.emit("joined", { code: c, role: "captain" });

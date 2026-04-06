@@ -272,6 +272,37 @@ input,select{font-family:inherit}
 .std-turn-pip.done-pip.t1-pip{border-color:rgba(232,68,32,.15);color:rgba(232,122,32,.3)}
 .std-turn-pip.done-pip.t2-pip{border-color:rgba(74,138,223,.15);color:rgba(74,138,223,.3)}
 
+/* ── BACK BUTTON (top-left) ────────────── */
+.back-btn{
+  position:fixed;top:16px;left:16px;z-index:100;padding:8px 16px;font-size:.8rem;font-weight:600;
+  border:1px solid #333;border-radius:8px;background:rgba(18,18,26,.85);color:#888;cursor:pointer;
+  transition:all .25s;backdrop-filter:blur(6px);display:none;
+}
+.back-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(18,18,26,.95)}
+.back-btn.visible{display:block;animation:fadeIn .3s ease-out}
+
+/* ── MODE LABEL (top-center) ──────────── */
+.mode-label{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:100;
+  padding:5px 16px;font-size:.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:6px;background:rgba(18,18,26,.85);color:#666;
+  backdrop-filter:blur(6px);display:none;white-space:nowrap;
+}
+.mode-label.visible{display:block;animation:fadeIn .3s ease-out}
+
+/* ── CAPTAIN TEAM CHOOSER ─────────────── */
+.team-chooser{margin-top:16px;animation:fadeIn .3s ease-out}
+.team-chooser p{font-size:.9rem;color:#aaa;margin-bottom:12px}
+.team-choose-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.team-choose-btn{
+  padding:14px 28px;font-size:.95rem;font-weight:700;border:2px solid var(--border);
+  border-radius:10px;background:var(--panel);color:#ccc;cursor:pointer;transition:all .3s;min-width:160px;
+}
+.team-choose-btn.t1-choose{border-color:var(--t1);color:var(--t1m)}
+.team-choose-btn.t1-choose:hover{background:var(--t1bg);box-shadow:0 4px 20px var(--t1glow);transform:translateY(-3px)}
+.team-choose-btn.t2-choose{border-color:var(--t2m);color:var(--t2m)}
+.team-choose-btn.t2-choose:hover{background:var(--t2bg);box-shadow:0 4px 20px var(--t2glow);transform:translateY(-3px)}
+
 /* ── BACKGROUND CANVAS ─────────────────── */
 #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
 
@@ -280,6 +311,8 @@ input,select{font-family:inherit}
 </head>
 <body>
 <canvas id="bgCanvas"></canvas>
+<button class="back-btn" id="globalBackBtn" onclick="goBack()">← Back</button>
+<div class="mode-label" id="globalModeLabel"></div>
 
 <!-- ═══════ HOME ═══════ -->
 <div class="screen active" id="home">
@@ -302,10 +335,23 @@ input,select{font-family:inherit}
 
   <!-- Link join: shown when URL has lobby+role -->
   <div id="homeLinkJoin" class="hidden">
-    <div style="margin-top:14px">
-      <button class="btn-main orange" id="linkJoinBtn" onclick="joinViaLink()">Join Lobby</button>
+    <!-- Non-captain: simple join button -->
+    <div id="linkJoinSimple">
+      <div style="margin-top:14px">
+        <button class="btn-main orange" id="linkJoinBtn" onclick="joinViaLink()">Join Lobby</button>
+      </div>
     </div>
-    <div style="font-size:.8rem;color:#555;margin-top:6px" id="linkJoinHint"></div>
+    <!-- Captain: team chooser -->
+    <div id="linkJoinCaptain" class="hidden">
+      <div class="team-chooser">
+        <p>Which team do you want to captain?</p>
+        <div class="team-choose-row">
+          <button class="team-choose-btn t1-choose" id="teamChoose0" onclick="joinViaLinkTeam(0)">Hidden King</button>
+          <button class="team-choose-btn t2-choose" id="teamChoose1" onclick="joinViaLinkTeam(1)">Archmother</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:.8rem;color:#555;margin-top:10px" id="linkJoinHint"></div>
   </div>
 
   <div class="error-msg" id="homeErr"></div>
@@ -490,10 +536,13 @@ if (urlCode && urlRole) {
   document.getElementById("homeDefault").classList.add("hidden");
   document.getElementById("homeLinkJoin").classList.remove("hidden");
   if(urlRole==="captain"){
-    document.getElementById("linkJoinBtn").textContent="Join as Captain";
+    document.getElementById("linkJoinSimple").classList.add("hidden");
+    document.getElementById("linkJoinCaptain").classList.remove("hidden");
     document.getElementById("homeSubtitle").textContent="You've been invited as a captain.";
     document.getElementById("linkJoinHint").textContent="Lobby: "+urlCode.toUpperCase();
   } else {
+    document.getElementById("linkJoinSimple").classList.remove("hidden");
+    document.getElementById("linkJoinCaptain").classList.add("hidden");
     document.getElementById("linkJoinBtn").textContent="Join Lobby";
     document.getElementById("homeSubtitle").textContent="You've been invited to a draft lobby.";
     document.getElementById("linkJoinHint").textContent="Lobby: "+urlCode.toUpperCase();
@@ -509,7 +558,43 @@ function heroImg(name, sz=28) {
 }
 function esc(s){return s.replace(/'/g,"\\'");}
 
-function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");}
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  updateGlobalUI(id);
+}
+
+function getModeName(){
+  if(!S)return chosenMode==="standard"?"Standard Deadlock Draft":"Deadlock Clone Wars Phase Draft";
+  return S.mode==="standard"?"Standard Deadlock Draft":"Deadlock Clone Wars Phase Draft";
+}
+
+function updateGlobalUI(screenId){
+  const backBtn=document.getElementById("globalBackBtn");
+  const modeLabel=document.getElementById("globalModeLabel");
+  // Back button: show on mode select, lobby, reveal, complete — NOT on home or active draft screens
+  const showBack=["modeSelect","lobby","revealScreen","completeScreen"].includes(screenId);
+  backBtn.classList.toggle("visible",showBack);
+  // Mode label: show on lobby, reveal, complete, draft, stdDraft
+  const showMode=["lobby","revealScreen","completeScreen","draft","stdDraft"].includes(screenId);
+  modeLabel.classList.toggle("visible",showMode);
+  if(showMode)modeLabel.textContent=getModeName();
+}
+
+function goBack(){
+  const active=document.querySelector(".screen.active");
+  if(!active)return;
+  const id=active.id;
+  if(id==="modeSelect"){showScreen("home");}
+  else if(id==="lobby"){
+    // Leave lobby and go back to home
+    location.href=location.origin;
+  }
+  else if(id==="revealScreen"||id==="completeScreen"){
+    // These are during draft — back doesn't make sense mid-draft, but on complete go home
+    if(id==="completeScreen")location.href=location.origin;
+  }
+}
 
 // Set body class for ban/pick phase accent colors
 function setPhaseAccent(type){
@@ -543,8 +628,13 @@ function joinViaLink(){
   const name=document.getElementById("nameInput").value.trim();
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
-  if(urlRole==="captain") socket.emit("joinAsCaptain",{code:urlCode,name});
-  else socket.emit("joinAsSpectator",{code:urlCode,name});
+  socket.emit("joinAsSpectator",{code:urlCode,name});
+}
+function joinViaLinkTeam(team){
+  const name=document.getElementById("nameInput").value.trim();
+  if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
+  if(!urlCode)return;
+  socket.emit("joinAsCaptain",{code:urlCode,name,team});
 }
 
 // ═══════════════════════════════════════════
@@ -576,10 +666,16 @@ function copyLink(elId){
 // ═══════════════════════════════════════════
 function toggleHero(hero){
   if(!S)return;
-  // Spectators toggle preferences
+  // Spectators/players toggle preferences — limited to 1 hero at a time
   if(S.role==="spectator"){
-    if(specPrefs.has(hero)){specPrefs.delete(hero);socket.emit("specPref",{hero,on:false});}
-    else{specPrefs.add(hero);socket.emit("specPref",{hero,on:true});}
+    if(specPrefs.has(hero)){
+      specPrefs.delete(hero);socket.emit("specPref",{hero,on:false});
+    } else {
+      // Deselect previous pick first
+      for(const prev of specPrefs){socket.emit("specPref",{hero:prev,on:false});}
+      specPrefs.clear();
+      specPrefs.add(hero);socket.emit("specPref",{hero,on:true});
+    }
     renderDraft();return;
   }
   // Captains toggle picks
