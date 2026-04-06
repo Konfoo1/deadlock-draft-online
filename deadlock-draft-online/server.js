@@ -296,7 +296,7 @@ io.on("connection", (socket) => {
       code, hostId: socket.id,
       timerDuration: timerDuration || 60,
       phase: "waiting",
-      teamNames: ["Team 1", "Team 2"],
+      teamNames: ["Hidden King", "Archmother"],
       captains: [null, null], // only filled via captain link
       ready: [false, false], // captain ready state
       spectators: [[], []], // [team0 specs, team1 specs]
@@ -381,6 +381,52 @@ io.on("connection", (socket) => {
       const t = team === 0 ? 0 : 1;
       lobby.spectators[t].push({ id: socket.id, name: playerName });
     }
+    broadcast(lobby);
+  });
+
+  // Host toggles themselves into/out of a captain slot
+  socket.on("hostToggleCaptain", ({ team }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.phase !== "waiting" || socket.id !== lobby.hostId) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me) return;
+    const t = team === 0 ? 0 : 1;
+
+    // If host is already captain on this team, step down to unassigned
+    if (me.role === "captain" && me.team === t) {
+      const playerName = lobby.captains[t]?.name || "Host";
+      lobby.captains[t] = null;
+      lobby.ready[t] = false;
+      lobby.unassigned.push({ id: socket.id, name: playerName });
+      broadcast(lobby); return;
+    }
+
+    // Remove host from current position
+    let playerName = "Host";
+    if (me.role === "unassigned") {
+      playerName = lobby.unassigned[me.idx]?.name || "Host";
+      lobby.unassigned.splice(me.idx, 1);
+    } else if (me.role === "spectator") {
+      playerName = lobby.spectators[me.team][me.idx]?.name || "Host";
+      lobby.spectators[me.team].splice(me.idx, 1);
+    } else if (me.role === "captain") {
+      // Switching from captain on other team
+      playerName = lobby.captains[me.team]?.name || "Host";
+      lobby.captains[me.team] = null;
+      lobby.ready[me.team] = false;
+    }
+
+    // If slot is taken, reject
+    if (lobby.captains[t]) {
+      // Put host back into unassigned
+      lobby.unassigned.push({ id: socket.id, name: playerName });
+      socket.emit("err", "That captain slot is already taken.");
+      broadcast(lobby); return;
+    }
+
+    lobby.captains[t] = { id: socket.id, name: playerName };
+    lobby.ready[t] = false;
     broadcast(lobby);
   });
 
