@@ -88,6 +88,13 @@ input,select{font-family:inherit}
 .host-cap-toggle{margin-top:10px;padding:6px 14px;font-size:.75rem;font-weight:700;border:1px dashed var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer;transition:all .2s}
 .host-cap-toggle:hover{background:rgba(232,122,32,.1);border-style:solid}
 .host-cap-toggle.active-cap{background:rgba(232,122,32,.15);border-style:solid;color:var(--accent-light)}
+.host-cap-toggle:disabled{opacity:.35;cursor:default;border-style:dotted}
+
+/* Promote button */
+.promote-btn{padding:2px 8px;font-size:.6rem;font-weight:700;border:1px solid var(--accent);border-radius:4px;background:transparent;color:var(--accent);cursor:pointer;margin-left:4px;transition:all .2s;letter-spacing:.3px}
+.promote-btn:hover{background:rgba(232,122,32,.15);transform:scale(1.05)}
+.promote-btn.t1p{border-color:var(--t1m);color:var(--t1m)}.promote-btn.t1p:hover{background:rgba(232,122,32,.12)}
+.promote-btn.t2p{border-color:var(--t2m);color:var(--t2m)}.promote-btn.t2p:hover{background:rgba(74,138,223,.12)}
 
 .lobby-slot.unassigned{border-color:#333;min-width:160px;max-width:240px;background:linear-gradient(135deg,#111118,#15151e)}
 .lobby-slot.unassigned h3{color:var(--dim);font-weight:600}
@@ -179,13 +186,14 @@ input,select{font-family:inherit}
 .rl{margin-top:10px;font-size:.7rem;color:#444;letter-spacing:1px}
 .waiting-text{color:#444;font-size:.85rem;margin-top:8px}
 
-/* ── BACKGROUND PARTICLES ──────────────── */
-body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 20% 50%,rgba(232,68,32,.03),transparent 50%),radial-gradient(ellipse at 80% 50%,rgba(74,138,223,.03),transparent 50%);pointer-events:none;z-index:-1}
+/* ── BACKGROUND CANVAS ─────────────────── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
 
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2a2a35;border-radius:3px}
 </style>
 </head>
 <body>
+<canvas id="bgCanvas"></canvas>
 
 <!-- ═══════ HOME ═══════ -->
 <div class="screen active" id="home">
@@ -386,6 +394,7 @@ function joinViaLink(){
 function joinTeam(t){socket.emit("joinTeam",{team:t});}
 function toggleReady(){socket.emit("toggleReady");}
 function hostToggleCaptain(t){socket.emit("hostToggleCaptain",{team:t});}
+function promoteToCaptain(pid,t){socket.emit("promoteToCaptain",{playerId:pid,team:t});}
 function onTimerSlide(){
   const v=parseInt(document.getElementById("timerSlider").value);
   document.getElementById("timerValLabel").textContent=v+"s";
@@ -505,6 +514,7 @@ function renderLobby(){
   document.getElementById("slotU").classList.toggle("active-group",S.role==="unassigned");
 
   // Team panels
+  const canPromote=S.isHost; // host can promote players
   [0,1].forEach(t=>{
     const el=document.getElementById(t===0?"lt1people":"lt2people");
     let h="";
@@ -515,7 +525,12 @@ function renderLobby(){
       h+=`<div class="person empty">Waiting for captain…</div>`;
     }
     (S.spectators[t]||[]).forEach(s=>{
-      h+=`<div class="person">${s.name}${s.id===socket.id?'<span class="tag you">YOU</span>':''}</div>`;
+      let btns='';
+      if(canPromote&&!cap){
+        // Show promote button if captain slot is empty
+        btns=`<button class="promote-btn" onclick="event.stopPropagation();promoteToCaptain('${s.id}',${t})">⬆ Captain</button>`;
+      }
+      h+=`<div class="person">${s.name}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
     });
     el.innerHTML=h;
   });
@@ -527,7 +542,13 @@ function renderLobby(){
   else{S.unassigned.forEach(u=>{
     let tags="";
     if(u.id===socket.id)tags+='<span class="tag you">YOU</span>';
-    uh+=`<div class="person">${u.name}<span>${tags}</span></div>`;
+    // Host can promote unassigned players to captain on either team
+    let promBtns='';
+    if(canPromote&&u.id!==socket.id){
+      if(!S.captains[0])promBtns+=`<button class="promote-btn t1p" onclick="event.stopPropagation();promoteToCaptain('${u.id}',0)">⬆ ${S.teamNames[0]}</button>`;
+      if(!S.captains[1])promBtns+=`<button class="promote-btn t2p" onclick="event.stopPropagation();promoteToCaptain('${u.id}',1)">⬆ ${S.teamNames[1]}</button>`;
+    }
+    uh+=`<div class="person">${u.name}<span>${tags}${promBtns}</span></div>`;
   });}
   uList.innerHTML=uh;
 
@@ -795,6 +816,86 @@ function renderComplete(){
     h+=`</div>`;});
   document.getElementById("compCols").innerHTML=h;
 }
+
+// ═══════════════════════════════════════════
+//  REACTIVE BACKGROUND
+// ═══════════════════════════════════════════
+(function(){
+  const c=document.getElementById("bgCanvas");
+  const ctx=c.getContext("2d");
+  let W,H,mx=0.5,my=0.5,tmx=0.5,tmy=0.5;
+  const particles=[];
+  const PCOUNT=50;
+
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  resize();window.addEventListener("resize",resize);
+
+  document.addEventListener("mousemove",e=>{tmx=e.clientX/W;tmy=e.clientY/H;});
+
+  // Particle class
+  function Particle(){
+    this.reset();
+    this.y=Math.random()*H;
+  }
+  Particle.prototype.reset=function(){
+    this.x=Math.random()*W;
+    this.y=-10;
+    this.vx=(Math.random()-.5)*.3;
+    this.vy=Math.random()*.4+.1;
+    this.r=Math.random()*2.5+.5;
+    this.life=1;
+    this.decay=Math.random()*.003+.001;
+    // Team color: left half warm, right half cool
+    this.warm=Math.random()<.5;
+  };
+  Particle.prototype.update=function(){
+    // Subtle attraction toward cursor
+    const dx=(mx*W-this.x)*0.0003;
+    const dy=(my*H-this.y)*0.0003;
+    this.vx+=dx;this.vy+=dy;
+    this.x+=this.vx;this.y+=this.vy;
+    this.life-=this.decay;
+    if(this.life<=0||this.y>H+10||this.x<-10||this.x>W+10)this.reset();
+  };
+  Particle.prototype.draw=function(){
+    const a=this.life*.35;
+    if(this.warm){
+      ctx.fillStyle=`rgba(232,${80+Math.random()*40},32,${a})`;
+    } else {
+      ctx.fillStyle=`rgba(74,${120+Math.random()*40},223,${a})`;
+    }
+    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();
+  };
+
+  for(let i=0;i<PCOUNT;i++){particles.push(new Particle());}
+
+  function frame(){
+    // Smooth cursor follow
+    mx+=(tmx-mx)*.06;my+=(tmy-my)*.06;
+
+    ctx.clearRect(0,0,W,H);
+
+    // Big gradient orbs that follow cursor
+    const grd1=ctx.createRadialGradient(mx*W*.6,my*H*.7,0,mx*W*.6,my*H*.7,H*.5);
+    grd1.addColorStop(0,"rgba(232,68,32,.04)");grd1.addColorStop(1,"transparent");
+    ctx.fillStyle=grd1;ctx.fillRect(0,0,W,H);
+
+    const grd2=ctx.createRadialGradient(W-mx*W*.4,H-my*H*.6,0,W-mx*W*.4,H-my*H*.6,H*.5);
+    grd2.addColorStop(0,"rgba(74,138,223,.04)");grd2.addColorStop(1,"transparent");
+    ctx.fillStyle=grd2;ctx.fillRect(0,0,W,H);
+
+    // Subtle center glow near cursor
+    const grd3=ctx.createRadialGradient(mx*W,my*H,0,mx*W,my*H,180);
+    grd3.addColorStop(0,"rgba(255,255,255,.015)");grd3.addColorStop(1,"transparent");
+    ctx.fillStyle=grd3;ctx.fillRect(0,0,W,H);
+
+    // Particles
+    for(const p of particles){p.update();p.draw();}
+
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
 </script>
 </body>
 </html>

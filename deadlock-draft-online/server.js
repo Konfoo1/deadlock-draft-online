@@ -430,6 +430,31 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // Host promotes a player to captain on a specific team
+  socket.on("promoteToCaptain", ({ playerId, team }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.phase !== "waiting" || socket.id !== lobby.hostId) return;
+    const t = team === 0 ? 0 : 1;
+    if (lobby.captains[t]) return socket.emit("err", "Captain slot already filled.");
+    const target = findPerson(lobby, playerId);
+    if (!target) return;
+
+    // Extract player from current position
+    let name = "Player";
+    if (target.role === "unassigned") {
+      name = lobby.unassigned[target.idx]?.name || "Player";
+      lobby.unassigned.splice(target.idx, 1);
+    } else if (target.role === "spectator") {
+      name = lobby.spectators[target.team][target.idx]?.name || "Player";
+      lobby.spectators[target.team].splice(target.idx, 1);
+    } else return; // already a captain
+
+    lobby.captains[t] = { id: playerId, name };
+    lobby.ready[t] = false;
+    broadcast(lobby);
+  });
+
   // Captain toggles ready state
   socket.on("toggleReady", () => {
     if (!myLobby) return;
