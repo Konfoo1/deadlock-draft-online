@@ -395,10 +395,56 @@ function stdFinish(lobby) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  TOURNAMENTS
+// ═══════════════════════════════════════════════════════════
+const tournaments = new Map();
+
+function genTourneyCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "T";
+  for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return tournaments.has(code) ? genTourneyCode() : code;
+}
+
+function findTourneyPlayer(tourney, sid) {
+  return tourney.players.find(p => p.id === sid) || null;
+}
+
+function tourneyStateFor(tourney, sid) {
+  const me = findTourneyPlayer(tourney, sid);
+  return {
+    code: tourney.code,
+    type: "tournament",
+    name: tourney.name,
+    format: tourney.format,
+    draftMode: tourney.draftMode,
+    bestOf: tourney.bestOf,
+    maxPlayers: tourney.maxPlayers,
+    globalBans: tourney.globalBans,
+    timerDuration: tourney.timerDuration,
+    duelPoolSize: tourney.duelPoolSize,
+    phase: tourney.phase, // "lobby" or later "bracket"
+    isHost: sid === tourney.hostId,
+    players: tourney.players.map(p => ({ id: p.id, name: p.name })),
+    chat: tourney.chat.slice(-50), // last 50 messages
+    coinStreaks: tourney.coinStreaks, // { id: bestStreak }
+    myName: me?.name || null,
+    allHeroes: HEROES,
+  };
+}
+
+function broadcastTourney(tourney) {
+  for (const p of tourney.players) {
+    io.to(p.id).emit("tourneyState", tourneyStateFor(tourney, p.id));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SOCKET HANDLERS
 // ═══════════════════════════════════════════════════════════
 io.on("connection", (socket) => {
   let myLobby = null;
+  let myTourney = null;
 
   socket.on("createLobby", ({ name, timerDuration, mode }) => {
     const code = genCode();
@@ -431,6 +477,20 @@ io.on("connection", (socket) => {
     socket.join(code);
     socket.emit("lobbyCreated", { code });
     broadcast(lobby);
+  });
+
+  socket.on("queryLobby", ({ code }) => {
+    const c = code.toUpperCase();
+    const lobby = lobbies.get(c);
+    if (!lobby) return socket.emit("lobbyInfo", { error: "Lobby not found." });
+    socket.emit("lobbyInfo", {
+      code: c,
+      mode: lobby.mode,
+      teamNames: lobby.mode === "duel"
+        ? [lobby.captains[0]?.name || "Player 1", lobby.captains[1]?.name || "Player 2"]
+        : lobby.teamNames,
+      captains: [lobby.captains[0] ? true : false, lobby.captains[1] ? true : false],
+    });
   });
 
   socket.on("joinAsCaptain", ({ code, name, team }) => {
@@ -677,7 +737,131 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // ── Tournament Handlers ──
+  socket.on("createTourney", ({ name, hostName, format, draftMode, bestOf, maxPlayers, globalBans, timerDuration, duelPoolSize }) => {
+    const code = genTourneyCode();
+    const tourney = {
+      code,
+      hostId: socket.id,
+      name: name || "Tournament",
+      format: format || "double_elim", // "double_elim" or "round_robin"
+      draftMode: draftMode || "duel", // "phase", "standard", or "duel"
+      bestOf: Math.min(5, Math.max(1, bestOf || 1)),
+      maxPlayers: Math.min(32, Math.max(2, maxPlayers || 8)),
+      globalBans: [...new Set(globalBans || [])].filter(h => HEROES.includes(h)),
+      timerDuration: timerDuration || 60,
+      duelPoolSize: Math.min(6, Math.max(2, duelPoolSize || 3)),
+      phase: "lobby",
+      players: [{ id: socket.id, name: hostName || "Host" }],
+      chat: [],
+      coinStreaks: {}, // playerId -> best streak
+    };
+    tournaments.set(code, tourney);
+    myTourney = code;
+    socket.join("t_" + code);
+    socket.emit("tourneyCreated", { code });
+    broadcastTourney(tourney);
+  });
+
+  socket.on("joinTourney", ({ code, name }) => {
+    const c = code.toUpperCase();
+    const tourney = tournaments.get(c);
+    if (!tourney) return socket.emit("err", "Tournament not found.");
+    if (tourney.phase !== "lobby") return socket.emit("err", "Tournament already started.");
+    if (findTourneyPlayer(tourney, socket.id)) { broadcastTourney(tourney); return; }
+    if (tourney.players.length >= tourney.maxPlayers) return socket.emit("err", "Tournament is full.");
+    tourney.players.push({ id: socket.id, name: name || "Player" });
+    myTourney = c;
+    socket.join("t_" + c);
+    socket.emit("tourneyJoined", { code: c });
+    // System message
+    tourney.chat.push({ from: null, text: `${name || "Player"} joined the tournament`, ts: Date.now() });
+    broadcastTourney(tourney);
+  });
+
+  socket.on("tourneyChat", ({ text }) => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney) return;
+    const me = findTourneyPlayer(tourney, socket.id);
+    if (!me) return;
+    const msg = (text || "").slice(0, 200).trim();
+    if (!msg) return;
+    tourney.chat.push({ from: me.name, text: msg, ts: Date.now() });
+    if (tourney.chat.length > 100) tourney.chat = tourney.chat.slice(-100);
+    broadcastTourney(tourney);
+  });
+
+  socket.on("coinFlip", () => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney) return;
+    const me = findTourneyPlayer(tourney, socket.id);
+    if (!me) return;
+    const isHeads = Math.random() < 0.5;
+    // Track streak per player
+    if (!me._coinCurrent) me._coinCurrent = 0;
+    if (isHeads) {
+      me._coinCurrent++;
+      const best = tourney.coinStreaks[socket.id] || 0;
+      if (me._coinCurrent > best) tourney.coinStreaks[socket.id] = me._coinCurrent;
+    } else {
+      me._coinCurrent = 0;
+    }
+    // Send result to the flipper with their current streak
+    socket.emit("coinResult", {
+      heads: isHeads,
+      currentStreak: me._coinCurrent,
+      bestStreak: tourney.coinStreaks[socket.id] || 0,
+    });
+    // Broadcast updated leaderboard to everyone
+    broadcastTourney(tourney);
+  });
+
+  socket.on("updateTourney", ({ field, value }) => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || socket.id !== tourney.hostId || tourney.phase !== "lobby") return;
+    if (field === "name") tourney.name = (value || "Tournament").slice(0, 40);
+    else if (field === "format") tourney.format = ["double_elim", "round_robin"].includes(value) ? value : tourney.format;
+    else if (field === "draftMode") tourney.draftMode = ["phase", "standard", "duel"].includes(value) ? value : tourney.draftMode;
+    else if (field === "bestOf") tourney.bestOf = Math.min(5, Math.max(1, parseInt(value) || 1));
+    else if (field === "maxPlayers") tourney.maxPlayers = Math.min(32, Math.max(2, parseInt(value) || 8));
+    else if (field === "globalBans") tourney.globalBans = [...new Set(value || [])].filter(h => HEROES.includes(h));
+    else if (field === "timerDuration") tourney.timerDuration = Math.min(300, Math.max(10, Math.round((parseInt(value) || 60) / 10) * 10));
+    else if (field === "duelPoolSize") tourney.duelPoolSize = Math.min(6, Math.max(2, parseInt(value) || 3));
+    broadcastTourney(tourney);
+  });
+
+  socket.on("queryTourney", ({ code }) => {
+    const c = code.toUpperCase();
+    const tourney = tournaments.get(c);
+    if (!tourney) return socket.emit("tourneyInfo", { error: "Tournament not found." });
+    socket.emit("tourneyInfo", {
+      code: c,
+      name: tourney.name,
+      playerCount: tourney.players.length,
+      maxPlayers: tourney.maxPlayers,
+      phase: tourney.phase,
+    });
+  });
+
   socket.on("disconnect", () => {
+    // Tournament disconnect
+    if (myTourney) {
+      const tourney = tournaments.get(myTourney);
+      if (tourney && tourney.phase === "lobby") {
+        const me = findTourneyPlayer(tourney, socket.id);
+        tourney.players = tourney.players.filter(p => p.id !== socket.id);
+        if (tourney.players.length === 0) { tournaments.delete(myTourney); }
+        else {
+          if (socket.id === tourney.hostId) tourney.hostId = tourney.players[0].id;
+          if (me) tourney.chat.push({ from: null, text: `${me.name} left the tournament`, ts: Date.now() });
+          broadcastTourney(tourney);
+        }
+      }
+    }
+
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby) return;

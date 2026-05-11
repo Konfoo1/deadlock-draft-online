@@ -306,6 +306,51 @@ input,select{font-family:inherit}
 .team-choose-btn.t2-choose{border-color:var(--t2m);color:var(--t2m)}
 .team-choose-btn.t2-choose:hover{background:var(--t2bg);box-shadow:0 4px 20px var(--t2glow);transform:translateY(-3px)}
 
+/* ── TOURNAMENT SETUP ──────────────────── */
+.ts-row{text-align:left}
+.ts-label{display:block;font-size:.7rem;font-weight:700;letter-spacing:1px;color:#888;margin-bottom:4px}
+.ts-opt{padding:8px 16px;font-size:.8rem;font-weight:600;border:1px solid #2a2a35;border-radius:6px;background:var(--panel);color:#888;cursor:pointer;transition:all .2s}
+.ts-opt:hover{border-color:#555;color:#ccc}
+.ts-opt.active{border-color:#f0a030;color:#f0a030;background:rgba(240,160,48,.08)}
+
+/* ── TOURNAMENT LOBBY ──────────────────── */
+.tl-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;animation:fadeIn .4s ease-out}
+.tl-panel-title{font-size:.7rem;font-weight:700;letter-spacing:1.5px;color:#666;margin-bottom:8px;text-transform:uppercase}
+.tl-player{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;margin:2px 0;font-size:.82rem;background:rgba(255,255,255,.03);animation:fadeIn .3s ease-out}
+.tl-player.host-player{border-left:2px solid #f0a030}
+.tl-chat-msg{padding:4px 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.03);animation:fadeIn .2s ease-out}
+.tl-chat-msg .chat-name{font-weight:700;color:var(--accent-light);margin-right:6px}
+.tl-chat-msg .chat-text{color:#ccc}
+.tl-chat-msg.system-msg{color:#555;font-style:italic;font-size:.75rem}
+.tl-ban-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(204,68,68,.1);border:1px solid rgba(204,68,68,.2);border-radius:4px;font-size:.7rem;color:var(--ban);font-weight:600}
+.tl-ban-chip img{width:20px;height:20px;border-radius:3px;filter:grayscale(.5) brightness(.6)}
+.lb-row{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;margin:2px 0;font-size:.8rem;background:rgba(255,255,255,.03)}
+.lb-row:first-child{background:rgba(240,160,48,.08);border:1px solid rgba(240,160,48,.15)}
+.lb-row .lb-name{color:#ccc}.lb-row .lb-score{color:#f0a030;font-weight:700;font-family:monospace}
+.lb-row:first-child .lb-name{color:#f0a030}
+
+/* ── COIN FLIP ─────────────────────────── */
+.coin-face{
+  width:100px;height:100px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:2rem;font-weight:700;border:3px solid #333;background:var(--card);color:#666;
+  transition:transform .15s,border-color .3s,background .3s,color .3s;
+}
+.coin-face.flipping{animation:coinSpin .4s ease-out}
+.coin-face.heads{border-color:#f0a030;background:linear-gradient(135deg,#2a1a00,#1a1200);color:#f0a030}
+.coin-face.tails{border-color:#555;background:var(--card);color:#666}
+@keyframes coinSpin{0%{transform:rotateY(0) scale(1)}50%{transform:rotateY(180deg) scale(.8)}100%{transform:rotateY(360deg) scale(1)}}
+@keyframes streakPop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes streakGlow1{0%{box-shadow:0 0 8px rgba(240,160,48,.3)}100%{box-shadow:0 0 8px rgba(240,160,48,.1)}}
+@keyframes streakGlow2{0%{box-shadow:0 0 14px rgba(240,160,48,.5)}100%{box-shadow:0 0 14px rgba(240,160,48,.2)}}
+@keyframes streakGlow3{0%{box-shadow:0 0 22px rgba(255,200,0,.7)}100%{box-shadow:0 0 22px rgba(255,200,0,.3)}}
+@keyframes streakGlow4{0%{box-shadow:0 0 30px rgba(255,220,0,.9)}100%{box-shadow:0 0 30px rgba(255,220,0,.4)}}
+@keyframes streakGlow5{0%{box-shadow:0 0 40px rgba(255,240,100,1),0 0 60px rgba(255,200,0,.5)}100%{box-shadow:0 0 40px rgba(255,240,100,.5),0 0 60px rgba(255,200,0,.2)}}
+.streak-1 .coin-face{animation:streakGlow1 1s infinite alternate}
+.streak-2 .coin-face{animation:streakGlow2 .8s infinite alternate}
+.streak-3 .coin-face{animation:streakGlow3 .6s infinite alternate}
+.streak-4 .coin-face{animation:streakGlow4 .5s infinite alternate}
+.streak-5 .coin-face{animation:streakGlow5 .4s infinite alternate}
+
 /* ── GLOBAL BAN MINI CARDS ─────────────── */
 .gban-card{
   width:58px;background:var(--card);border:1px solid #2a2a35;border-radius:5px;cursor:pointer;
@@ -390,6 +435,11 @@ input,select{font-family:inherit}
     <div class="mode-card" onclick="selectMode('standard')">
       <div class="mode-title">Standard Deadlock Draft</div>
       <div class="mode-desc">Classic MOBA-style captain's draft. Captains alternate banning and picking heroes in a snake order. Each team builds a unique roster of 6 heroes.</div>
+      <div class="mode-badge live">READY TO PLAY</div>
+    </div>
+    <div class="mode-card" onclick="openTournamentSetup()" style="border-color:#f0a030">
+      <div class="mode-title" style="background:linear-gradient(135deg,#f0a030,#ffcc00,#f0a030);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Tournament</div>
+      <div class="mode-desc">Host a full tournament with multiple players. Configure format, draft mode, global hero bans, and best-of series. Includes lobby chat and a coin flip minigame while you wait!</div>
       <div class="mode-badge live">READY TO PLAY</div>
     </div>
   </div>
@@ -551,6 +601,167 @@ input,select{font-family:inherit}
   <p class="waiting-text hidden" id="resetWait">Waiting for host…</p>
 </div>
 
+<!-- ═══════ TOURNAMENT SETUP ═══════ -->
+<div class="screen" id="tourneySetup">
+  <h1 style="background:linear-gradient(135deg,#f0a030,#ffcc00,#f0a030);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Tournament Setup</h1>
+  <p>Configure your tournament settings</p>
+  <div style="max-width:480px;width:100%;display:flex;flex-direction:column;gap:12px;margin:10px 0">
+    <div class="ts-row"><label class="ts-label">Tournament Name</label><input class="input-field" id="tsName" placeholder="My Tournament" maxlength="40" style="max-width:100%"></div>
+    <div class="ts-row"><label class="ts-label">Player Count</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="tsPlayerBtns"></div>
+    </div>
+    <div class="ts-row"><label class="ts-label">Format</label>
+      <div style="display:flex;gap:8px">
+        <button class="ts-opt active" id="tsFmtDE" onclick="setTsOpt('format','double_elim')">Double Elimination</button>
+        <button class="ts-opt" id="tsFmtRR" onclick="setTsOpt('format','round_robin')">Round Robin</button>
+      </div>
+    </div>
+    <div class="ts-row"><label class="ts-label">Draft Mode</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="ts-opt active" id="tsDmDuel" onclick="setTsOpt('draftMode','duel')">1v1 Draft</button>
+        <button class="ts-opt" id="tsDmPhase" onclick="setTsOpt('draftMode','phase')">Clone Wars</button>
+        <button class="ts-opt" id="tsDmStd" onclick="setTsOpt('draftMode','standard')">Standard</button>
+      </div>
+    </div>
+    <div class="ts-row"><label class="ts-label">Best Of</label>
+      <div style="display:flex;gap:8px">
+        <button class="ts-opt active" id="tsBo1" onclick="setTsOpt('bestOf',1)">Bo1</button>
+        <button class="ts-opt" id="tsBo3" onclick="setTsOpt('bestOf',3)">Bo3</button>
+        <button class="ts-opt" id="tsBo5" onclick="setTsOpt('bestOf',5)">Bo5</button>
+      </div>
+    </div>
+    <div class="ts-row"><label class="ts-label">Pool Size (1v1 Draft)</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="range" id="tsPoolSize" min="2" max="6" step="1" value="3" oninput="document.getElementById('tsPoolVal').textContent=this.value" style="flex:1;accent-color:#f0a030">
+        <span class="timer-val" id="tsPoolVal">3</span>
+      </div>
+    </div>
+    <div class="ts-row"><label class="ts-label">Phase Timer</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="range" id="tsTimer" min="10" max="300" step="10" value="60" oninput="document.getElementById('tsTimerVal').textContent=this.value+'s'" style="flex:1;accent-color:#f0a030">
+        <span class="timer-val" id="tsTimerVal">60s</span>
+      </div>
+    </div>
+    <div class="ts-row">
+      <label class="ts-label">Global Hero Bans <span id="tsGbanCount" style="color:var(--ban);font-size:.7rem">(0 banned)</span></label>
+      <div id="tsGbanGrid" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-height:200px;overflow-y:auto;padding:6px;background:rgba(0,0,0,.2);border-radius:8px;border:1px solid #1a1a22"></div>
+    </div>
+  </div>
+  <button class="btn-main orange" onclick="createTournament()" style="margin-top:10px">Create Tournament</button>
+  <button class="mode-back-btn" onclick="showScreen('modeSelect')">← Back</button>
+</div>
+
+<!-- ═══════ TOURNAMENT LOBBY ═══════ -->
+<div class="screen" id="tourneyLobby" style="padding:20px;overflow-y:auto">
+  <div style="max-width:1100px;width:100%;margin:0 auto">
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:16px">
+      <h1 id="tlName" style="background:linear-gradient(135deg,#f0a030,#ffcc00,#f0a030);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.8rem">Tournament</h1>
+      <div class="code-display" id="tlCode" style="font-size:2rem;letter-spacing:6px;margin:4px 0"></div>
+      <div id="tlShareBox" class="hidden" style="margin:8px auto;max-width:420px">
+        <div class="links-box" style="margin:0">
+          <div class="link-label">TOURNAMENT LINK (share with players)</div>
+          <div class="link-row" style="margin-bottom:0">
+            <div class="link-url" id="tlShareLink"></div>
+            <button class="copy-btn" onclick="copyLink('tlShareLink')">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main layout: 3 columns -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+      <!-- Left: Players + Rules -->
+      <div style="flex:1;min-width:240px;max-width:320px;display:flex;flex-direction:column;gap:12px">
+        <!-- Player List -->
+        <div class="tl-panel">
+          <div class="tl-panel-title">Players <span id="tlPlayerCount" style="color:var(--dim);font-weight:400"></span></div>
+          <div id="tlPlayerList"></div>
+        </div>
+        <!-- Rules -->
+        <div class="tl-panel">
+          <div class="tl-panel-title">Rules</div>
+          <div id="tlRules" style="font-size:.8rem;color:#999;line-height:1.6"></div>
+        </div>
+        <!-- Banned Heroes -->
+        <div class="tl-panel" id="tlBansPanel">
+          <div class="tl-panel-title">Banned Heroes <span id="tlBanCount" style="color:var(--ban);font-weight:400"></span></div>
+          <div id="tlBanList" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        </div>
+      </div>
+
+      <!-- Center: Chat -->
+      <div style="flex:1.2;min-width:280px;max-width:400px">
+        <div class="tl-panel" style="height:100%;display:flex;flex-direction:column">
+          <div class="tl-panel-title">Lobby Chat</div>
+          <div id="tlChat" style="flex:1;overflow-y:auto;max-height:400px;min-height:200px;padding:4px 0"></div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <input class="input-field" id="tlChatInput" placeholder="Type a message..." maxlength="200" style="max-width:100%;padding:8px 12px;font-size:.82rem;text-align:left" onkeydown="if(event.key==='Enter')sendTourneyChat()">
+            <button class="btn-sm" onclick="sendTourneyChat()" style="background:var(--accent-dim);color:#fff;padding:8px 14px">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Coin Flip + Host Settings -->
+      <div style="flex:1;min-width:240px;max-width:320px;display:flex;flex-direction:column;gap:12px">
+        <!-- Coin Flip Game -->
+        <div class="tl-panel" style="text-align:center">
+          <div class="tl-panel-title">Coin Flip Challenge</div>
+          <div id="coinDisplay" style="position:relative;width:100px;height:100px;margin:12px auto">
+            <div id="coinFace" class="coin-face">?</div>
+          </div>
+          <div id="coinStreak" style="font-size:.85rem;color:#888;margin:6px 0">Flip to start!</div>
+          <button class="btn-main" id="coinFlipBtn" onclick="flipCoin()" style="padding:10px 28px;font-size:.9rem;background:linear-gradient(135deg,#f0a030,#e8c020)">Flip!</button>
+          <div class="tl-panel-title" style="margin-top:14px">Heads Streak Leaderboard</div>
+          <div id="coinLeaderboard" style="text-align:left"></div>
+        </div>
+
+        <!-- Host Settings (host only) -->
+        <div class="tl-panel hidden" id="tlHostSettings">
+          <div class="tl-panel-title">Host Settings</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:.8rem">
+            <div><label class="ts-label" style="font-size:.7rem">Name</label><input class="input-field" id="tlhName" style="max-width:100%;padding:6px 10px;font-size:.8rem" maxlength="40" onchange="updateTourneySetting('name',this.value)"></div>
+            <div><label class="ts-label" style="font-size:.7rem">Format</label>
+              <select class="input-field" id="tlhFormat" style="max-width:100%;padding:6px 10px;font-size:.8rem" onchange="updateTourneySetting('format',this.value)">
+                <option value="double_elim">Double Elimination</option>
+                <option value="round_robin">Round Robin</option>
+              </select>
+            </div>
+            <div><label class="ts-label" style="font-size:.7rem">Draft Mode</label>
+              <select class="input-field" id="tlhDraft" style="max-width:100%;padding:6px 10px;font-size:.8rem" onchange="updateTourneySetting('draftMode',this.value)">
+                <option value="duel">1v1 Draft</option>
+                <option value="phase">Clone Wars</option>
+                <option value="standard">Standard Draft</option>
+              </select>
+            </div>
+            <div><label class="ts-label" style="font-size:.7rem">Best Of</label>
+              <select class="input-field" id="tlhBestOf" style="max-width:100%;padding:6px 10px;font-size:.8rem" onchange="updateTourneySetting('bestOf',this.value)">
+                <option value="1">Bo1</option><option value="3">Bo3</option><option value="5">Bo5</option>
+              </select>
+            </div>
+            <div><label class="ts-label" style="font-size:.7rem">Pool Size</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="tlhPool" min="2" max="6" step="1" value="3" style="flex:1;accent-color:#f0a030" oninput="updateTourneySetting('duelPoolSize',this.value);document.getElementById('tlhPoolVal').textContent=this.value">
+                <span class="timer-val" id="tlhPoolVal">3</span>
+              </div>
+            </div>
+            <div><label class="ts-label" style="font-size:.7rem">Phase Timer</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="tlhTimer" min="10" max="300" step="10" value="60" style="flex:1;accent-color:#f0a030" oninput="updateTourneySetting('timerDuration',this.value);document.getElementById('tlhTimerVal').textContent=this.value+'s'">
+                <span class="timer-val" id="tlhTimerVal">60s</span>
+              </div>
+            </div>
+            <div>
+              <label class="ts-label" style="font-size:.7rem">Global Bans <span id="tlhBanCt" style="color:var(--ban)"></span></label>
+              <div id="tlhBanGrid" style="display:flex;flex-wrap:wrap;gap:3px;max-height:160px;overflow-y:auto;padding:4px;background:rgba(0,0,0,.2);border-radius:6px;border:1px solid #1a1a22"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
@@ -567,6 +778,7 @@ let stdSelected = null; // captain's pending hero selection in standard draft
 const params = new URLSearchParams(window.location.search);
 const urlCode = params.get("lobby");
 const urlRole = params.get("role"); // "captain" or "player"
+const urlTourney = params.get("tourney");
 if (urlCode && urlRole) {
   // Arrived via shared link — show simplified join UI
   document.getElementById("homeDefault").classList.add("hidden");
@@ -576,6 +788,8 @@ if (urlCode && urlRole) {
     document.getElementById("linkJoinCaptain").classList.remove("hidden");
     document.getElementById("homeSubtitle").textContent="You've been invited as a captain.";
     document.getElementById("linkJoinHint").textContent="Lobby: "+urlCode.toUpperCase();
+    // Query lobby to check which captain slots are available
+    socket.emit("queryLobby",{code:urlCode});
   } else {
     document.getElementById("linkJoinSimple").classList.remove("hidden");
     document.getElementById("linkJoinCaptain").classList.add("hidden");
@@ -585,6 +799,42 @@ if (urlCode && urlRole) {
   }
 } else if (urlCode) {
   document.getElementById("codeInput").value = urlCode;
+}
+
+socket.on("lobbyInfo",(info)=>{
+  if(info.error)return;
+  const btn0=document.getElementById("teamChoose0");
+  const btn1=document.getElementById("teamChoose1");
+  btn0.textContent=info.teamNames[0];
+  btn1.textContent=info.teamNames[1];
+  if(info.captains[0]){
+    btn0.disabled=true;btn0.style.opacity=".35";btn0.style.cursor="default";
+    btn0.textContent=info.teamNames[0]+" (Taken)";
+  } else {
+    btn0.disabled=false;btn0.style.opacity="";btn0.style.cursor="";
+  }
+  if(info.captains[1]){
+    btn1.disabled=true;btn1.style.opacity=".35";btn1.style.cursor="default";
+    btn1.textContent=info.teamNames[1]+" (Taken)";
+  } else {
+    btn1.disabled=false;btn1.style.opacity="";btn1.style.cursor="";
+  }
+});
+
+// Tournament join via URL
+if(urlTourney&&!urlCode){
+  document.getElementById("homeDefault").classList.add("hidden");
+  document.getElementById("homeLinkJoin").classList.remove("hidden");
+  document.getElementById("linkJoinSimple").classList.remove("hidden");
+  document.getElementById("linkJoinCaptain").classList.add("hidden");
+  document.getElementById("linkJoinBtn").textContent="Join Tournament";
+  document.getElementById("homeSubtitle").textContent="You've been invited to a tournament.";
+  document.getElementById("linkJoinHint").textContent="Tournament: "+urlTourney.toUpperCase();
+  document.getElementById("linkJoinBtn").onclick=function(){
+    const name=document.getElementById("nameInput").value.trim();
+    if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
+    socket.emit("joinTourney",{code:urlTourney,name});
+  };
 }
 
 function heroImg(name, sz=28) {
@@ -610,13 +860,16 @@ function getModeName(){
 function updateGlobalUI(screenId){
   const backBtn=document.getElementById("globalBackBtn");
   const modeLabel=document.getElementById("globalModeLabel");
-  // Back button: show on mode select, lobby, reveal, complete — NOT on home or active draft screens
-  const showBack=["modeSelect","lobby","revealScreen","completeScreen"].includes(screenId);
+  // Back button: show on mode select, lobby, reveal, complete, tourney setup — NOT on home or active draft/tourney lobby screens
+  const showBack=["modeSelect","lobby","revealScreen","completeScreen","tourneySetup"].includes(screenId);
   backBtn.classList.toggle("visible",showBack);
-  // Mode label: show on lobby, reveal, complete, draft, stdDraft
-  const showMode=["lobby","revealScreen","completeScreen","draft","stdDraft"].includes(screenId);
+  // Mode label: show on lobby, reveal, complete, draft, stdDraft, tourneyLobby
+  const showMode=["lobby","revealScreen","completeScreen","draft","stdDraft","tourneyLobby"].includes(screenId);
   modeLabel.classList.toggle("visible",showMode);
-  if(showMode)modeLabel.textContent=getModeName();
+  if(showMode){
+    if(screenId==="tourneyLobby")modeLabel.textContent="Tournament";
+    else modeLabel.textContent=getModeName();
+  }
 }
 
 function goBack(){
@@ -624,12 +877,9 @@ function goBack(){
   if(!active)return;
   const id=active.id;
   if(id==="modeSelect"){showScreen("home");}
-  else if(id==="lobby"){
-    // Leave lobby and go back to home
-    location.href=location.origin;
-  }
+  else if(id==="lobby"){location.href=location.origin;}
+  else if(id==="tourneySetup"){showScreen("modeSelect");}
   else if(id==="revealScreen"||id==="completeScreen"){
-    // These are during draft — back doesn't make sense mid-draft, but on complete go home
     if(id==="completeScreen")location.href=location.origin;
   }
 }
@@ -1425,6 +1675,243 @@ function renderComplete(){
     h+=`</div>`;});
   document.getElementById("compCols").innerHTML=h;
 }
+
+// ═══════════════════════════════════════════
+//  TOURNAMENT SETUP
+// ═══════════════════════════════════════════
+let tsConfig={format:"double_elim",draftMode:"duel",bestOf:1,maxPlayers:8,globalBans:new Set()};
+
+function openTournamentSetup(){
+  showScreen("tourneySetup");
+  // Render player count buttons
+  const counts=[2,4,6,8,12,16];
+  document.getElementById("tsPlayerBtns").innerHTML=counts.map(n=>
+    `<button class="ts-opt${n===tsConfig.maxPlayers?' active':''}" onclick="setTsOpt('maxPlayers',${n})">${n}</button>`
+  ).join("");
+  // Render global ban grid
+  renderTsGbanGrid();
+}
+
+function setTsOpt(field,val){
+  tsConfig[field]=val;
+  // Update button active states
+  if(field==="format"){
+    document.getElementById("tsFmtDE").classList.toggle("active",val==="double_elim");
+    document.getElementById("tsFmtRR").classList.toggle("active",val==="round_robin");
+  } else if(field==="draftMode"){
+    document.getElementById("tsDmDuel").classList.toggle("active",val==="duel");
+    document.getElementById("tsDmPhase").classList.toggle("active",val==="phase");
+    document.getElementById("tsDmStd").classList.toggle("active",val==="standard");
+  } else if(field==="bestOf"){
+    document.getElementById("tsBo1").classList.toggle("active",val===1);
+    document.getElementById("tsBo3").classList.toggle("active",val===3);
+    document.getElementById("tsBo5").classList.toggle("active",val===5);
+  } else if(field==="maxPlayers"){
+    const counts=[2,4,6,8,12,16];
+    document.getElementById("tsPlayerBtns").innerHTML=counts.map(n=>
+      `<button class="ts-opt${n===val?' active':''}" onclick="setTsOpt('maxPlayers',${n})">${n}</button>`
+    ).join("");
+  }
+}
+
+function renderTsGbanGrid(){
+  const grid=document.getElementById("tsGbanGrid");
+  grid.innerHTML=HEROES_LIST.map(h=>{
+    const banned=tsConfig.globalBans.has(h);
+    return`<div class="gban-card${banned?' gbanned':''}" onclick="toggleTsGban('${esc(h)}')">${heroImg(h,36)}<div class="gbl">${h}</div></div>`;
+  }).join("");
+  document.getElementById("tsGbanCount").textContent=`(${tsConfig.globalBans.size} banned)`;
+}
+
+function toggleTsGban(hero){
+  if(tsConfig.globalBans.has(hero))tsConfig.globalBans.delete(hero);
+  else tsConfig.globalBans.add(hero);
+  renderTsGbanGrid();
+}
+
+function createTournament(){
+  const name=document.getElementById("tsName").value.trim()||"Tournament";
+  const hostName=document.getElementById("nameInput").value.trim();
+  if(!hostName){document.getElementById("homeErr").textContent="Enter your name first.";showScreen("home");return;}
+  socket.emit("createTourney",{
+    name,hostName,
+    format:tsConfig.format,
+    draftMode:tsConfig.draftMode,
+    bestOf:tsConfig.bestOf,
+    maxPlayers:tsConfig.maxPlayers,
+    globalBans:[...tsConfig.globalBans],
+    timerDuration:parseInt(document.getElementById("tsTimer").value)||60,
+    duelPoolSize:parseInt(document.getElementById("tsPoolSize").value)||3,
+  });
+}
+
+// ═══════════════════════════════════════════
+//  TOURNAMENT LOBBY
+// ═══════════════════════════════════════════
+let TS=null; // tournament state
+let coinCurrentStreak=0;
+let coinAnimating=false;
+let tlGlobalBans=new Set();
+
+socket.on("tourneyCreated",({code})=>{history.replaceState(null,"","?tourney="+code);});
+socket.on("tourneyJoined",({code})=>{history.replaceState(null,"","?tourney="+code);});
+socket.on("tourneyState",(state)=>{
+  TS=state;
+  renderTourneyLobby();
+  if(!document.getElementById("tourneyLobby").classList.contains("active"))showScreen("tourneyLobby");
+});
+
+socket.on("coinResult",({heads,currentStreak,bestStreak})=>{
+  coinCurrentStreak=currentStreak;
+  const face=document.getElementById("coinFace");
+  const display=document.getElementById("coinDisplay");
+  const streakEl=document.getElementById("coinStreak");
+  const btn=document.getElementById("coinFlipBtn");
+  // Animate
+  coinAnimating=true;
+  btn.disabled=true;
+  face.className="coin-face flipping";
+  face.textContent="";
+  // Remove old streak classes
+  for(let i=1;i<=5;i++)display.classList.remove("streak-"+i);
+
+  setTimeout(()=>{
+    face.classList.remove("flipping");
+    if(heads){
+      face.classList.add("heads");
+      face.textContent="H";
+      // Streak flourish — intensifies with consecutive heads
+      const lvl=Math.min(5,currentStreak);
+      display.classList.add("streak-"+lvl);
+      face.style.animation="streakPop .3s ease-out";
+      setTimeout(()=>face.style.animation="",300);
+      if(currentStreak===1)streakEl.innerHTML=`<span style="color:#f0a030">Heads!</span>`;
+      else if(currentStreak<=3)streakEl.innerHTML=`<span style="color:#f0a030">${currentStreak} in a row!</span>`;
+      else if(currentStreak<=5)streakEl.innerHTML=`<span style="color:#ffcc00;font-weight:700">${currentStreak} STREAK!</span>`;
+      else streakEl.innerHTML=`<span style="color:#ffee00;font-weight:700;font-size:1.1rem">${currentStreak} STREAK!!!</span>`;
+    } else {
+      face.classList.add("tails");
+      face.textContent="T";
+      if(coinCurrentStreak===0&&bestStreak>0)streakEl.innerHTML=`Tails! Best: ${bestStreak}`;
+      else streakEl.innerHTML="Tails!";
+    }
+    coinAnimating=false;
+    btn.disabled=false;
+  },400);
+});
+
+function flipCoin(){
+  if(coinAnimating)return;
+  socket.emit("coinFlip");
+}
+
+function sendTourneyChat(){
+  const input=document.getElementById("tlChatInput");
+  const text=input.value.trim();
+  if(!text)return;
+  socket.emit("tourneyChat",{text});
+  input.value="";
+}
+
+function updateTourneySetting(field,value){
+  socket.emit("updateTourney",{field,value});
+}
+
+function toggleTlGban(hero){
+  if(tlGlobalBans.has(hero))tlGlobalBans.delete(hero);
+  else tlGlobalBans.add(hero);
+  socket.emit("updateTourney",{field:"globalBans",value:[...tlGlobalBans]});
+}
+
+function renderTourneyLobby(){
+  if(!TS)return;
+  document.getElementById("tlName").textContent=TS.name;
+  document.getElementById("tlCode").textContent=TS.code;
+
+  // Share link (host only)
+  const shareBox=document.getElementById("tlShareBox");
+  shareBox.classList.toggle("hidden",!TS.isHost);
+  if(TS.isHost){
+    document.getElementById("tlShareLink").textContent=location.origin+"?tourney="+TS.code;
+  }
+
+  // Player list
+  const pList=document.getElementById("tlPlayerList");
+  document.getElementById("tlPlayerCount").textContent=`(${TS.players.length}/${TS.maxPlayers})`;
+  pList.innerHTML=TS.players.map((p,i)=>{
+    const isHost=i===0||(TS.players[0]&&p.id===TS.players[0].id);
+    const isMe=p.name===TS.myName;
+    return`<div class="tl-player${isHost?' host-player':''}">${p.name}<span>${isHost?'<span class="tag host">HOST</span>':''}${isMe?'<span class="tag you">YOU</span>':''}</span></div>`;
+  }).join("");
+
+  // Rules
+  const fmtName=TS.format==="double_elim"?"Double Elimination":"Round Robin";
+  const dmName=TS.draftMode==="duel"?"1v1 Draft":TS.draftMode==="phase"?"Clone Wars Phase Draft":"Standard Draft";
+  const boName="Best of "+TS.bestOf;
+  document.getElementById("tlRules").innerHTML=`
+    <div style="margin-bottom:4px"><strong style="color:#ccc">Format:</strong> ${fmtName}</div>
+    <div style="margin-bottom:4px"><strong style="color:#ccc">Draft:</strong> ${dmName}</div>
+    <div style="margin-bottom:4px"><strong style="color:#ccc">Series:</strong> ${boName}</div>
+    <div style="margin-bottom:4px"><strong style="color:#ccc">Timer:</strong> ${TS.timerDuration}s per phase</div>
+    ${TS.draftMode==="duel"?`<div><strong style="color:#ccc">Pool Size:</strong> ${TS.duelPoolSize} heroes</div>`:""}
+  `;
+
+  // Banned heroes
+  const bans=TS.globalBans||[];
+  document.getElementById("tlBanCount").textContent=`(${bans.length})`;
+  document.getElementById("tlBansPanel").style.display=bans.length>0?"block":"none";
+  document.getElementById("tlBanList").innerHTML=bans.map(h=>
+    `<div class="tl-ban-chip">${heroImg(h,20)} ${h}</div>`
+  ).join("");
+
+  // Chat
+  const chatEl=document.getElementById("tlChat");
+  const wasAtBottom=chatEl.scrollHeight-chatEl.scrollTop-chatEl.clientHeight<40;
+  chatEl.innerHTML=(TS.chat||[]).map(m=>{
+    if(!m.from)return`<div class="tl-chat-msg system-msg">${m.text}</div>`;
+    return`<div class="tl-chat-msg"><span class="chat-name">${m.from}</span><span class="chat-text">${m.text.replace(/</g,"&lt;")}</span></div>`;
+  }).join("");
+  if(wasAtBottom)chatEl.scrollTop=chatEl.scrollHeight;
+
+  // Coin leaderboard
+  const lb=document.getElementById("coinLeaderboard");
+  const streaks=TS.coinStreaks||{};
+  const entries=Object.entries(streaks).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){
+    lb.innerHTML=`<div style="color:#444;font-size:.75rem;padding:4px">No streaks yet — be the first!</div>`;
+  } else {
+    const nameMap={};
+    TS.players.forEach(p=>{nameMap[p.id]=p.name;});
+    lb.innerHTML=entries.slice(0,10).map(([id,streak],i)=>
+      `<div class="lb-row"><span class="lb-name">${i===0?"&#128081; ":""}${nameMap[id]||"?"}</span><span class="lb-score">${streak}</span></div>`
+    ).join("");
+  }
+
+  // Host settings panel
+  const hostPanel=document.getElementById("tlHostSettings");
+  hostPanel.classList.toggle("hidden",!TS.isHost);
+  if(TS.isHost){
+    document.getElementById("tlhName").value=TS.name;
+    document.getElementById("tlhFormat").value=TS.format;
+    document.getElementById("tlhDraft").value=TS.draftMode;
+    document.getElementById("tlhBestOf").value=TS.bestOf;
+    document.getElementById("tlhPool").value=TS.duelPoolSize;
+    document.getElementById("tlhPoolVal").textContent=TS.duelPoolSize;
+    document.getElementById("tlhTimer").value=TS.timerDuration;
+    document.getElementById("tlhTimerVal").textContent=TS.timerDuration+"s";
+    // Global ban grid in host settings
+    tlGlobalBans=new Set(TS.globalBans||[]);
+    const hGrid=document.getElementById("tlhBanGrid");
+    hGrid.innerHTML=HEROES_LIST.map(h=>{
+      const banned=tlGlobalBans.has(h);
+      return`<div class="gban-card${banned?' gbanned':''}" onclick="toggleTlGban('${esc(h)}')" style="width:44px">${heroImg(h,28)}<div class="gbl" style="font-size:.4rem">${h}</div></div>`;
+    }).join("");
+    document.getElementById("tlhBanCt").textContent=`(${tlGlobalBans.size})`;
+  }
+}
+
+// Hero list for tournament setup (available before socket state)
+const HEROES_LIST=["Abrams","Apollo","Bebop","Billy","Calico","Celeste","Doorman","Drifter","Dynamo","Graves","Grey Talon","Haze","Holliday","Infernus","Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina","Mirage","Mo & Krill","Paradox","Pocket","Rem","Seven","Shiv","Silver","Sinclair","Venator","Vindicta","Viscous","Vyper","Warden","Wraith","Yamato"];
 
 // ═══════════════════════════════════════════
 //  REACTIVE BACKGROUND
