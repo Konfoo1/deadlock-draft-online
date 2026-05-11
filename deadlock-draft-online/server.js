@@ -761,13 +761,26 @@ function getActiveWaveMatches(tourney) {
   );
 }
 
-// Start the ready check for all pending-and-ready matches
+// Start a wave: show bracket preview first, then ready check after 7s
 function activateWave(tourney) {
   propagateBracket(tourney);
   const wave = getActiveWaveMatches(tourney);
   for (const m of wave) {
-    m.status = "ready_check";
+    m.status = "preview";
     m.readyState = [false, false];
+  }
+  if (wave.length > 0) {
+    broadcastTourneyBracket(tourney);
+    setTimeout(() => {
+      let changed = false;
+      for (const m of wave) {
+        if (m.status === "preview") {
+          m.status = "ready_check";
+          changed = true;
+        }
+      }
+      if (changed) broadcastTourneyBracket(tourney);
+    }, 7000);
   }
   return wave;
 }
@@ -1239,6 +1252,13 @@ io.on("connection", (socket) => {
     } else {
       me._coinCurrent = 0;
     }
+    // Notify everyone else that a flip is happening so they defer leaderboard updates
+    for (const p of tourney.players) {
+      if (p.id !== socket.id) {
+        io.to(p.id).emit("coinFlipStarted", { flipper: me.name });
+      }
+    }
+
     // Send result to the flipper with their current streak
     socket.emit("coinResult", {
       heads: isHeads,
@@ -1299,12 +1319,9 @@ io.on("connection", (socket) => {
     tourney.revealIndex = 0;
     tourney.phase = "bracket";
 
-    // Propagate BYE winners and activate first wave
+    // Propagate BYE winners and activate first wave (activateWave broadcasts internally)
     propagateBracket(tourney);
     activateWave(tourney);
-
-    // Broadcast with bracket data
-    broadcastTourneyBracket(tourney);
   });
 
   socket.on("tourneyReadyUp", () => {

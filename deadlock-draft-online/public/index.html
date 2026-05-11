@@ -388,42 +388,54 @@ input,select{font-family:inherit}
 
 /* ── BRACKET ───────────────────────────── */
 .bracket-screen{padding:20px;overflow:auto;position:relative}
-.bracket-container{position:relative;display:flex;gap:0;min-width:max-content;padding:20px 40px}
-.bracket-section{text-align:center;margin-bottom:10px}
 .bracket-section-title{font-size:.7rem;font-weight:700;letter-spacing:2px;color:#555;margin-bottom:8px;text-transform:uppercase}
-.bracket-round{display:flex;flex-direction:column;justify-content:center;gap:12px;min-width:180px;padding:0 8px}
-.bracket-match{
-  background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px;
-  min-width:165px;cursor:default;transition:all .3s;position:relative;
-}
-.bracket-match.my-match{border-color:#f0a030;box-shadow:0 0 12px rgba(240,160,48,.2)}
-.bracket-match.ready-check{border-color:#44cc66;box-shadow:0 0 10px rgba(68,204,102,.15)}
-.bracket-match.active-draft{border-color:#f0a030;animation:glowPulse 2s infinite}
-.bracket-match.disputed{border-color:var(--ban);box-shadow:0 0 10px rgba(204,68,68,.2)}
-.bracket-match.completed{opacity:.7}
-.bracket-match.completed .bm-winner{opacity:1;font-weight:700}
-.bm-slot{display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;margin:2px 0;font-size:.8rem;min-height:28px}
-.bm-slot.empty{color:#444;font-style:italic}
-.bm-slot.winner{background:rgba(68,204,102,.1);color:#4c4}
-.bm-slot.loser{background:rgba(204,68,68,.05);color:#666;text-decoration:line-through;opacity:.5}
-.bm-slot .bm-name{flex:1}
-.bm-slot .bm-check{color:#4c4;font-weight:700;font-size:.9rem}
-.bm-status{font-size:.6rem;letter-spacing:1px;color:#555;text-align:center;margin-top:4px;font-weight:700;text-transform:uppercase}
-.bm-status.ready{color:#44cc66}
-.bm-status.drafting{color:#f0a030}
-.bm-status.voting{color:#4a8adf}
-.bm-status.dispute{color:var(--ban)}
 
-/* Per-round hero results inside bracket matches */
-.bm-rounds{display:flex;gap:3px;margin-top:5px;justify-content:center;flex-wrap:wrap}
-.bm-round{display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
-.bm-round-label{font-size:.45rem;color:#444;font-weight:700;letter-spacing:.5px}
-.bm-round-heroes{display:flex;flex-direction:column;gap:2px;align-items:center}
-.bm-rh{position:relative;width:26px;height:26px;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
-.bm-rh img{width:100%;height:100%;object-fit:cover;display:block}
-.bm-rh span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#555;background:#1a1a1a}
-.bm-rh.won{border-color:#4c4;box-shadow:0 0 6px rgba(68,204,102,.35)}
-.bm-rh.lost{opacity:.3;filter:grayscale(.8)}
+/* ── Traditional bracket flow ── */
+.bk-flow{display:flex;align-items:stretch;min-height:200px}
+.bk-round{display:flex;flex-direction:column;justify-content:space-around;padding:4px 0}
+.bk-round-label{font-size:.5rem;color:#555;letter-spacing:1px;text-align:center;padding:0 0 4px;font-weight:700;text-transform:uppercase}
+
+/* Connector columns between rounds */
+.bk-conns{display:flex;flex-direction:column;justify-content:space-around;width:28px;flex-shrink:0}
+.bk-conn{flex:1;display:flex;flex-direction:column;position:relative}
+.bk-conn .ct{flex:1;border-right:2px solid #333;border-bottom:2px solid #333}
+.bk-conn .cb{flex:1;border-right:2px solid #333;border-top:2px solid #333}
+.bk-conn::after{content:'';position:absolute;top:50%;right:-8px;width:8px;border-top:2px solid #333}
+.bk-conns-gap{width:16px;flex-shrink:0}
+
+/* Match card */
+.bk-match{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 8px;margin:4px 0;min-width:170px;position:relative;transition:all .3s}
+.bk-match.my-match{border-color:#f0a030;box-shadow:0 0 10px rgba(240,160,48,.2)}
+.bk-match.preview{border-color:#f0a030;animation:glowPulse 2s infinite}
+.bk-match.ready-check{border-color:#44cc66;box-shadow:0 0 8px rgba(68,204,102,.15)}
+.bk-match.active-draft{border-color:#f0a030;animation:glowPulse 2s infinite}
+.bk-match.disputed{border-color:var(--ban);box-shadow:0 0 8px rgba(204,68,68,.2)}
+.bk-match.completed{opacity:.75}
+
+/* Horizontal stub line from match right edge into connector */
+.bk-round:not(:last-child) .bk-match::after{content:'';position:absolute;top:50%;right:-8px;width:8px;border-top:2px solid #333}
+
+/* Player row inside match */
+.bk-player{padding:2px 0}
+.bk-player.winner .bk-pname{color:#4c4;font-weight:700}
+.bk-player.loser .bk-pname{color:#666;text-decoration:line-through}
+.bk-prow{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.bk-pname{font-size:.75rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-badge{font-size:.5rem;font-weight:800;letter-spacing:.5px;padding:1px 5px;border-radius:3px;flex-shrink:0}
+.bk-badge.win{background:rgba(68,204,102,.15);color:#4c4}
+.bk-badge.lose{background:rgba(204,68,68,.1);color:#c44}
+.bk-sep{height:1px;background:var(--border);margin:3px 0}
+
+/* Per-round hero portraits under each player */
+.bk-heroes{display:flex;gap:3px;margin-top:3px}
+.bk-hero{width:24px;height:24px;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.bk-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.bk-hero span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#555;background:#1a1a1a}
+.bk-hero.won{border-color:#4c4;box-shadow:0 0 5px rgba(68,204,102,.3)}
+.bk-hero.lost{opacity:.3;filter:grayscale(.8)}
+
+/* Match status label */
+.bk-status{font-size:.5rem;letter-spacing:1px;text-align:center;margin-top:3px;font-weight:700;text-transform:uppercase}
 
 /* ── MATCH SCREEN ─────────────────────── */
 .match-panel{
@@ -907,15 +919,15 @@ input,select{font-family:inherit}
   <div id="bracketView" style="overflow:auto;max-height:calc(100vh - 140px)">
     <div id="bracketWB" style="margin-bottom:20px">
       <div class="bracket-section-title">Winners Bracket</div>
-      <div id="bracketWBRounds" class="bracket-container"></div>
+      <div id="bracketWBRounds"></div>
     </div>
     <div id="bracketLB" style="margin-bottom:20px">
       <div class="bracket-section-title">Losers Bracket</div>
-      <div id="bracketLBRounds" class="bracket-container"></div>
+      <div id="bracketLBRounds"></div>
     </div>
     <div id="bracketGF" style="margin-bottom:20px">
       <div class="bracket-section-title">Grand Final</div>
-      <div id="bracketGFMatch" style="display:flex;justify-content:center"></div>
+      <div id="bracketGFMatch"></div>
     </div>
   </div>
   <div id="bracketCountdown" class="bracket-countdown hidden">
@@ -1983,7 +1995,7 @@ socket.on("tourneyState",(state)=>{
   }
 
   if(TS.tourneyPhase==="bracket"&&TS.bracket){
-    // Check if I'm in an active match
+    // Check if I'm in an active match (but NOT during preview — stay on bracket)
     if(TS.myMatch){
       const myMatch=TS.bracket.matches.find(m=>m.id===TS.myMatch.id);
       if(myMatch&&(myMatch.status==="ready_check"||myMatch.status==="voting"||myMatch.status==="dispute")){
@@ -2083,6 +2095,21 @@ socket.on("coinResult",({heads,currentStreak,bestStreak})=>{
       renderTourneyLobby();
     }
   },2000);
+});
+
+// When another player flips, defer leaderboard updates for the animation duration
+let coinDeferTimer=null;
+socket.on("coinFlipStarted",()=>{
+  coinAnimating=true;
+  if(coinDeferTimer)clearTimeout(coinDeferTimer);
+  coinDeferTimer=setTimeout(()=>{
+    coinAnimating=false;
+    coinDeferTimer=null;
+    if(pendingTourneyState){
+      TS=pendingTourneyState;pendingTourneyState=null;
+      renderTourneyLobby();
+    }
+  },2500);
 });
 
 function flipCoin(){
@@ -2254,60 +2281,92 @@ let currentDraftInfo=null; // {draftCode, matchId, opponent, slot}
 
 function renderBracketMatch(m, myName){
   const isMy=m.slots.includes(myName);
-  let cls="bracket-match";
+  let cls="bk-match";
   if(isMy&&m.status!=="complete")cls+=" my-match";
+  if(m.status==="preview")cls+=" preview";
   if(m.status==="ready_check")cls+=" ready-check";
   if(m.status==="drafting")cls+=" active-draft";
   if(m.status==="dispute")cls+=" disputed";
   if(m.status==="complete")cls+=" completed";
 
   let html=`<div class="${cls}" data-match-id="${m.id}">`;
+
   for(let s=0;s<2;s++){
+    if(s===1)html+=`<div class="bk-sep"></div>`;
     const name=m.slots[s];
-    let slotCls="bm-slot";
-    if(!name)slotCls+=" empty";
-    else if(m.status==="complete"&&m.winner===name)slotCls+=" winner";
-    else if(m.status==="complete"&&m.loser===name)slotCls+=" loser";
-    html+=`<div class="${slotCls}"><span class="bm-name">${name||"TBD"}</span>`;
-    if(m.status==="complete"&&m.winner===name)html+=`<span class="bm-check">✓</span>`;
+    let pCls="bk-player";
+    if(m.status==="complete"&&name){
+      if(m.winner===name)pCls+=" winner";
+      else pCls+=" loser";
+    }
+
+    html+=`<div class="${pCls}">`;
+    html+=`<div class="bk-prow">`;
+    html+=`<span class="bk-pname">${name||"TBD"}</span>`;
+    if(m.status==="complete"&&name){
+      html+=m.winner===name?`<span class="bk-badge win">WIN</span>`:`<span class="bk-badge lose">LOSE</span>`;
+    }
     html+=`</div>`;
-  }
-  // Per-round hero results for completed (or in-progress) matches
-  if(m.rounds&&m.rounds.length>0){
-    html+=`<div class="bm-rounds">`;
-    m.rounds.forEach((rd,ri)=>{
-      html+=`<div class="bm-round">`;
-      html+=`<div class="bm-round-label">R${ri+1}</div>`;
-      html+=`<div class="bm-round-heroes">`;
-      for(let s=0;s<2;s++){
+
+    // Per-round hero portraits under this player
+    if(m.rounds&&m.rounds.length>0){
+      html+=`<div class="bk-heroes">`;
+      for(const rd of m.rounds){
         const hero=rd.heroes[s];
         if(hero){
           const won=rd.winner===m.slots[s];
           const lost=rd.winner&&rd.winner!==m.slots[s];
-          const cls="bm-rh"+(won?" won":"")+(lost?" lost":"");
-          html+=`<div class="${cls}">${heroImg(hero,26)}</div>`;
+          const hCls="bk-hero"+(won?" won":"")+(lost?" lost":"");
+          html+=`<div class="${hCls}">${heroImg(hero,24)}</div>`;
         }
       }
-      html+=`</div></div>`;
-    });
+      html+=`</div>`;
+    }
     html+=`</div>`;
   }
 
-  // Status label
-  let statusCls="bm-status";
-  let statusText="";
-  if(m.status==="ready_check"){statusCls+=" ready";statusText="READY CHECK";
-    if(isMy){
-      const mySlot=m.slots[0]===myName?0:1;
-      statusText=m.readyState[mySlot]?"READY ✓":"WAITING FOR READY";
+  // Status label for active matches
+  let statusText="",statusColor="#555";
+  if(m.status==="preview"){statusText="UPCOMING";statusColor="#f0a030";}
+  else if(m.status==="ready_check"){statusText="READY CHECK";statusColor="#44cc66";}
+  else if(m.status==="drafting"){statusText="DRAFTING";statusColor="#f0a030";}
+  else if(m.status==="voting"){statusText="VOTING";statusColor="#4a8adf";}
+  else if(m.status==="dispute"){statusText="DISPUTE";statusColor="var(--ban)";}
+  else if(m.status==="pending"&&m.slots[0]&&m.slots[1]){statusText="PENDING";}
+  if(statusText)html+=`<div class="bk-status" style="color:${statusColor}">${statusText}</div>`;
+
+  html+=`</div>`;
+  return html;
+}
+
+// Build a bracket section (WB or LB) with connector lines between rounds
+function renderBracketSection(roundArrays,matches,myName,labelPrefix){
+  let html='<div class="bk-flow">';
+  for(let r=0;r<roundArrays.length;r++){
+    const mids=roundArrays[r];
+    // Round column
+    html+=`<div class="bk-round">`;
+    html+=`<div class="bk-round-label">${labelPrefix} R${r+1}</div>`;
+    for(const mid of mids)html+=renderBracketMatch(matches[mid],myName);
+    html+=`</div>`;
+
+    // Connector column between this round and the next
+    if(r<roundArrays.length-1){
+      const thisCount=mids.length;
+      const nextCount=roundArrays[r+1].length;
+      if(thisCount===nextCount*2&&nextCount>0){
+        // Standard bracket merge: pairs → singles
+        html+=`<div class="bk-conns">`;
+        for(let i=0;i<nextCount;i++){
+          html+=`<div class="bk-conn"><div class="ct"></div><div class="cb"></div></div>`;
+        }
+        html+=`</div>`;
+      } else {
+        html+=`<div class="bk-conns-gap"></div>`;
+      }
     }
   }
-  else if(m.status==="drafting"){statusCls+=" drafting";statusText="DRAFTING";}
-  else if(m.status==="voting"){statusCls+=" voting";statusText="VOTING";}
-  else if(m.status==="dispute"){statusCls+=" dispute";statusText="DISPUTE";}
-  else if(m.status==="pending"&&m.slots[0]&&m.slots[1]){statusText="PENDING";}
-  if(statusText)html+=`<div class="${statusCls}">${statusText}</div>`;
-  html+=`</div>`;
+  html+='</div>';
   return html;
 }
 
@@ -2319,40 +2378,19 @@ function renderBracket(){
   const myName=TS.myName;
 
   // Winners bracket
-  const wbEl=document.getElementById("bracketWBRounds");
-  let wbHtml="";
-  for(let r=0;r<b.wbRounds.length;r++){
-    wbHtml+=`<div class="bracket-round">`;
-    wbHtml+=`<div style="font-size:.6rem;color:#555;letter-spacing:1px;margin-bottom:6px;text-align:center">WB R${r+1}</div>`;
-    for(const mid of b.wbRounds[r]){
-      wbHtml+=renderBracketMatch(matches[mid],myName);
-    }
-    wbHtml+=`</div>`;
-  }
-  wbEl.innerHTML=wbHtml;
+  document.getElementById("bracketWBRounds").innerHTML=renderBracketSection(b.wbRounds,matches,myName,"WB");
 
   // Losers bracket
-  const lbEl=document.getElementById("bracketLBRounds");
-  let lbHtml="";
-  for(let r=0;r<b.lbRounds.length;r++){
-    lbHtml+=`<div class="bracket-round">`;
-    lbHtml+=`<div style="font-size:.6rem;color:#555;letter-spacing:1px;margin-bottom:6px;text-align:center">LB R${r+1}</div>`;
-    for(const mid of b.lbRounds[r]){
-      lbHtml+=renderBracketMatch(matches[mid],myName);
-    }
-    lbHtml+=`</div>`;
-  }
-  lbEl.innerHTML=lbHtml;
+  document.getElementById("bracketLBRounds").innerHTML=renderBracketSection(b.lbRounds,matches,myName,"LB");
 
   // Grand final
-  const gfEl=document.getElementById("bracketGFMatch");
   const gf=matches[b.grandFinalId];
-  gfEl.innerHTML=gf?renderBracketMatch(gf,myName):"";
+  document.getElementById("bracketGFMatch").innerHTML=gf?`<div class="bk-flow"><div class="bk-round">${renderBracketMatch(gf,myName)}</div></div>`:"";
 
   // Status text
   const statusEl=document.getElementById("tbStatus");
-  const activeCount=b.matches.filter(m=>m.status!=="complete"&&m.status!=="pending").length;
   const completeCount=b.matches.filter(m=>m.status==="complete").length;
+  const activeCount=b.matches.filter(m=>m.status!=="complete"&&m.status!=="pending").length;
   statusEl.textContent=`${completeCount}/${b.matches.length} matches complete${activeCount>0?" — "+activeCount+" active":""}`;
 
   document.getElementById("tbName").textContent=TS.name+" — Bracket";
