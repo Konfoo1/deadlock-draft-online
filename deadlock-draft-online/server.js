@@ -454,6 +454,12 @@ function resolveMatch(tourney, match, winnerName) {
   match.loser = loserName;
   match.status = "complete";
 
+  // Mark the latest round's winner (for per-round hero display)
+  if (match.rounds && match.rounds.length > 0) {
+    const lastRound = match.rounds[match.rounds.length - 1];
+    if (!lastRound.winner) lastRound.winner = winnerName;
+  }
+
   // If loser was already in losers bracket, they're eliminated
   if (match.bracket === "losers" || match.bracket === "grand_final") {
     if (loserName && !tourney.eliminated.includes(loserName)) {
@@ -497,6 +503,13 @@ function onTourneyDraftComplete(lobby) {
   if (!tourney) return;
   const match = tourney.bracket.matches.find(m => m.id === tm.matchId);
   if (!match) return;
+
+  // Record round result (hero picks for this draft)
+  if (!match.rounds) match.rounds = [];
+  match.rounds.push({
+    heroes: [lobby.champions[0] || null, lobby.champions[1] || null],
+    winner: null, // filled in when vote/dispute resolves
+  });
 
   // Move match to voting phase
   match.status = "voting";
@@ -551,6 +564,7 @@ function generateDoubleElimBracket(playerNames) {
       votes: [null, null], // who each player voted as winner
       draftCode: null,
       score: [0, 0],
+      rounds: [], // per-round results: [{heroes:[h0,h1], winner:name}, ...]
     };
     // Auto-resolve BYE matches
     if (m.slots[0] === null && m.slots[1] === null) {
@@ -809,6 +823,7 @@ function tourneyBracketStateFor(tourney, sid) {
       readyState: m.readyState,
       votes: m.votes,
       score: m.score,
+      rounds: m.rounds || [],
     })),
     wbRounds: tourney.bracket.wbRounds,
     lbRounds: tourney.bracket.lbRounds,
@@ -1337,7 +1352,10 @@ io.on("connection", (socket) => {
       match.draftCode = draftCode;
       match.status = "drafting";
 
-      // Notify players to join the draft
+      // Broadcast bracket first so clients have updated state for the countdown preview
+      broadcastTourneyBracket(tourney);
+
+      // Then notify players to join the draft (client shows bracket for 7s first)
       for (const p of tourney.players) {
         if (p.name === match.slots[0] || p.name === match.slots[1]) {
           io.to(p.id).emit("tourneyDraftStart", {
@@ -1348,9 +1366,9 @@ io.on("connection", (socket) => {
           });
         }
       }
+    } else {
+      broadcastTourneyBracket(tourney);
     }
-
-    broadcastTourneyBracket(tourney);
   });
 
   socket.on("joinTourneyDraft", ({ draftCode, slot }) => {

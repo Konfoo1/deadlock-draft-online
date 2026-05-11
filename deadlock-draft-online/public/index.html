@@ -192,6 +192,22 @@ input,select{font-family:inherit}
 .rh.champ{font-size:1.2rem;animation:champReveal .6s ease-out both}.rh.champ img{width:56px;height:56px;border-radius:8px}
 .rcol.t1 .rh.champ img{box-shadow:0 0 20px var(--t1glow)}
 .rcol.t2 .rh.champ img{box-shadow:0 0 20px var(--t2glow)}
+
+/* Duel VS layout */
+.duel-vs-wrap{display:flex;align-items:center;justify-content:center;gap:24px;margin:24px 0 28px;flex-wrap:wrap}
+.duel-vs-player{text-align:center;min-width:140px;animation:slideUp .5s ease-out both}
+.duel-vs-player:nth-child(1){animation-delay:.1s}
+.duel-vs-player:nth-child(3){animation-delay:.25s}
+.duel-vs-player .dvp-name{font-size:1.3rem;font-weight:800;letter-spacing:.5px;margin-bottom:12px}
+.duel-vs-player.t1 .dvp-name{background:linear-gradient(90deg,var(--t1),var(--t1m),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.duel-vs-player.t2 .dvp-name{background:linear-gradient(90deg,var(--t2),var(--t2m),var(--t2l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.duel-vs-player .dvp-portrait{position:relative;display:inline-block}
+.duel-vs-player .dvp-portrait img{width:100px;height:100px;border-radius:12px;object-fit:cover;border:2px solid rgba(255,255,255,.1)}
+.duel-vs-player .dvp-portrait span{width:100px;height:100px;border-radius:12px;font-size:38px}
+.duel-vs-player.t1 .dvp-portrait img{box-shadow:0 0 24px var(--t1glow);border-color:var(--t1)}
+.duel-vs-player.t2 .dvp-portrait img{box-shadow:0 0 24px var(--t2glow);border-color:var(--t2)}
+.duel-vs-player .dvp-hero{margin-top:8px;font-size:.85rem;color:#999;font-weight:600}
+.duel-vs-tag{font-size:2rem;font-weight:900;color:#555;letter-spacing:2px;animation:slideUp .4s ease-out .15s both;align-self:center}
 .rl{margin-top:10px;font-size:.7rem;color:#444;letter-spacing:1px}
 .waiting-text{color:#444;font-size:.85rem;margin-top:8px}
 
@@ -286,9 +302,9 @@ input,select{font-family:inherit}
 
 /* ── MODE LABEL (top-center) ──────────── */
 .mode-label{
-  position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:100;
-  padding:5px 16px;font-size:.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-  border:1px solid var(--border);border-radius:6px;background:rgba(18,18,26,.85);color:#666;
+  position:fixed;top:6px;right:16px;z-index:100;
+  padding:4px 12px;font-size:.55rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:6px;background:rgba(18,18,26,.85);color:#555;
   backdrop-filter:blur(6px);display:none;white-space:nowrap;
 }
 .mode-label.visible{display:block;animation:fadeIn .3s ease-out}
@@ -371,7 +387,7 @@ input,select{font-family:inherit}
 .gban-card.gbanned::after{content:'✕';position:absolute;top:1px;right:3px;color:var(--ban);font-size:.7rem;font-weight:700}
 
 /* ── BRACKET ───────────────────────────── */
-.bracket-screen{padding:20px;overflow:auto}
+.bracket-screen{padding:20px;overflow:auto;position:relative}
 .bracket-container{position:relative;display:flex;gap:0;min-width:max-content;padding:20px 40px}
 .bracket-section{text-align:center;margin-bottom:10px}
 .bracket-section-title{font-size:.7rem;font-weight:700;letter-spacing:2px;color:#555;margin-bottom:8px;text-transform:uppercase}
@@ -397,6 +413,17 @@ input,select{font-family:inherit}
 .bm-status.drafting{color:#f0a030}
 .bm-status.voting{color:#4a8adf}
 .bm-status.dispute{color:var(--ban)}
+
+/* Per-round hero results inside bracket matches */
+.bm-rounds{display:flex;gap:3px;margin-top:5px;justify-content:center;flex-wrap:wrap}
+.bm-round{display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
+.bm-round-label{font-size:.45rem;color:#444;font-weight:700;letter-spacing:.5px}
+.bm-round-heroes{display:flex;flex-direction:column;gap:2px;align-items:center}
+.bm-rh{position:relative;width:26px;height:26px;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.bm-rh img{width:100%;height:100%;object-fit:cover;display:block}
+.bm-rh span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#555;background:#1a1a1a}
+.bm-rh.won{border-color:#4c4;box-shadow:0 0 6px rgba(68,204,102,.35)}
+.bm-rh.lost{opacity:.3;filter:grayscale(.8)}
 
 /* ── MATCH SCREEN ─────────────────────── */
 .match-panel{
@@ -439,6 +466,13 @@ input,select{font-family:inherit}
 .match-zooming-in{animation:matchZoomIn .5s ease-out}
 
 /* ── START TOURNAMENT BUTTON ─────────── */
+/* Bracket countdown overlay */
+.bracket-countdown{position:sticky;bottom:0;left:0;right:0;z-index:10;pointer-events:none;display:flex;justify-content:center;padding:16px 0 24px}
+.bracket-countdown .bc-inner{pointer-events:auto;background:rgba(10,10,12,.92);border:1px solid rgba(240,160,48,.35);border-radius:14px;padding:16px 32px;text-align:center;backdrop-filter:blur(8px);animation:slideUp .4s ease-out both;box-shadow:0 0 30px rgba(240,160,48,.15)}
+.bracket-countdown .bc-label{font-size:.8rem;color:#888;letter-spacing:1px;text-transform:uppercase;font-weight:600}
+.bracket-countdown .bc-timer{font-size:2.4rem;font-weight:900;color:#f0a030;margin:4px 0;font-variant-numeric:tabular-nums}
+.bracket-countdown .bc-opponent{font-size:.9rem;color:#ccc;font-weight:600}
+
 .start-tourney-btn{
   padding:14px 40px;font-size:1.1rem;font-weight:700;border:none;border-radius:10px;
   background:linear-gradient(135deg,#f0a030,#e8c020);color:#000;cursor:pointer;
@@ -882,6 +916,13 @@ input,select{font-family:inherit}
     <div id="bracketGF" style="margin-bottom:20px">
       <div class="bracket-section-title">Grand Final</div>
       <div id="bracketGFMatch" style="display:flex;justify-content:center"></div>
+    </div>
+  </div>
+  <div id="bracketCountdown" class="bracket-countdown hidden">
+    <div class="bc-inner">
+      <div class="bc-label">Your match begins in</div>
+      <div class="bc-timer" id="bcTimer">7</div>
+      <div class="bc-opponent" id="bcOpponent"></div>
     </div>
   </div>
 </div>
@@ -1816,13 +1857,29 @@ function renderComplete(){
 
   // Phase draft complete — single hero per team
   const isDuel=S.mode==="duel";
-  document.querySelector("#completeScreen p").textContent=isDuel?"Each player has chosen their hero — time to fight!":"Each team plays as their chosen hero — a full squad of 6!";
-  let h="";
-  [0,1].forEach(t=>{
-    h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
-    if(S.champions[t])h+=`<div class="rh champ">${heroImg(S.champions[t],52)} ${S.champions[t]}</div>`;
-    h+=`</div>`;});
-  document.getElementById("compCols").innerHTML=h;
+  document.querySelector("#completeScreen p").textContent=isDuel?"Time to fight!":"Each team plays as their chosen hero — a full squad of 6!";
+
+  if(isDuel){
+    let h=`<div class="duel-vs-wrap">`;
+    h+=`<div class="duel-vs-player t1">`;
+    h+=`<div class="dvp-name">${S.teamNames[0]}</div>`;
+    if(S.champions[0])h+=`<div class="dvp-portrait">${heroImg(S.champions[0],100)}</div><div class="dvp-hero">${S.champions[0]}</div>`;
+    h+=`</div>`;
+    h+=`<div class="duel-vs-tag">VS</div>`;
+    h+=`<div class="duel-vs-player t2">`;
+    h+=`<div class="dvp-name">${S.teamNames[1]}</div>`;
+    if(S.champions[1])h+=`<div class="dvp-portrait">${heroImg(S.champions[1],100)}</div><div class="dvp-hero">${S.champions[1]}</div>`;
+    h+=`</div>`;
+    h+=`</div>`;
+    document.getElementById("compCols").innerHTML=h;
+  } else {
+    let h="";
+    [0,1].forEach(t=>{
+      h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
+      if(S.champions[t])h+=`<div class="rh champ">${heroImg(S.champions[t],52)} ${S.champions[t]}</div>`;
+      h+=`</div>`;});
+    document.getElementById("compCols").innerHTML=h;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1905,6 +1962,7 @@ let TS=null; // tournament state
 let coinCurrentStreak=0;
 let coinAnimating=false;
 let tlGlobalBans=new Set();
+let bracketCountdownTimer=null;
 
 socket.on("tourneyCreated",({code})=>{history.replaceState(null,"","?tourney="+code);});
 socket.on("tourneyJoined",({code})=>{history.replaceState(null,"","?tourney="+code);});
@@ -1913,6 +1971,16 @@ socket.on("tourneyState",(state)=>{
   // If coin is animating, defer the state update so leaderboard doesn't spoil mid-flip
   if(coinAnimating){pendingTourneyState=state;return;}
   TS=state;
+
+  // Hide bracket countdown if we're being routed away from bracket view
+  // (but keep it if we're still on bracket with a countdown running)
+  if(TS.tourneyPhase!=="bracket"){
+    const bcOverlay=document.getElementById("bracketCountdown");
+    if(bcOverlay&&!bcOverlay.classList.contains("hidden")){
+      bcOverlay.classList.add("hidden");
+      if(bracketCountdownTimer){clearInterval(bracketCountdownTimer);bracketCountdownTimer=null;}
+    }
+  }
 
   if(TS.tourneyPhase==="bracket"&&TS.bracket){
     // Check if I'm in an active match
@@ -2204,6 +2272,27 @@ function renderBracketMatch(m, myName){
     if(m.status==="complete"&&m.winner===name)html+=`<span class="bm-check">✓</span>`;
     html+=`</div>`;
   }
+  // Per-round hero results for completed (or in-progress) matches
+  if(m.rounds&&m.rounds.length>0){
+    html+=`<div class="bm-rounds">`;
+    m.rounds.forEach((rd,ri)=>{
+      html+=`<div class="bm-round">`;
+      html+=`<div class="bm-round-label">R${ri+1}</div>`;
+      html+=`<div class="bm-round-heroes">`;
+      for(let s=0;s<2;s++){
+        const hero=rd.heroes[s];
+        if(hero){
+          const won=rd.winner===m.slots[s];
+          const lost=rd.winner&&rd.winner!==m.slots[s];
+          const cls="bm-rh"+(won?" won":"")+(lost?" lost":"");
+          html+=`<div class="${cls}">${heroImg(hero,26)}</div>`;
+        }
+      }
+      html+=`</div></div>`;
+    });
+    html+=`</div>`;
+  }
+
   // Status label
   let statusCls="bm-status";
   let statusText="";
@@ -2387,11 +2476,38 @@ function advanceTourneyReveal(){
   socket.emit("advanceReveal");
 }
 
-// Handle draft start for tournament matches
+// Handle draft start for tournament matches — show bracket for 7s first
 socket.on("tourneyDraftStart",({draftCode,matchId,opponent,slot})=>{
   currentDraftInfo={draftCode,matchId,opponent,slot};
-  // Auto-join the draft lobby as captain
-  socket.emit("joinTourneyDraft",{draftCode,slot});
+
+  // Show bracket with countdown overlay before joining draft
+  if(TS&&TS.bracket){
+    renderBracket();
+    showScreen("tourneyBracket");
+
+    const overlay=document.getElementById("bracketCountdown");
+    const timerEl=document.getElementById("bcTimer");
+    const oppEl=document.getElementById("bcOpponent");
+    overlay.classList.remove("hidden");
+    oppEl.textContent="vs "+opponent;
+    let remaining=7;
+    timerEl.textContent=remaining;
+
+    if(bracketCountdownTimer)clearInterval(bracketCountdownTimer);
+    bracketCountdownTimer=setInterval(()=>{
+      remaining--;
+      timerEl.textContent=remaining;
+      if(remaining<=0){
+        clearInterval(bracketCountdownTimer);
+        bracketCountdownTimer=null;
+        overlay.classList.add("hidden");
+        socket.emit("joinTourneyDraft",{draftCode,slot});
+      }
+    },1000);
+  } else {
+    // No bracket state yet, join immediately
+    socket.emit("joinTourneyDraft",{draftCode,slot});
+  }
 });
 
 socket.on("tourneyDraftComplete",({matchId,slots})=>{
