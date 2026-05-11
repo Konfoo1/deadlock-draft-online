@@ -1517,8 +1517,10 @@ function renderReveal(){
   const title=document.getElementById("rvTitle");
   const desc=document.getElementById("rvDesc");
   const cols=document.getElementById("rvCols");
-  document.getElementById("rvBtn").style.display=S.isHost?"inline-block":"none";
-  document.getElementById("rvWait").classList.toggle("hidden",S.isHost);
+  // In duel mode, either captain can advance (no host concept in 1v1)
+  const canAdvance=S.mode==="duel"?S.role==="captain":S.isHost;
+  document.getElementById("rvBtn").style.display=canAdvance?"inline-block":"none";
+  document.getElementById("rvWait").classList.toggle("hidden",canAdvance);
 
   if(S.phase==="phase1_reveal"){
     title.textContent="Phase 1 — Picks Revealed!";
@@ -1785,8 +1787,9 @@ function renderStdDraft(){
 //  RENDER: COMPLETE
 // ═══════════════════════════════════════════
 function renderComplete(){
-  document.getElementById("resetBtn").style.display=S.isHost?"inline-block":"none";
-  document.getElementById("resetWait").classList.toggle("hidden",S.isHost);
+  const canReset=S.mode==="duel"?S.role==="captain":S.isHost;
+  document.getElementById("resetBtn").style.display=canReset?"inline-block":"none";
+  document.getElementById("resetWait").classList.toggle("hidden",canReset);
 
   // Standard draft complete — show 6 picks + bans per team
   if(S.mode==="standard"&&S.std){

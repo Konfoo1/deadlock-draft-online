@@ -1127,7 +1127,12 @@ io.on("connection", (socket) => {
   socket.on("advancePhase", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || socket.id !== lobby.hostId) return;
+    if (!lobby) return;
+    // In duel mode, either captain can advance (no spectators to manage)
+    const isDuel = lobby.mode === "duel";
+    const isCaptain = lobby.captains[0]?.id === socket.id || lobby.captains[1]?.id === socket.id;
+    if (!isDuel && socket.id !== lobby.hostId) return;
+    if (isDuel && !isCaptain) return;
     if (lobby.phase === "phase1_reveal") startPhase2(lobby);
     else if (lobby.phase === "phase2_reveal") startPhase3(lobby);
   });
@@ -1135,7 +1140,12 @@ io.on("connection", (socket) => {
   socket.on("resetDraft", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || socket.id !== lobby.hostId) return;
+    if (!lobby) return;
+    // In duel mode, either captain can reset
+    const isDuel = lobby.mode === "duel";
+    const isCaptain = lobby.captains[0]?.id === socket.id || lobby.captains[1]?.id === socket.id;
+    if (!isDuel && socket.id !== lobby.hostId) return;
+    if (isDuel && !isCaptain) return;
     clearTimer(lobby); lobby.phase = "waiting";
     lobby.ready = [false, false]; lobby.std = null;
     broadcast(lobby);
