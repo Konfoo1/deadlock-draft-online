@@ -837,16 +837,17 @@ io.on("connection", (socket) => {
 
   socket.on("createLobby", ({ name, timerDuration, mode }) => {
     const code = genCode();
+    const isDuel = mode === "duel";
     const lobby = {
       code, hostId: socket.id,
       mode: mode || "phase", // "phase", "standard", or "duel"
       timerDuration: timerDuration || 60,
       phase: "waiting",
-      teamNames: mode === "duel" ? ["Player 1", "Player 2"] : ["Hidden King", "Archmother"],
-      captains: [null, null],
+      teamNames: isDuel ? [name || "Player 1", "Player 2"] : ["Hidden King", "Archmother"],
+      captains: isDuel ? [{ id: socket.id, name }, null] : [null, null],
       ready: [false, false],
       spectators: [[], []],
-      unassigned: [{ id: socket.id, name }],
+      unassigned: isDuel ? [] : [{ id: socket.id, name }],
       // Phase draft fields (shared by phase + duel)
       picks: [[], []], pools: [[], []], origPicks: [[], []],
       bans: new Set(), overlaps: [],
@@ -917,6 +918,20 @@ io.on("connection", (socket) => {
     const lobby = lobbies.get(c);
     if (!lobby) return socket.emit("err", "Lobby not found.");
     if (findPerson(lobby, socket.id)) { broadcast(lobby); return; }
+    // In duel mode, auto-assign as captain if a slot is open
+    if (lobby.mode === "duel" && lobby.phase === "waiting") {
+      if (!lobby.captains[1]) {
+        lobby.captains[1] = { id: socket.id, name };
+        myLobby = c; socket.join(c);
+        socket.emit("joined", { code: c, role: "captain" });
+        broadcast(lobby); return;
+      } else if (!lobby.captains[0]) {
+        lobby.captains[0] = { id: socket.id, name };
+        myLobby = c; socket.join(c);
+        socket.emit("joined", { code: c, role: "captain" });
+        broadcast(lobby); return;
+      }
+    }
     lobby.unassigned.push({ id: socket.id, name });
     myLobby = c; socket.join(c);
     socket.emit("joined", { code: c, role: "unassigned" });
