@@ -332,6 +332,7 @@ function finishPhase3(lobby) {
   }
   lobby.champions = [...lobby.phase3Choice]; lobby.phase = "complete";
   broadcast(lobby);
+  if (lobby.tourneyMatch) onTourneyDraftComplete(lobby);
 }
 
 function checkBothLocked(lobby) {
@@ -392,6 +393,7 @@ function stdFinish(lobby) {
   lobby.phase = "complete";
   lobby.champions = [null, null]; // standard draft doesn't have a single champion
   broadcast(lobby);
+  if (lobby.tourneyMatch) onTourneyDraftComplete(lobby);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -425,7 +427,8 @@ function tourneyStateFor(tourney, sid) {
     duelPoolSize: tourney.duelPoolSize,
     phase: tourney.phase, // "lobby" or later "bracket"
     isHost: sid === tourney.hostId,
-    players: tourney.players.map(p => ({ id: p.id, name: p.name })),
+    hostPlaying: tourney.hostPlaying,
+    players: tourney.players.map(p => ({ id: p.id, name: p.name, isPlayer: p.isPlayer !== false })),
     chat: tourney.chat.slice(-50), // last 50 messages
     coinStreaks: tourney.coinStreaks, // { id: bestStreak }
     myName: me?.name || null,
@@ -437,6 +440,392 @@ function broadcastTourney(tourney) {
   for (const p of tourney.players) {
     io.to(p.id).emit("tourneyState", tourneyStateFor(tourney, p.id));
   }
+}
+
+function broadcastTourneyBracket(tourney) {
+  for (const p of tourney.players) {
+    io.to(p.id).emit("tourneyState", tourneyBracketStateFor(tourney, p.id));
+  }
+}
+
+function resolveMatch(tourney, match, winnerName) {
+  const loserName = match.slots[0] === winnerName ? match.slots[1] : match.slots[0];
+  match.winner = winnerName;
+  match.loser = loserName;
+  match.status = "complete";
+
+  // If loser was already in losers bracket, they're eliminated
+  if (match.bracket === "losers" || match.bracket === "grand_final") {
+    if (loserName && !tourney.eliminated.includes(loserName)) {
+      tourney.eliminated.push(loserName);
+    }
+  }
+
+  // Check if all active matches in this wave are complete
+  const activeMatches = tourney.bracket.matches.filter(m =>
+    m.status !== "complete" && m.status !== "pending"
+  );
+
+  if (activeMatches.length === 0) {
+    // All matches in wave done — start reveal sequence
+    const justCompleted = tourney.bracket.matches.filter(m =>
+      m.status === "complete" && m.winner && !tourney._revealed?.has(m.id)
+    );
+    // Track which matches have been revealed
+    if (!tourney._revealed) tourney._revealed = new Set();
+    const newlyCompleted = justCompleted.filter(m => !tourney._revealed.has(m.id));
+
+    if (newlyCompleted.length > 0) {
+      tourney.revealQueue = newlyCompleted.map(m => m.id);
+      tourney.revealIndex = 0;
+      tourney.phase = "reveal";
+      for (const m of newlyCompleted) tourney._revealed.add(m.id);
+    } else {
+      // Nothing new to reveal, advance
+      propagateBracket(tourney);
+      activateWave(tourney);
+      if (isTourneyComplete(tourney)) tourney.phase = "complete";
+    }
+  }
+}
+
+// Hook: called when a tournament-linked draft completes
+function onTourneyDraftComplete(lobby) {
+  const tm = lobby.tourneyMatch;
+  if (!tm) return;
+  const tourney = tournaments.get(tm.tourneyCode);
+  if (!tourney) return;
+  const match = tourney.bracket.matches.find(m => m.id === tm.matchId);
+  if (!match) return;
+
+  // Move match to voting phase
+  match.status = "voting";
+  match.votes = [null, null];
+
+  // Notify players
+  for (const p of tourney.players) {
+    if (p.name === match.slots[0] || p.name === match.slots[1]) {
+      io.to(p.id).emit("tourneyDraftComplete", {
+        matchId: match.id,
+        slots: match.slots,
+      });
+    }
+  }
+
+  broadcastTourneyBracket(tourney);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DOUBLE ELIMINATION BRACKET
+// ═══════════════════════════════════════════════════════════
+function nextPow2(n) { let p = 1; while (p < n) p <<= 1; return p; }
+
+function generateDoubleElimBracket(playerNames) {
+  const n = playerNames.length;
+  const size = nextPow2(n); // pad to power of 2
+  const wRounds = Math.log2(size); // number of winners bracket rounds
+  const lRounds = 2 * (wRounds - 1); // losers bracket rounds
+
+  // Shuffle players
+  const shuffled = [...playerNames].sort(() => Math.random() - 0.5);
+  // Pad with BYE
+  while (shuffled.length < size) shuffled.push(null);
+
+  const matches = [];
+  let matchId = 0;
+
+  // ── Winners Bracket ──
+  // Round 1 matches
+  const wbRounds = [];
+  const r1 = [];
+  for (let i = 0; i < size / 2; i++) {
+    const m = {
+      id: matchId++,
+      bracket: "winners",
+      round: 0,
+      slots: [shuffled[i * 2], shuffled[i * 2 + 1]], // player names or null (BYE)
+      winner: null,
+      loser: null,
+      status: "pending", // pending | ready_check | drafting | voting | dispute | complete
+      readyState: [false, false],
+      votes: [null, null], // who each player voted as winner
+      draftCode: null,
+      score: [0, 0],
+    };
+    // Auto-resolve BYE matches
+    if (m.slots[0] === null && m.slots[1] === null) {
+      m.status = "complete"; m.winner = null; m.loser = null;
+    } else if (m.slots[1] === null) {
+      m.status = "complete"; m.winner = m.slots[0]; m.loser = null;
+    } else if (m.slots[0] === null) {
+      m.status = "complete"; m.winner = m.slots[1]; m.loser = null;
+    }
+    matches.push(m);
+    r1.push(m.id);
+  }
+  wbRounds.push(r1);
+
+  // Subsequent WB rounds
+  for (let r = 1; r < wRounds; r++) {
+    const prevRound = wbRounds[r - 1];
+    const thisRound = [];
+    for (let i = 0; i < prevRound.length; i += 2) {
+      const m = {
+        id: matchId++,
+        bracket: "winners",
+        round: r,
+        slots: [null, null],
+        feeders: [prevRound[i], prevRound[i + 1]], // match IDs that feed into this
+        winner: null, loser: null,
+        status: "pending",
+        readyState: [false, false],
+        votes: [null, null],
+        draftCode: null,
+        score: [0, 0],
+      };
+      matches.push(m);
+      thisRound.push(m.id);
+    }
+    wbRounds.push(thisRound);
+  }
+
+  // ── Losers Bracket ──
+  const lbRounds = [];
+  for (let lr = 0; lr < lRounds; lr++) {
+    const isDropDown = lr % 2 === 0; // even rounds receive losers from WB
+    const thisRound = [];
+    if (lr === 0) {
+      // First LB round: losers from WB round 1 face each other
+      const wbLosers = wbRounds[0]; // match IDs from WB R1
+      for (let i = 0; i < wbLosers.length; i += 2) {
+        const m = {
+          id: matchId++,
+          bracket: "losers",
+          round: lr,
+          slots: [null, null],
+          feedersLoser: [wbLosers[i], wbLosers[i + 1]], // losers from these WB matches
+          winner: null, loser: null,
+          status: "pending",
+          readyState: [false, false],
+          votes: [null, null],
+          draftCode: null,
+          score: [0, 0],
+        };
+        matches.push(m);
+        thisRound.push(m.id);
+      }
+    } else if (isDropDown) {
+      // Drop-down round: losers from WB feed in against LB survivors
+      const wbRound = Math.floor(lr / 2) + 1; // which WB round's losers drop
+      const wbRoundMatches = wbRounds[wbRound] || [];
+      const prevLbRound = lbRounds[lr - 1];
+      const count = Math.max(wbRoundMatches.length, (prevLbRound || []).length);
+      for (let i = 0; i < count; i++) {
+        const m = {
+          id: matchId++,
+          bracket: "losers",
+          round: lr,
+          slots: [null, null],
+          feederWinner: prevLbRound ? prevLbRound[i] : null, // LB survivor (slot 0)
+          feederLoser: wbRoundMatches[i] !== undefined ? wbRoundMatches[i] : null, // WB loser drops in (slot 1)
+          winner: null, loser: null,
+          status: "pending",
+          readyState: [false, false],
+          votes: [null, null],
+          draftCode: null,
+          score: [0, 0],
+        };
+        matches.push(m);
+        thisRound.push(m.id);
+      }
+    } else {
+      // Reduction round: LB survivors face each other
+      const prevLbRound = lbRounds[lr - 1];
+      for (let i = 0; i < prevLbRound.length; i += 2) {
+        const m = {
+          id: matchId++,
+          bracket: "losers",
+          round: lr,
+          slots: [null, null],
+          feeders: [prevLbRound[i], prevLbRound[i + 1]],
+          winner: null, loser: null,
+          status: "pending",
+          readyState: [false, false],
+          votes: [null, null],
+          draftCode: null,
+          score: [0, 0],
+        };
+        matches.push(m);
+        thisRound.push(m.id);
+      }
+    }
+    lbRounds.push(thisRound);
+  }
+
+  // ── Grand Final ──
+  const wbFinalId = wbRounds[wbRounds.length - 1][0];
+  const lbFinalId = lbRounds.length > 0 ? lbRounds[lbRounds.length - 1][0] : null;
+  const grandFinal = {
+    id: matchId++,
+    bracket: "grand_final",
+    round: 0,
+    slots: [null, null],
+    feederWB: wbFinalId,
+    feederLB: lbFinalId,
+    winner: null, loser: null,
+    status: "pending",
+    readyState: [false, false],
+    votes: [null, null],
+    draftCode: null,
+    score: [0, 0],
+  };
+  matches.push(grandFinal);
+
+  return {
+    matches,
+    wbRounds,
+    lbRounds,
+    grandFinalId: grandFinal.id,
+    totalRounds: wRounds + lRounds + 1,
+  };
+}
+
+// Propagate winners/losers through bracket after a match completes
+function propagateBracket(tourney) {
+  const matches = tourney.bracket.matches;
+  const byId = {};
+  for (const m of matches) byId[m.id] = m;
+
+  for (const m of matches) {
+    if (m.status === "complete" || m.slots[0] !== null || m.slots[1] !== null) continue; // skip
+
+    // Winners bracket: fed by previous winners
+    if (m.feeders) {
+      const f0 = byId[m.feeders[0]];
+      const f1 = byId[m.feeders[1]];
+      if (f0 && f0.status === "complete" && f0.winner) m.slots[0] = f0.winner;
+      if (f1 && f1.status === "complete" && f1.winner) m.slots[1] = f1.winner;
+    }
+
+    // Losers bracket first round: fed by losers from WB
+    if (m.feedersLoser) {
+      const f0 = byId[m.feedersLoser[0]];
+      const f1 = byId[m.feedersLoser[1]];
+      if (f0 && f0.status === "complete" && f0.loser) m.slots[0] = f0.loser;
+      if (f1 && f1.status === "complete" && f1.loser) m.slots[1] = f1.loser;
+    }
+
+    // Losers bracket drop-down: LB winner + WB loser
+    if (m.feederWinner !== undefined && m.feederWinner !== null) {
+      const fw = byId[m.feederWinner];
+      if (fw && fw.status === "complete" && fw.winner) m.slots[0] = fw.winner;
+    }
+    if (m.feederLoser !== undefined && m.feederLoser !== null && !m.feedersLoser) {
+      const fl = byId[m.feederLoser];
+      if (fl && fl.status === "complete" && fl.loser) m.slots[1] = fl.loser;
+    }
+
+    // Grand final: WB winner + LB winner
+    if (m.feederWB !== undefined) {
+      const fw = byId[m.feederWB];
+      if (fw && fw.status === "complete" && fw.winner) m.slots[0] = fw.winner;
+    }
+    if (m.feederLB !== undefined) {
+      const fl = byId[m.feederLB];
+      if (fl && fl.status === "complete" && fl.winner) m.slots[1] = fl.winner;
+    }
+
+    // Auto-resolve if one slot is filled and the other is a BYE (null feeder)
+    // A BYE only applies to WB R1, which is handled at generation time
+  }
+}
+
+// Get all matches in the current active wave (both slots filled, not yet started)
+function getActiveWaveMatches(tourney) {
+  return tourney.bracket.matches.filter(m =>
+    m.slots[0] !== null && m.slots[1] !== null && m.status === "pending"
+  );
+}
+
+// Start the ready check for all pending-and-ready matches
+function activateWave(tourney) {
+  propagateBracket(tourney);
+  const wave = getActiveWaveMatches(tourney);
+  for (const m of wave) {
+    m.status = "ready_check";
+    m.readyState = [false, false];
+  }
+  return wave;
+}
+
+// Check if the tournament is complete
+function isTourneyComplete(tourney) {
+  const gf = tourney.bracket.matches.find(m => m.id === tourney.bracket.grandFinalId);
+  return gf && gf.status === "complete";
+}
+
+// Find which match a player name is in (current active match)
+function findPlayerMatch(tourney, playerName) {
+  return tourney.bracket.matches.find(m =>
+    (m.slots[0] === playerName || m.slots[1] === playerName) &&
+    m.status !== "complete" && m.status !== "pending"
+  );
+}
+
+// Find player slot index in a match (0 or 1)
+function playerSlotInMatch(match, playerName) {
+  if (match.slots[0] === playerName) return 0;
+  if (match.slots[1] === playerName) return 1;
+  return -1;
+}
+
+// Get completed matches for reveal sequence
+function getCompletedWaveMatches(tourney) {
+  if (!tourney.revealQueue) return [];
+  return tourney.revealQueue;
+}
+
+// Extended tourneyStateFor with bracket data
+function tourneyBracketStateFor(tourney, sid) {
+  const base = tourneyStateFor(tourney, sid);
+  const me = findTourneyPlayer(tourney, sid);
+  const myName = me?.name || null;
+
+  // Find my current match
+  let myMatch = null;
+  if (myName && tourney.bracket) {
+    myMatch = findPlayerMatch(tourney, myName);
+  }
+
+  base.bracket = tourney.bracket ? {
+    matches: tourney.bracket.matches.map(m => ({
+      id: m.id,
+      bracket: m.bracket,
+      round: m.round,
+      slots: m.slots,
+      winner: m.winner,
+      loser: m.loser,
+      status: m.status,
+      readyState: m.readyState,
+      votes: m.votes,
+      score: m.score,
+    })),
+    wbRounds: tourney.bracket.wbRounds,
+    lbRounds: tourney.bracket.lbRounds,
+    grandFinalId: tourney.bracket.grandFinalId,
+  } : null;
+
+  base.myMatch = myMatch ? {
+    id: myMatch.id,
+    slot: playerSlotInMatch(myMatch, myName),
+  } : null;
+
+  base.revealQueue = tourney.revealQueue || [];
+  base.revealIndex = tourney.revealIndex || 0;
+  base.tourneyPhase = tourney.phase; // "lobby", "bracket", "reveal", "complete"
+  base.eliminated = tourney.eliminated || [];
+
+  return base;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -738,8 +1127,9 @@ io.on("connection", (socket) => {
   });
 
   // ── Tournament Handlers ──
-  socket.on("createTourney", ({ name, hostName, format, draftMode, bestOf, maxPlayers, globalBans, timerDuration, duelPoolSize }) => {
+  socket.on("createTourney", ({ name, hostName, format, draftMode, bestOf, maxPlayers, globalBans, timerDuration, duelPoolSize, hostPlaying }) => {
     const code = genTourneyCode();
+    const isPlaying = hostPlaying !== false; // default true
     const tourney = {
       code,
       hostId: socket.id,
@@ -752,7 +1142,8 @@ io.on("connection", (socket) => {
       timerDuration: timerDuration || 60,
       duelPoolSize: Math.min(6, Math.max(2, duelPoolSize || 3)),
       phase: "lobby",
-      players: [{ id: socket.id, name: hostName || "Host" }],
+      hostPlaying: isPlaying,
+      players: isPlaying ? [{ id: socket.id, name: hostName || "Host", isPlayer: true }] : [{ id: socket.id, name: hostName || "Host", isPlayer: false }],
       chat: [],
       coinStreaks: {}, // playerId -> best streak
     };
@@ -770,7 +1161,7 @@ io.on("connection", (socket) => {
     if (tourney.phase !== "lobby") return socket.emit("err", "Tournament already started.");
     if (findTourneyPlayer(tourney, socket.id)) { broadcastTourney(tourney); return; }
     if (tourney.players.length >= tourney.maxPlayers) return socket.emit("err", "Tournament is full.");
-    tourney.players.push({ id: socket.id, name: name || "Player" });
+    tourney.players.push({ id: socket.id, name: name || "Player", isPlayer: true });
     myTourney = c;
     socket.join("t_" + c);
     socket.emit("tourneyJoined", { code: c });
@@ -830,6 +1221,11 @@ io.on("connection", (socket) => {
     else if (field === "globalBans") tourney.globalBans = [...new Set(value || [])].filter(h => HEROES.includes(h));
     else if (field === "timerDuration") tourney.timerDuration = Math.min(300, Math.max(10, Math.round((parseInt(value) || 60) / 10) * 10));
     else if (field === "duelPoolSize") tourney.duelPoolSize = Math.min(6, Math.max(2, parseInt(value) || 3));
+    else if (field === "hostPlaying") {
+      tourney.hostPlaying = !!value;
+      const host = tourney.players.find(p => p.id === tourney.hostId);
+      if (host) host.isPlayer = !!value;
+    }
     broadcastTourney(tourney);
   });
 
@@ -844,6 +1240,190 @@ io.on("connection", (socket) => {
       maxPlayers: tourney.maxPlayers,
       phase: tourney.phase,
     });
+  });
+
+  // ── Bracket Handlers ──
+  socket.on("startTournament", () => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || socket.id !== tourney.hostId || tourney.phase !== "lobby") return;
+
+    // Get participating player names
+    const playerNames = tourney.players.filter(p => p.isPlayer).map(p => p.name);
+    if (playerNames.length < 2) return socket.emit("err", "Need at least 2 players.");
+
+    // Generate bracket
+    tourney.bracket = generateDoubleElimBracket(playerNames);
+    tourney.eliminated = [];
+    tourney.revealQueue = [];
+    tourney.revealIndex = 0;
+    tourney.phase = "bracket";
+
+    // Propagate BYE winners and activate first wave
+    propagateBracket(tourney);
+    activateWave(tourney);
+
+    // Broadcast with bracket data
+    broadcastTourneyBracket(tourney);
+  });
+
+  socket.on("tourneyReadyUp", () => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || tourney.phase !== "bracket") return;
+    const me = findTourneyPlayer(tourney, socket.id);
+    if (!me || !me.isPlayer) return;
+
+    const match = findPlayerMatch(tourney, me.name);
+    if (!match || match.status !== "ready_check") return;
+
+    const slot = playerSlotInMatch(match, me.name);
+    if (slot === -1) return;
+    match.readyState[slot] = true;
+
+    // Check if both ready
+    if (match.readyState[0] && match.readyState[1]) {
+      // Create a draft lobby for this match
+      const draftCode = genCode();
+      const draftMode = tourney.draftMode;
+      const lobby = {
+        code: draftCode, hostId: null,
+        mode: draftMode,
+        timerDuration: tourney.timerDuration,
+        phase: "waiting",
+        teamNames: [match.slots[0], match.slots[1]],
+        captains: [null, null],
+        ready: [false, false],
+        spectators: [[], []],
+        unassigned: [],
+        picks: [[], []], pools: [[], []], origPicks: [[], []],
+        bans: new Set(), overlaps: [],
+        phase2Bans: [[], []], phase2Banned: [[], []],
+        phase3Choice: [null, null], champions: [null, null],
+        locked: [false, false],
+        specPrefs: [{}, {}],
+        timerRef: null, timerEnd: null,
+        std: null,
+        duelPoolSize: tourney.duelPoolSize,
+        globalBans: [...tourney.globalBans],
+        tourneyMatch: { tourneyCode: tourney.code, matchId: match.id },
+      };
+      lobbies.set(draftCode, lobby);
+      match.draftCode = draftCode;
+      match.status = "drafting";
+
+      // Notify players to join the draft
+      for (const p of tourney.players) {
+        if (p.name === match.slots[0] || p.name === match.slots[1]) {
+          io.to(p.id).emit("tourneyDraftStart", {
+            draftCode,
+            matchId: match.id,
+            opponent: p.name === match.slots[0] ? match.slots[1] : match.slots[0],
+            slot: p.name === match.slots[0] ? 0 : 1,
+          });
+        }
+      }
+    }
+
+    broadcastTourneyBracket(tourney);
+  });
+
+  socket.on("joinTourneyDraft", ({ draftCode, slot }) => {
+    const lobby = lobbies.get(draftCode);
+    if (!lobby || !lobby.tourneyMatch) return;
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney) return;
+    const me = findTourneyPlayer(tourney, socket.id);
+    if (!me) return;
+
+    // Assign player as captain in the draft
+    const t = slot === 0 ? 0 : 1;
+    if (lobby.captains[t]) return; // already filled
+    lobby.captains[t] = { id: socket.id, name: me.name };
+    lobby.ready[t] = true; // auto-ready in tournament
+    myLobby = draftCode;
+    socket.join(draftCode);
+
+    // If both captains joined, auto-start
+    if (lobby.captains[0] && lobby.captains[1]) {
+      if (lobby.mode === "standard") startStdDraft(lobby);
+      else startPhase1(lobby);
+    }
+
+    broadcast(lobby);
+  });
+
+  socket.on("tourneyVoteWinner", ({ matchId, winner }) => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || tourney.phase !== "bracket") return;
+    const me = findTourneyPlayer(tourney, socket.id);
+    if (!me || !me.isPlayer) return;
+
+    const match = tourney.bracket.matches.find(m => m.id === matchId);
+    if (!match || match.status !== "voting") return;
+    if (!match.slots.includes(winner)) return;
+
+    const slot = playerSlotInMatch(match, me.name);
+    if (slot === -1) return;
+    match.votes[slot] = winner;
+
+    // Check if both voted
+    if (match.votes[0] !== null && match.votes[1] !== null) {
+      if (match.votes[0] === match.votes[1]) {
+        // Agreement — resolve match
+        resolveMatch(tourney, match, match.votes[0]);
+      } else {
+        // Dispute — host decides
+        match.status = "dispute";
+      }
+    }
+
+    broadcastTourneyBracket(tourney);
+  });
+
+  socket.on("tourneyHostDecide", ({ matchId, winner }) => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || socket.id !== tourney.hostId) return;
+
+    const match = tourney.bracket.matches.find(m => m.id === matchId);
+    if (!match || match.status !== "dispute") return;
+    if (!match.slots.includes(winner)) return;
+
+    resolveMatch(tourney, match, winner);
+    broadcastTourneyBracket(tourney);
+  });
+
+  socket.on("advanceReveal", () => {
+    if (!myTourney) return;
+    const tourney = tournaments.get(myTourney);
+    if (!tourney || socket.id !== tourney.hostId || tourney.phase !== "reveal") return;
+
+    tourney.revealIndex++;
+    if (tourney.revealIndex >= tourney.revealQueue.length) {
+      // All revealed — propagate and start next wave
+      tourney.phase = "bracket";
+      tourney.revealQueue = [];
+      tourney.revealIndex = 0;
+
+      propagateBracket(tourney);
+      const wave = activateWave(tourney);
+
+      if (isTourneyComplete(tourney)) {
+        tourney.phase = "complete";
+      } else if (wave.length === 0) {
+        // No new matches — might need another propagation cycle
+        propagateBracket(tourney);
+        const wave2 = activateWave(tourney);
+        if (wave2.length === 0 && isTourneyComplete(tourney)) {
+          tourney.phase = "complete";
+        }
+      }
+    }
+
+    broadcastTourneyBracket(tourney);
   });
 
   socket.on("disconnect", () => {
