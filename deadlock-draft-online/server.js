@@ -15,8 +15,8 @@ const HEROES = [
   "Abrams","Apollo","Bebop","Billy","Calico","Celeste","Drifter","Doorman","Dynamo",
   "Graves","Grey Talon","Haze","Holliday","Infernus",
   "Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina",
-  "Mirage","Mo & Krill","Paradox","Pocket","Rem","Seven",
-  "Shiv","Sinclair","Silver","Venator","Vindicta","Viscous",
+  "Mirage","Mo & Krill","Paige","Paradox","Pocket","Rem","Seven",
+  "Shiv","Sinclair","Silver","Venator","Victor","Vindicta","Viscous",
   "Vyper","Warden","Wraith","Yamato",
 ].sort();
 
