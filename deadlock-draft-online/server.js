@@ -88,12 +88,15 @@ function stateFor(lobby, sid) {
     spectators: lobby.spectators.map(t => t.map(s => ({ name: s.name, id: s.id }))),
     unassigned: lobby.unassigned.map(u => ({ name: u.name, id: u.id })),
     ready: [...lobby.ready],
-    heroes: HEROES,
+    heroes: HEROES.filter(h => !lobby.globalBans.includes(h)),
+    allHeroes: HEROES,
+    globalBans: lobby.globalBans,
+    duelPoolSize: lobby.duelPoolSize,
     specPrefs: lobby.specPrefs,
   };
 
-  // ── PHASE DRAFT (Clone Wars) ──
-  if (lobby.mode === "phase") {
+  // ── PHASE DRAFT (Clone Wars) + DUEL MODE (same phases, different rules) ──
+  if (lobby.mode === "phase" || lobby.mode === "duel") {
     s.bans = [...lobby.bans];
 
     if (lobby.phase === "phase1") {
@@ -218,21 +221,37 @@ function startPhase1(lobby) {
 
 function finishPhase1(lobby) {
   clearTimer(lobby);
+  const isDuel = lobby.mode === "duel";
+  const poolSize = isDuel ? lobby.duelPoolSize : 6;
+  const availableHeroes = HEROES.filter(h => !lobby.globalBans.includes(h));
+
   for (let t = 0; t < 2; t++) {
     const have = new Set(lobby.picks[t]);
-    const allPicked = new Set([...lobby.picks[0], ...lobby.picks[1]]);
-    while (have.size < 6) {
-      const avail = HEROES.filter(h => !have.has(h) && !allPicked.has(h));
+    // For duel mode, allow overlaps — don't exclude opponent's picks from random fill
+    const allPicked = isDuel ? new Set(lobby.picks[t]) : new Set([...lobby.picks[0], ...lobby.picks[1]]);
+    while (have.size < poolSize) {
+      const avail = availableHeroes.filter(h => !have.has(h) && (isDuel || !allPicked.has(h)));
       if (!avail.length) break;
       const pick = avail[Math.floor(Math.random() * avail.length)];
-      have.add(pick); allPicked.add(pick);
+      have.add(pick); if (!isDuel) allPicked.add(pick);
     }
     lobby.picks[t] = [...have]; lobby.origPicks[t] = [...lobby.picks[t]];
   }
-  const set0 = new Set(lobby.picks[0]);
-  lobby.overlaps = lobby.picks[1].filter(h => set0.has(h));
-  for (const h of lobby.overlaps) lobby.bans.add(h);
-  for (let t = 0; t < 2; t++) lobby.pools[t] = lobby.picks[t].filter(h => !lobby.bans.has(h));
+
+  if (isDuel) {
+    // Duel mode: overlaps are noted but NOT banned
+    const set0 = new Set(lobby.picks[0]);
+    lobby.overlaps = lobby.picks[1].filter(h => set0.has(h));
+    // No bans from overlaps — pools = full picks
+    for (let t = 0; t < 2; t++) lobby.pools[t] = [...lobby.picks[t]];
+  } else {
+    // Clone Wars: overlaps get banned
+    const set0 = new Set(lobby.picks[0]);
+    lobby.overlaps = lobby.picks[1].filter(h => set0.has(h));
+    for (const h of lobby.overlaps) lobby.bans.add(h);
+    for (let t = 0; t < 2; t++) lobby.pools[t] = lobby.picks[t].filter(h => !lobby.bans.has(h));
+  }
+
   lobby.locked = [false, false];
   lobby.phase = "phase1_reveal";
   broadcast(lobby);
@@ -252,11 +271,12 @@ function startPhase2(lobby) {
 
 function finishPhase2(lobby) {
   clearTimer(lobby);
+  const availableHeroes = HEROES.filter(h => !lobby.globalBans.includes(h));
   for (let t = 0; t < 2; t++) {
     const oppT = 1 - t;
     const need = banCount(lobby.pools[oppT].length);
     if (lobby.phase2Bans[t].length < need) {
-      const pool = lobby.pools[oppT].filter(h => !lobby.phase2Bans[t].includes(h));
+      const pool = lobby.pools[oppT].filter(h => !lobby.phase2Bans[t].includes(h) && availableHeroes.includes(h));
       const shuffled = pool.sort(() => Math.random() - 0.5);
       while (lobby.phase2Bans[t].length < need && shuffled.length) lobby.phase2Bans[t].push(shuffled.pop());
     }
@@ -292,9 +312,14 @@ function startPhase3(lobby) {
 
 function finishPhase3(lobby) {
   clearTimer(lobby);
+  const availableHeroes = new Set(HEROES.filter(h => !lobby.globalBans.includes(h)));
   for (let t = 0; t < 2; t++) {
-    if (!lobby.phase3Choice[t] && lobby.pools[t].length > 0)
-      lobby.phase3Choice[t] = lobby.pools[t][Math.floor(Math.random() * lobby.pools[t].length)];
+    if (!lobby.phase3Choice[t] && lobby.pools[t].length > 0) {
+      const validPool = lobby.pools[t].filter(h => availableHeroes.has(h));
+      lobby.phase3Choice[t] = validPool.length > 0
+        ? validPool[Math.floor(Math.random() * validPool.length)]
+        : lobby.pools[t][Math.floor(Math.random() * lobby.pools[t].length)];
+    }
   }
   lobby.champions = [...lobby.phase3Choice]; lobby.phase = "complete";
   broadcast(lobby);
@@ -370,15 +395,15 @@ io.on("connection", (socket) => {
     const code = genCode();
     const lobby = {
       code, hostId: socket.id,
-      mode: mode || "phase", // "phase" or "standard"
+      mode: mode || "phase", // "phase", "standard", or "duel"
       timerDuration: timerDuration || 60,
       phase: "waiting",
-      teamNames: ["Hidden King", "Archmother"],
+      teamNames: mode === "duel" ? ["Player 1", "Player 2"] : ["Hidden King", "Archmother"],
       captains: [null, null],
       ready: [false, false],
       spectators: [[], []],
       unassigned: [{ id: socket.id, name }],
-      // Phase draft fields
+      // Phase draft fields (shared by phase + duel)
       picks: [[], []], pools: [[], []], origPicks: [[], []],
       bans: new Set(), overlaps: [],
       phase2Bans: [[], []], phase2Banned: [[], []],
@@ -388,6 +413,9 @@ io.on("connection", (socket) => {
       timerRef: null, timerEnd: null,
       // Standard draft fields (initialized on start)
       std: null,
+      // Duel mode fields
+      duelPoolSize: 3, // configurable by host (2-6)
+      globalBans: [], // heroes banned from entire event by host
     };
     lobbies.set(code, lobby);
     myLobby = code;
@@ -526,6 +554,23 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  socket.on("updatePoolSize", ({ size }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || socket.id !== lobby.hostId || lobby.phase !== "waiting" || lobby.mode !== "duel") return;
+    lobby.duelPoolSize = Math.min(6, Math.max(2, Math.round(size)));
+    broadcast(lobby);
+  });
+
+  socket.on("updateGlobalBans", ({ heroes }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || socket.id !== lobby.hostId || lobby.phase !== "waiting") return;
+    // Validate heroes — only allow real hero names
+    lobby.globalBans = [...new Set(heroes)].filter(h => HEROES.includes(h));
+    broadcast(lobby);
+  });
+
   socket.on("startDraft", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -533,17 +578,19 @@ io.on("connection", (socket) => {
     if (!lobby.captains[0] || !lobby.captains[1]) return socket.emit("err", "Need 2 captains.");
     if (!lobby.ready[0] || !lobby.ready[1]) return socket.emit("err", "Both captains must be ready.");
     if (lobby.mode === "standard") startStdDraft(lobby);
-    else startPhase1(lobby);
+    else startPhase1(lobby); // works for both "phase" and "duel"
   });
 
   // ── Phase Draft Actions ──
   socket.on("lockPicks", ({ heroes }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || lobby.mode !== "phase" || lobby.phase !== "phase1") return;
+    if (!lobby || (lobby.mode !== "phase" && lobby.mode !== "duel") || lobby.phase !== "phase1") return;
     const t = lobby.captains[0]?.id === socket.id ? 0 : lobby.captains[1]?.id === socket.id ? 1 : -1;
     if (t === -1 || lobby.locked[t]) return;
-    lobby.picks[t] = [...new Set(heroes)].filter(h => HEROES.includes(h)).slice(0, 6);
+    const maxPicks = lobby.mode === "duel" ? lobby.duelPoolSize : 6;
+    const availableHeroes = HEROES.filter(h => !lobby.globalBans.includes(h));
+    lobby.picks[t] = [...new Set(heroes)].filter(h => availableHeroes.includes(h)).slice(0, maxPicks);
     lobby.locked[t] = true;
     broadcast(lobby); checkBothLocked(lobby);
   });
@@ -551,7 +598,7 @@ io.on("connection", (socket) => {
   socket.on("lockBans", ({ heroes }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || lobby.mode !== "phase" || lobby.phase !== "phase2") return;
+    if (!lobby || (lobby.mode !== "phase" && lobby.mode !== "duel") || lobby.phase !== "phase2") return;
     const t = lobby.captains[0]?.id === socket.id ? 0 : lobby.captains[1]?.id === socket.id ? 1 : -1;
     if (t === -1 || lobby.locked[t]) return;
     const oppT = 1 - t;
@@ -566,7 +613,7 @@ io.on("connection", (socket) => {
   socket.on("lockFinal", ({ hero }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || lobby.mode !== "phase" || lobby.phase !== "phase3") return;
+    if (!lobby || (lobby.mode !== "phase" && lobby.mode !== "duel") || lobby.phase !== "phase3") return;
     const t = lobby.captains[0]?.id === socket.id ? 0 : lobby.captains[1]?.id === socket.id ? 1 : -1;
     if (t === -1 || lobby.locked[t]) return;
     if (!lobby.pools[t].includes(hero)) return;

@@ -306,6 +306,18 @@ input,select{font-family:inherit}
 .team-choose-btn.t2-choose{border-color:var(--t2m);color:var(--t2m)}
 .team-choose-btn.t2-choose:hover{background:var(--t2bg);box-shadow:0 4px 20px var(--t2glow);transform:translateY(-3px)}
 
+/* ── GLOBAL BAN MINI CARDS ─────────────── */
+.gban-card{
+  width:58px;background:var(--card);border:1px solid #2a2a35;border-radius:5px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;padding:4px 2px 3px;transition:all .2s;position:relative;
+}
+.gban-card:hover{border-color:#555;transform:scale(1.05)}
+.gban-card img{width:36px;height:36px;border-radius:4px;object-fit:cover}
+.gban-card .gbl{font-size:.5rem;text-align:center;line-height:1.1;color:#777;margin-top:2px}
+.gban-card.gbanned{border-color:var(--ban);background:rgba(204,68,68,.1)}
+.gban-card.gbanned img{filter:grayscale(.7) brightness(.4)}
+.gban-card.gbanned::after{content:'✕';position:absolute;top:1px;right:3px;color:var(--ban);font-size:.7rem;font-weight:700}
+
 /* ── BACKGROUND CANVAS ─────────────────── */
 #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
 
@@ -368,6 +380,11 @@ input,select{font-family:inherit}
     <div class="mode-card" onclick="selectMode('phase')">
       <div class="mode-title">Deadlock Clone Wars Phase Draft</div>
       <div class="mode-desc">Both teams secretly pick 6 heroes — overlaps get banned! Ban from the opponent's pool, then choose your final hero. Each team plays as ONE hero, 6v6 same-hero showdown.</div>
+      <div class="mode-badge live">READY TO PLAY</div>
+    </div>
+    <div class="mode-card" onclick="selectMode('duel')">
+      <div class="mode-title">Deadlock 1v1 Draft</div>
+      <div class="mode-desc">1v1 version of Clone Wars — both players secretly pick a pool of heroes. Overlapping picks are allowed (mirror matches)! Ban from the opponent's pool, then choose your final hero.</div>
       <div class="mode-badge live">READY TO PLAY</div>
     </div>
     <div class="mode-card wip" onclick="selectMode('standard')">
@@ -467,6 +484,22 @@ input,select{font-family:inherit}
   </div>
 
   <div id="hostControls">
+    <!-- Duel mode: pool size config -->
+    <div id="duelPoolSizeWrap" class="hidden" style="margin:10px 0">
+      <div class="timer-row">
+        <label>Pool size:</label>
+        <input type="range" id="poolSizeSlider" min="2" max="6" step="1" value="3" oninput="onPoolSizeSlide()">
+        <span class="timer-val" id="poolSizeLabel">3</span>
+      </div>
+      <div style="font-size:.7rem;color:#555">Each player picks this many heroes (bans = pool - 2)</div>
+    </div>
+    <!-- Global ban UI (duel/tournament) -->
+    <div id="globalBanWrap" class="hidden" style="margin:12px 0">
+      <div style="font-size:.75rem;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:8px">GLOBAL HERO BANS</div>
+      <div style="font-size:.7rem;color:#555;margin-bottom:8px">Click heroes to ban them from this entire event</div>
+      <div id="globalBanGrid" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:680px;max-height:240px;overflow-y:auto;padding:6px;background:rgba(0,0,0,.2);border-radius:8px;border:1px solid #1a1a22"></div>
+      <div style="font-size:.7rem;color:var(--ban);margin-top:6px" id="globalBanCount">0 heroes banned</div>
+    </div>
     <div class="timer-row">
       <label>Phase timer:</label>
       <input type="range" id="timerSlider" min="10" max="300" step="10" value="60" oninput="onTimerSlide()">
@@ -568,8 +601,10 @@ function showScreen(id){
 }
 
 function getModeName(){
-  if(!S)return chosenMode==="standard"?"Standard Deadlock Draft":"Deadlock Clone Wars Phase Draft";
-  return S.mode==="standard"?"Standard Deadlock Draft":"Deadlock Clone Wars Phase Draft";
+  const m=S?S.mode:chosenMode;
+  if(m==="standard")return"Standard Deadlock Draft";
+  if(m==="duel")return"Deadlock 1v1 Draft";
+  return"Deadlock Clone Wars Phase Draft";
 }
 
 function updateGlobalUI(screenId){
@@ -652,6 +687,17 @@ function onTimerSlide(){
   document.getElementById("timerValLabel").textContent=v+"s";
   socket.emit("updateTimer",{duration:v});
 }
+function onPoolSizeSlide(){
+  const v=parseInt(document.getElementById("poolSizeSlider").value);
+  document.getElementById("poolSizeLabel").textContent=v;
+  socket.emit("updatePoolSize",{size:v});
+}
+let localGlobalBans=new Set();
+function toggleGlobalBan(hero){
+  if(localGlobalBans.has(hero))localGlobalBans.delete(hero);
+  else localGlobalBans.add(hero);
+  socket.emit("updateGlobalBans",{heroes:[...localGlobalBans]});
+}
 function startDraft(){socket.emit("startDraft");}
 function advance(){socket.emit("advancePhase");}
 function resetDraft(){socket.emit("resetDraft");}
@@ -683,7 +729,7 @@ function toggleHero(hero){
   }
   // Captains toggle picks
   let maxSel=6;
-  if(S.phase==="phase1")maxSel=6;
+  if(S.phase==="phase1")maxSel=S.mode==="duel"?S.duelPoolSize:6;
   else if(S.phase==="phase2")maxSel=S.banTarget||0;
   else if(S.phase==="phase3")maxSel=1;
   if(selected.has(hero))selected.delete(hero);
@@ -846,21 +892,51 @@ function renderLobby(){
   else hint.textContent="Both captains ready — start when you're ready!";
   document.getElementById("timerSlider").value=S.timerDuration;
   document.getElementById("timerValLabel").textContent=S.timerDuration+"s";
+
+  // Duel mode config
+  const isDuel=S.mode==="duel";
+  document.getElementById("duelPoolSizeWrap").classList.toggle("hidden",!isDuel||!isHost);
+  document.getElementById("globalBanWrap").classList.toggle("hidden",!isDuel||!isHost);
+  if(isDuel&&isHost){
+    document.getElementById("poolSizeSlider").value=S.duelPoolSize;
+    document.getElementById("poolSizeLabel").textContent=S.duelPoolSize;
+    // Sync local global bans from server state
+    localGlobalBans=new Set(S.globalBans||[]);
+    const allH=S.allHeroes||[];
+    const gGrid=document.getElementById("globalBanGrid");
+    gGrid.innerHTML=allH.map(h=>{
+      const banned=localGlobalBans.has(h);
+      return`<div class="gban-card${banned?' gbanned':''}" onclick="toggleGlobalBan('${esc(h)}')">${heroImg(h,36)}<div class="gbl">${h}</div></div>`;
+    }).join("");
+    const bc=localGlobalBans.size;
+    document.getElementById("globalBanCount").textContent=bc===0?"No heroes banned":`${bc} hero${bc>1?"es":""} banned`;
+  }
+
+  // Update team names on team chooser buttons if present
+  document.getElementById("teamChoose0").textContent=S.teamNames[0];
+  document.getElementById("teamChoose1").textContent=S.teamNames[1];
 }
 // Not needed — host tag shown via S.isHost check on each person
 
 // ═══════════════════════════════════════════
 //  RENDER: DRAFT
 // ═══════════════════════════════════════════
-const PHASE_INFO = [
-  {num:"1",label:"PICK",title:"Pick 6 Heroes",desc_cap:"Select 6 heroes for your team's pool. Both captains pick secretly — overlapping picks get BANNED!",desc_spec:"Your captain is picking 6 heroes. Tap heroes to highlight your preferences!"},
-  {num:"2",label:"BAN",title:"Ban Opponent's Heroes",desc_cap:"Ban heroes from the opponent's pool to force them into a tough choice.",desc_spec:"Your captain is banning the opponent's heroes. Tap to suggest bans!"},
-  {num:"3",label:"PICK",title:"Choose Your Hero",desc_cap:"Pick your team's final hero from the remaining pool!",desc_spec:"Your captain is choosing the final hero. Tap your preference!"},
-];
+function getPhaseInfo(){
+  const isDuel=S&&S.mode==="duel";
+  const poolSz=isDuel?(S.duelPoolSize||3):6;
+  return [
+    {num:"1",label:"PICK",title:`Pick ${poolSz} Hero${poolSz>1?"es":""}`,
+      desc_cap:isDuel?`Select ${poolSz} heroes for your pool. Both players pick secretly — overlaps are allowed (mirror matches)!`:`Select 6 heroes for your team's pool. Both captains pick secretly — overlapping picks get BANNED!`,
+      desc_spec:isDuel?`Your player is picking ${poolSz} heroes. Tap heroes to highlight your preferences!`:"Your captain is picking 6 heroes. Tap heroes to highlight your preferences!"},
+    {num:"2",label:"BAN",title:"Ban Opponent's Heroes",desc_cap:"Ban heroes from the opponent's pool to force them into a tough choice.",desc_spec:isDuel?"Your player is banning the opponent's heroes. Tap to suggest bans!":"Your captain is banning the opponent's heroes. Tap to suggest bans!"},
+    {num:"3",label:"PICK",title:"Choose Your Hero",desc_cap:"Pick your final hero from the remaining pool!",desc_spec:isDuel?"Your player is choosing the final hero. Tap your preference!":"Your captain is choosing the final hero. Tap your preference!"},
+  ];
+}
 
 function phaseIdx(){return S.phase==="phase1"?0:S.phase==="phase2"?1:S.phase==="phase3"?2:-1;}
 
 function renderDraft(){
+  const PHASE_INFO=getPhaseInfo();
   const pi=phaseIdx();
   const isCap=S.role==="captain";
   const isSpec=S.role==="spectator";
@@ -932,10 +1008,11 @@ function renderDraft(){
       }).join("");
 
       if(isCap){
+        const poolSz=S.mode==="duel"?S.duelPoolSize:6;
         lockBtn.style.display=locked?"none":"inline-block";
-        lockBtn.textContent=`🔒 Lock In (${selected.size}/6)`;
-        lockBtn.disabled=selected.size!==6;
-        status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked ✓":"still picking…"}`:`Select ${6-selected.size} more`;
+        lockBtn.textContent=`🔒 Lock In (${selected.size}/${poolSz})`;
+        lockBtn.disabled=selected.size!==poolSz;
+        status.innerHTML=locked?`<span class="hi">Locked!</span> Opponent: ${S.oppLocked?"locked ✓":"still picking…"}`:`Select ${poolSz-selected.size} more`;
       } else {
         lockBtn.style.display="none";
         status.innerHTML=locked?`<span class="hi">Captain locked in!</span> Waiting for opponent…`:"Tap heroes to highlight your preferences for the captain";
@@ -1050,13 +1127,23 @@ function renderReveal(){
   if(S.phase==="phase1_reveal"){
     title.textContent="Phase 1 — Picks Revealed!";
     const ov=S.overlaps||[];
-    desc.textContent=ov.length?`${ov.length} overlap${ov.length>1?"s":""} — BANNED!`:"No overlaps!";
+    const isDuel=S.mode==="duel";
+    if(isDuel){
+      desc.textContent=ov.length?`${ov.length} overlap${ov.length>1?"s":""} — mirror match${ov.length>1?"es":""}!`:"No overlaps!";
+    } else {
+      desc.textContent=ov.length?`${ov.length} overlap${ov.length>1?"s":""} — BANNED!`:"No overlaps!";
+    }
     let h="";
     [0,1].forEach(t=>{
       h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
       (S.allPicks[t]||[]).forEach(x=>{
         const isOv=ov.includes(x);
-        h+=`<div class="rh${isOv?' ov':''}">${heroImg(x,34)} ${x}${isOv?' (BANNED)':''}</div>`;
+        if(isDuel){
+          // Duel: overlaps shown as shared, not struck through
+          h+=`<div class="rh${isOv?' champ':''}">${heroImg(x,34)} ${x}${isOv?' (SHARED)':''}</div>`;
+        } else {
+          h+=`<div class="rh${isOv?' ov':''}">${heroImg(x,34)} ${x}${isOv?' (BANNED)':''}</div>`;
+        }
       });h+=`</div>`;});
     cols.innerHTML=h;
   } else if(S.phase==="phase2_reveal"){
@@ -1329,7 +1416,8 @@ function renderComplete(){
   }
 
   // Phase draft complete — single hero per team
-  document.querySelector("#completeScreen p").textContent="Each team plays as their chosen hero — a full squad of 6!";
+  const isDuel=S.mode==="duel";
+  document.querySelector("#completeScreen p").textContent=isDuel?"Each player has chosen their hero — time to fight!":"Each team plays as their chosen hero — a full squad of 6!";
   let h="";
   [0,1].forEach(t=>{
     h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
