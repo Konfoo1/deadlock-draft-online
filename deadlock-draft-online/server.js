@@ -74,13 +74,22 @@ function stateFor(lobby, sid) {
   const myTeam = (role === "captain" || role === "spectator") ? me.team : -1;
   const oppTeam = myTeam === 0 ? 1 : 0;
 
+  // For duel mode, use actual captain names instead of "Player 1" / "Player 2"
+  let teamNames = lobby.teamNames;
+  if (lobby.mode === "duel") {
+    teamNames = [
+      lobby.captains[0]?.name || "Player 1",
+      lobby.captains[1]?.name || "Player 2",
+    ];
+  }
+
   const s = {
     code: lobby.code,
     mode: lobby.mode,
     phase: lobby.phase,
     timerDuration: lobby.timerDuration,
     timerEnd: lobby.timerEnd,
-    teamNames: lobby.teamNames,
+    teamNames,
     myTeam,
     role,
     isHost: sid === lobby.hostId,
