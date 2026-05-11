@@ -390,16 +390,21 @@ input,select{font-family:inherit}
 .bracket-screen{padding:20px;overflow:auto;position:relative}
 .bracket-section-title{font-size:.7rem;font-weight:700;letter-spacing:2px;color:#555;margin-bottom:8px;text-transform:uppercase}
 
-/* ── SVG bracket ── */
-.bk-svg{display:block;overflow:visible}
+/* ── Bracket section ── */
+.bk-section{overflow:visible}
 
-/* Match card (positioned via foreignObject in SVG) */
-.bk-match{padding:4px 8px}
+/* Match card (absolutely positioned in bracket) */
+.bk-match{
+  background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  padding:6px 10px;height:100%;display:flex;flex-direction:column;justify-content:center;
+}
+.bk-match.my-match{border-color:var(--accent)}
 .bk-match.my-match .bk-pname{color:#f0a030}
+.bk-match.preview{border-color:#f0a030;border-style:dashed}
 .bk-match.preview .bk-pname{color:#f0a030}
 
 /* Player row inside match */
-.bk-player{padding:1px 0}
+.bk-player{padding:2px 0}
 .bk-player.winner .bk-pname{color:#4c4;font-weight:700}
 .bk-player.loser .bk-pname{color:#666;text-decoration:line-through}
 .bk-prow{display:flex;align-items:center;justify-content:space-between;gap:6px}
@@ -407,18 +412,18 @@ input,select{font-family:inherit}
 .bk-badge{font-size:.5rem;font-weight:800;letter-spacing:.5px;padding:1px 5px;border-radius:3px;flex-shrink:0}
 .bk-badge.win{background:rgba(68,204,102,.15);color:#4c4}
 .bk-badge.lose{background:rgba(204,68,68,.1);color:#c44}
-.bk-sep{height:1px;background:var(--border);margin:3px 0}
+.bk-sep{height:1px;background:var(--border);margin:2px 0}
 
 /* Per-round hero portraits under each player */
-.bk-heroes{display:flex;gap:3px;margin-top:3px}
-.bk-hero{width:24px;height:24px;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.bk-heroes{display:flex;gap:3px;margin-top:2px}
+.bk-hero{width:22px;height:22px;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
 .bk-hero img{width:100%;height:100%;object-fit:cover;display:block}
 .bk-hero span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#555;background:#1a1a1a}
 .bk-hero.won{border-color:#4c4;box-shadow:0 0 5px rgba(68,204,102,.3)}
 .bk-hero.lost{opacity:.3;filter:grayscale(.8)}
 
 /* Match status label */
-.bk-status{font-size:.5rem;letter-spacing:1px;text-align:center;margin-top:3px;font-weight:700;text-transform:uppercase}
+.bk-status{font-size:.5rem;letter-spacing:1px;text-align:center;margin-top:2px;font-weight:700;text-transform:uppercase}
 
 /* ── MATCH SCREEN ─────────────────────── */
 .match-panel{
@@ -2311,94 +2316,89 @@ function renderBracketMatch(m, myName){
   return html;
 }
 
-// Render a bracket section as a single SVG with foreignObject matches + path connectors
+// Render a bracket section as plain HTML with absolute positioning + SVG overlay for lines
 function renderBracketSection(roundArrays,matches,myName,labelPrefix){
-  const MW=190; // match width
-  const MH=56;  // match height (2 rows × 28px)
-  const GAP=34; // horizontal gap between rounds (for connector lines)
-  const VPAD=24;// vertical padding between matches within a pair
-  const ROUND_W=MW+GAP; // total width per round column
-  const TOP=20; // top margin for round labels
+  const MW=200; // match card width
+  const MH=90;  // match card height (generous: name rows + heroes + status)
+  const HGAP=50;// horizontal gap between round columns (where lines go)
+  const VGAP=30; // vertical gap between R1 match cards
+  const ROUND_W=MW+HGAP;
+  const LABEL_H=22; // space for round label at top
 
   const numRounds=roundArrays.length;
   if(numRounds===0)return'';
-
-  // Calculate match center Y positions using binary-tree layout
-  // R1 positions are evenly spaced, later rounds centered between their feeders
-  const centers=[]; // centers[round][index] = y center of that match
   const r1Count=roundArrays[0].length;
-  const baseGap=MH+VPAD; // gap between R1 match centers
-  const totalH=TOP+(r1Count-1)*baseGap+MH;
+  const baseStep=MH+VGAP; // distance between R1 match centers
 
-  // R1 centers
+  // centers[r][i] = Y center of match i in round r
+  const centers=[];
   centers[0]=[];
   for(let i=0;i<r1Count;i++){
-    centers[0][i]=TOP+MH/2+i*baseGap;
+    centers[0][i]=LABEL_H+MH/2+i*baseStep;
   }
-  // Later round centers: midpoint of feeder pair
   for(let r=1;r<numRounds;r++){
     centers[r]=[];
-    const prevCenters=centers[r-1];
-    const thisCount=roundArrays[r].length;
-    if(prevCenters.length===thisCount*2){
-      for(let i=0;i<thisCount;i++){
-        centers[r][i]=(prevCenters[i*2]+prevCenters[i*2+1])/2;
-      }
+    const prev=centers[r-1];
+    const cnt=roundArrays[r].length;
+    if(prev.length===cnt*2){
+      for(let i=0;i<cnt;i++) centers[r][i]=(prev[i*2]+prev[i*2+1])/2;
     } else {
-      // Non-standard transition: space evenly
-      const span=prevCenters[prevCenters.length-1]-prevCenters[0];
-      for(let i=0;i<thisCount;i++){
-        centers[r][i]=prevCenters[0]+(thisCount>1?i*span/(thisCount-1):span/2);
-      }
+      // Fallback: evenly space within prev range
+      const lo=prev[0], hi=prev[prev.length-1];
+      for(let i=0;i<cnt;i++) centers[r][i]=cnt>1?lo+i*(hi-lo)/(cnt-1):(lo+hi)/2;
     }
   }
 
-  const svgW=numRounds*ROUND_W-GAP+10;
-  const svgH=totalH+10;
+  const totalW=numRounds*ROUND_W-HGAP;
+  const totalH=LABEL_H+r1Count*baseStep;
 
-  let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" class="bk-svg">`;
+  // Build wrapper div with position:relative
+  let html=`<div class="bk-section" style="position:relative;width:${totalW}px;height:${totalH}px;margin:0 auto 20px">`;
 
-  // Draw matches as foreignObjects first
+  // Match cards as absolutely positioned divs
   for(let r=0;r<numRounds;r++){
     const x=r*ROUND_W;
     const mids=roundArrays[r];
     // Round label
-    svg+=`<text x="${x+MW/2}" y="14" fill="#555" font-size="10" text-anchor="middle" font-family="inherit" font-weight="700" letter-spacing="1">${labelPrefix} R${r+1}</text>`;
+    html+=`<div style="position:absolute;left:${x}px;top:0;width:${MW}px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:1px;color:#555">${labelPrefix} R${r+1}</div>`;
     for(let i=0;i<mids.length;i++){
       const cy=centers[r][i];
-      const y=cy-MH/2;
+      const top=cy-MH/2;
       const m=matches[mids[i]];
-      const mHtml=renderBracketMatch(m,myName);
-      svg+=`<foreignObject x="${x}" y="${y}" width="${MW}" height="${MH+16}">`; // +16 for status text
-      svg+=`<div xmlns="http://www.w3.org/1999/xhtml">${mHtml}</div>`;
-      svg+=`</foreignObject>`;
+      html+=`<div style="position:absolute;left:${x}px;top:${top}px;width:${MW}px;height:${MH}px">`;
+      html+=renderBracketMatch(m,myName);
+      html+=`</div>`;
     }
   }
 
-  // Draw connector paths ON TOP of everything
+  // SVG overlay for connector lines
+  html+=`<svg style="position:absolute;left:0;top:0;width:${totalW}px;height:${totalH}px;pointer-events:none" xmlns="http://www.w3.org/2000/svg">`;
   for(let r=0;r<numRounds-1;r++){
-    const x1=r*ROUND_W+MW; // right edge of this round's matches
-    const x2=(r+1)*ROUND_W; // left edge of next round's matches
+    const x1=r*ROUND_W+MW;       // right edge of current round cards
+    const x2=(r+1)*ROUND_W;      // left edge of next round cards
     const xMid=(x1+x2)/2;
-    const prevCenters_r=centers[r];
-    const nextCenters=centers[r+1];
-    const thisCount=roundArrays[r].length;
+    const prev=centers[r];
+    const next=centers[r+1];
+    const prevCount=roundArrays[r].length;
     const nextCount=roundArrays[r+1].length;
 
-    if(thisCount===nextCount*2){
+    if(prevCount===nextCount*2){
       for(let i=0;i<nextCount;i++){
-        const topY=prevCenters_r[i*2];
-        const botY=prevCenters_r[i*2+1];
-        const midY=nextCenters[i];
-        // Bracket shape: top match → vertical bar → bottom match, then output to next
-        svg+=`<path d="M${x1},${topY} L${xMid},${topY} L${xMid},${botY} L${x1},${botY}" fill="none" stroke="#444" stroke-width="2"/>`;
-        svg+=`<path d="M${xMid},${midY} L${x2},${midY}" fill="none" stroke="#444" stroke-width="2"/>`;
+        const topY=prev[i*2];
+        const botY=prev[i*2+1];
+        const midY=next[i];
+        // ┐ bracket connector: horizontal from top match, vertical bar, horizontal from bottom match
+        html+=`<line x1="${x1}" y1="${topY}" x2="${xMid}" y2="${topY}" stroke="#444" stroke-width="2"/>`;
+        html+=`<line x1="${xMid}" y1="${topY}" x2="${xMid}" y2="${botY}" stroke="#444" stroke-width="2"/>`;
+        html+=`<line x1="${x1}" y1="${botY}" x2="${xMid}" y2="${botY}" stroke="#444" stroke-width="2"/>`;
+        // horizontal from mid to next round match
+        html+=`<line x1="${xMid}" y1="${midY}" x2="${x2}" y2="${midY}" stroke="#444" stroke-width="2"/>`;
       }
     }
   }
-
-  svg+=`</svg>`;
-  return svg;
+  html+=`</svg>`;
+  html+=`</div>`;
+  return html;
 }
 
 function renderBracket(){

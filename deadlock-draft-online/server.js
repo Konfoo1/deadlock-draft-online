@@ -711,7 +711,9 @@ function propagateBracket(tourney) {
   for (const m of matches) byId[m.id] = m;
 
   for (const m of matches) {
-    if (m.status === "complete" || m.slots[0] !== null || m.slots[1] !== null) continue; // skip
+    if (m.status === "complete") continue; // skip completed matches
+    // Skip matches where BOTH slots are already filled
+    if (m.slots[0] !== null && m.slots[1] !== null) continue;
 
     // Winners bracket: fed by previous winners
     if (m.feeders) {
