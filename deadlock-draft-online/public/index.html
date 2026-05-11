@@ -1762,7 +1762,10 @@ let tlGlobalBans=new Set();
 
 socket.on("tourneyCreated",({code})=>{history.replaceState(null,"","?tourney="+code);});
 socket.on("tourneyJoined",({code})=>{history.replaceState(null,"","?tourney="+code);});
+let pendingTourneyState=null;
 socket.on("tourneyState",(state)=>{
+  // If coin is animating, defer the state update so leaderboard doesn't spoil mid-flip
+  if(coinAnimating){pendingTourneyState=state;return;}
   TS=state;
   renderTourneyLobby();
   if(!document.getElementById("tourneyLobby").classList.contains("active"))showScreen("tourneyLobby");
@@ -1799,16 +1802,20 @@ socket.on("coinResult",({heads,currentStreak,bestStreak})=>{
       else if(currentStreak<=3)streakEl.innerHTML=`<span style="color:#f0a030">${currentStreak} in a row!</span>`;
       else if(currentStreak<=5)streakEl.innerHTML=`<span style="color:#ffcc00;font-weight:700">${currentStreak} STREAK!</span>`;
       else streakEl.innerHTML=`<span style="color:#ffee00;font-weight:700;font-size:1.1rem">${currentStreak} STREAK!!!</span>`;
-      // Streak hit sound — pitch rises 2 semitones per consecutive heads
+      // Streak hit sound — pitch rises 2 semitones per consecutive heads (same speed)
       if(currentStreak>=2){
         try{
           const actx=new (window.AudioContext||window.webkitAudioContext)();
           fetch("/streak-hit.wav").then(r=>r.arrayBuffer()).then(buf=>actx.decodeAudioData(buf,decoded=>{
             const src=actx.createBufferSource();
             src.buffer=decoded;
-            // 2 semitones per streak above 1: streak 2 = +2st, streak 3 = +4st, etc.
-            src.playbackRate.value=Math.pow(2,((currentStreak-1)*2)/12);
-            src.connect(actx.destination);
+            // streak 2 = 0 semitones, streak 3 = +2st, streak 4 = +4st, etc.
+            // detune changes pitch without changing speed (cents: 100 cents = 1 semitone)
+            src.detune.value=(currentStreak-2)*200;
+            const gain=actx.createGain();
+            gain.gain.value=0.15;
+            src.connect(gain);
+            gain.connect(actx.destination);
             src.start(0);
             src.onended=()=>actx.close();
           }));
@@ -1824,6 +1831,11 @@ socket.on("coinResult",({heads,currentStreak,bestStreak})=>{
     }
     coinAnimating=false;
     btn.disabled=false;
+    // Apply any deferred tourney state now that animation is done
+    if(pendingTourneyState){
+      TS=pendingTourneyState;pendingTourneyState=null;
+      renderTourneyLobby();
+    }
   },2000);
 });
 
