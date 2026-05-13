@@ -184,6 +184,9 @@ function stateFor(lobby, sid) {
       picks: [[...st.picks[0]], [...st.picks[1]]],
       totalSteps: STD_TURNS.length,
       playerAssignments: st.playerAssignments || [[], []],
+      reserve: [...st.reserve],
+      baseTime: st.baseTime,
+      inReserve: st.inReserve || false,
     };
     if (st.step < STD_TURNS.length) {
       s.std.activeTurn = STD_TURNS[st.step];
@@ -360,14 +363,42 @@ function stdAllUsed(lobby) {
 
 function startStdDraft(lobby) {
   lobby.phase = "std_drafting";
+  const baseTime = 30;
+  const reserveTime = lobby.timerDuration;
   lobby.std = {
     step: 0,
     bans: [[], []],
     picks: [[], []],
     playerAssignments: [[], []],
+    baseTime: baseTime,
+    reserve: [reserveTime, reserveTime],
+    turnStart: Date.now(),
+    inReserve: false,
   };
   lobby.specPrefs = [{}, {}];
-  startTimer(lobby, () => stdAutoAction(lobby));
+  // Start 30s base timer for first turn
+  lobby.timerEnd = Date.now() + baseTime * 1000;
+  lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), baseTime * 1000);
+  broadcast(lobby);
+}
+
+function stdBaseExpired(lobby) {
+  const st = lobby.std;
+  if (!st || st.step >= STD_TURNS.length) return;
+  const turn = STD_TURNS[st.step];
+  const team = turn.team;
+  if (st.reserve[team] <= 0) {
+    stdAutoAction(lobby);
+    return;
+  }
+  st.inReserve = true;
+  st.turnStart = Date.now();
+  lobby.timerEnd = Date.now() + st.reserve[team] * 1000;
+  clearTimeout(lobby.timerRef);
+  lobby.timerRef = setTimeout(() => {
+    st.reserve[team] = 0;
+    stdAutoAction(lobby);
+  }, st.reserve[team] * 1000);
   broadcast(lobby);
 }
 
@@ -380,19 +411,46 @@ function stdAutoAction(lobby) {
   const avail = HEROES.filter(h => !used.has(h));
   if (avail.length === 0) { stdFinish(lobby); return; }
   const hero = avail[Math.floor(Math.random() * avail.length)];
-  if (turn.type === "ban") st.bans[turn.team].push(hero);
-  else st.picks[turn.team].push(hero);
+  if (turn.type === "ban") {
+    st.bans[turn.team].push(hero);
+  } else {
+    st.picks[turn.team].push(hero);
+    if (!st.playerAssignments) st.playerAssignments = [[], []];
+    // Auto-assign to a random unassigned player
+    const assigned = new Set(st.playerAssignments[turn.team].filter(Boolean));
+    const teamPlayers = [];
+    const cap = lobby.captains[turn.team];
+    if (cap) teamPlayers.push(cap.name);
+    for (const s of lobby.spectators[turn.team]) teamPlayers.push(s.name);
+    if (lobby.ghostPlayers && lobby.ghostPlayers[turn.team]) {
+      for (const gp of lobby.ghostPlayers[turn.team]) teamPlayers.push("\u{1F47B} " + gp.name);
+    }
+    const unassigned = teamPlayers.filter(p => !assigned.has(p));
+    const pick = unassigned.length > 0 ? unassigned[Math.floor(Math.random() * unassigned.length)] : null;
+    st.playerAssignments[turn.team].push(pick);
+  }
   stdAdvance(lobby);
 }
 
 function stdAdvance(lobby) {
   const st = lobby.std;
+  // Deduct reserve if we were in reserve
+  if (st.inReserve && st.turnStart) {
+    const turn = STD_TURNS[st.step];
+    const elapsed = (Date.now() - st.turnStart) / 1000;
+    st.reserve[turn.team] = Math.max(0, st.reserve[turn.team] - elapsed);
+  }
   st.step++;
+  st.inReserve = false;
   if (st.step >= STD_TURNS.length) {
     stdFinish(lobby); return;
   }
   lobby.specPrefs = [{}, {}];
-  startTimer(lobby, () => stdAutoAction(lobby));
+  // Start new turn with base time
+  st.turnStart = Date.now();
+  clearTimeout(lobby.timerRef);
+  lobby.timerEnd = Date.now() + st.baseTime * 1000;
+  lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), st.baseTime * 1000);
   broadcast(lobby);
 }
 
@@ -1159,6 +1217,19 @@ io.on("connection", (socket) => {
       st.playerAssignments[turn.team].push(assignedTo || null);
     }
     stdAdvance(lobby);
+  });
+
+  socket.on("reassignPick", ({ team, pickIndex, assignedTo }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.mode !== "standard" || !lobby.std) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.role !== "captain" || me.team !== team) return;
+    const st = lobby.std;
+    if (!st.playerAssignments) st.playerAssignments = [[], []];
+    if (pickIndex < 0 || pickIndex >= st.picks[team].length) return;
+    st.playerAssignments[team][pickIndex] = assignedTo || null;
+    broadcast(lobby);
   });
 
   socket.on("specPref", ({ hero, on }) => {
