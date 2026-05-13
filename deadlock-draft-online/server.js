@@ -22,17 +22,19 @@ const HEROES = [
 
 // ═══════════════════════════════════════════════════════════
 //  STANDARD DRAFT TURN ORDER — Snake draft, 4 bans + 12 picks = 16 turns
+//  BAN BAN | PICK×6 | BAN BAN | PICK×6
 // ═══════════════════════════════════════════════════════════
 const STD_TURNS = [
   // Ban Phase 1
   {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 1 — snake order (2 rounds)
+  // Pick Phase 1 — snake order (6 picks, 3 per team)
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
-  {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
+  {type:"pick",team:0},{type:"pick",team:1},
   // Ban Phase 2
   {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 2 — snake order (1 round)
+  // Pick Phase 2 — snake order (6 picks, 3 per team)
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
+  {type:"pick",team:0},{type:"pick",team:1},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -177,13 +179,20 @@ function stateFor(lobby, sid) {
   // ── STANDARD DRAFT ──
   if (lobby.mode === "standard" && lobby.std) {
     const st = lobby.std;
+    // Hide enemy player assignments — show own team's, mask the other
+    const myAssignments = myTeam >= 0 ? (st.playerAssignments?.[myTeam] || []) : [];
+    const oppAssignments = myTeam >= 0 ? (st.playerAssignments?.[oppTeam] || []).map(() => null) : [];
+    const assignments = myTeam === 0 ? [myAssignments, oppAssignments]
+                      : myTeam === 1 ? [oppAssignments, myAssignments]
+                      : [st.playerAssignments?.[0] || [], st.playerAssignments?.[1] || []]; // unassigned sees all
+
     s.std = {
       step: st.step,
       turns: STD_TURNS,
       bans: [[...st.bans[0]], [...st.bans[1]]],
       picks: [[...st.picks[0]], [...st.picks[1]]],
       totalSteps: STD_TURNS.length,
-      playerAssignments: st.playerAssignments || [[], []],
+      playerAssignments: assignments,
       reserve: [...st.reserve],
       baseTime: st.baseTime,
       inReserve: st.inReserve || false,
@@ -191,6 +200,17 @@ function stateFor(lobby, sid) {
     if (st.step < STD_TURNS.length) {
       s.std.activeTurn = STD_TURNS[st.step];
     }
+  }
+
+  // Filler players (pad to 6 per team)
+  s.fillerPlayers = lobby.fillerPlayers || [[], []];
+  // Player preferences (per-player hero wish lists, only visible to own team)
+  if (myTeam >= 0) {
+    s.playerPrefs = lobby.playerPrefs?.[myTeam] || {};
+  } else {
+    // Spectators/unassigned see both teams' prefs
+    s.playerPrefs0 = lobby.playerPrefs?.[0] || {};
+    s.playerPrefs1 = lobby.playerPrefs?.[1] || {};
   }
 
   return s;
@@ -376,6 +396,24 @@ function startStdDraft(lobby) {
     inReserve: false,
   };
   lobby.specPrefs = [{}, {}];
+
+  // Generate filler players to pad each team to 6
+  lobby.fillerPlayers = [[], []];
+  for (let t = 0; t < 2; t++) {
+    let realCount = 0;
+    if (lobby.captains[t]) realCount++;
+    realCount += lobby.spectators[t].length;
+    realCount += (lobby.ghostPlayers?.[t] || []).length;
+    const needed = Math.max(0, 6 - realCount);
+    for (let i = 0; i < needed; i++) {
+      lobby.fillerPlayers[t].push({ name: "Player " + (realCount + i + 1) });
+    }
+  }
+
+  // Initialize per-player preference lists (hero wish lists)
+  // Key: socket.id or ghost player name, Value: array of hero names
+  lobby.playerPrefs = [{}, {}];
+
   // Start 30s base timer for first turn
   lobby.timerEnd = Date.now() + baseTime * 1000;
   lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), baseTime * 1000);
@@ -423,7 +461,10 @@ function stdAutoAction(lobby) {
     if (cap) teamPlayers.push(cap.name);
     for (const s of lobby.spectators[turn.team]) teamPlayers.push(s.name);
     if (lobby.ghostPlayers && lobby.ghostPlayers[turn.team]) {
-      for (const gp of lobby.ghostPlayers[turn.team]) teamPlayers.push("\u{1F47B} " + gp.name);
+      for (const gp of lobby.ghostPlayers[turn.team]) teamPlayers.push(gp.name);
+    }
+    if (lobby.fillerPlayers && lobby.fillerPlayers[turn.team]) {
+      for (const fp of lobby.fillerPlayers[turn.team]) teamPlayers.push(fp.name);
     }
     const unassigned = teamPlayers.filter(p => !assigned.has(p));
     const pick = unassigned.length > 0 ? unassigned[Math.floor(Math.random() * unassigned.length)] : null;
@@ -1686,6 +1727,42 @@ io.on("connection", (socket) => {
       gp.heroes = gp.heroes.filter(h => h !== hero);
     } else {
       gp.heroes.push(hero);
+    }
+    broadcast(lobby);
+  });
+
+  // ── Rename Filler Player ──
+  socket.on("renameFiller", ({ team, index, name }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.mode !== "standard") return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.role !== "captain" || me.team !== team) return;
+    if (!lobby.fillerPlayers?.[team]?.[index]) return;
+    const n = (name || "").trim().slice(0, 20);
+    if (!n) return;
+    lobby.fillerPlayers[team][index].name = n;
+    broadcast(lobby);
+  });
+
+  // ── Player Preferences (hero wish list) ──
+  socket.on("playerPref", ({ hero, on }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.mode !== "standard" || !lobby.playerPrefs) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me) return;
+    const myTeam = (me.role === "captain" || me.role === "spectator") ? me.team : -1;
+    if (myTeam < 0) return;
+    // Only non-captain players who haven't been assigned yet can set prefs
+    // Actually captains might want to mark preferences too — allow all team members
+    const prefs = lobby.playerPrefs[myTeam];
+    const key = socket.id;
+    if (!prefs[key]) prefs[key] = [];
+    if (on) {
+      if (!prefs[key].includes(hero)) prefs[key].push(hero);
+    } else {
+      prefs[key] = prefs[key].filter(h => h !== hero);
     }
     broadcast(lobby);
   });

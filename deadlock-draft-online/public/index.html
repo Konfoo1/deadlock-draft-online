@@ -236,64 +236,95 @@ input,select{font-family:inherit}
 .mode-back-btn{margin-top:16px;padding:10px 24px;font-size:.85rem;border:1px solid #333;border-radius:8px;background:transparent;color:#888;cursor:pointer;transition:all .2s}
 .mode-back-btn:hover{border-color:var(--accent);color:var(--accent)}
 
-/* ── STANDARD DRAFT LAYOUT ─────────────── */
+/* ── STANDARD DRAFT LAYOUT (redesigned) ── */
 .std-draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
-.std-draft-header{
-  width:100%;background:linear-gradient(180deg,#12121a,#0a0a0f);
-  border-bottom:2px solid var(--phase-accent);padding:12px 20px 10px;text-align:center;transition:border-color .4s;
-}
-.std-turn-indicator{font-size:1.2rem;font-weight:700;color:var(--phase-accent);margin-bottom:4px;animation:fadeIn .3s ease-out;transition:color .4s}
-.std-turn-sub{font-size:.82rem;color:#777;margin-bottom:6px}
+.std-top-bar{background:#12122a;padding:6px 16px;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:#666}
+.std-top-bar .std-phase-tag{color:#ffcc00;font-weight:700;letter-spacing:.5px}
+.std-banner{background:#16163a;padding:10px 12px 8px;text-align:center}
+.std-banner-row{display:flex;align-items:center;gap:5px;justify-content:center;margin-bottom:6px;flex-wrap:wrap}
+.std-pick-slot{width:52px;height:66px;border-radius:5px;background:#222250;border:1px solid #333366;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:border-color .3s}
+.std-pick-slot.filled{border-color:var(--t1m)}
+.std-pick-slot.filled.t2s{border-color:var(--t2m)}
+.std-pick-slot .sp-img{width:100%;height:44px;background:#333366;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.std-pick-slot .sp-img img{width:100%;height:100%;object-fit:cover}
+.std-pick-slot .sp-name{font-size:.55rem;color:#888;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
+.std-pick-slot .sp-name.hidden-name{color:#444;font-style:italic}
+.std-pick-slot.empty-ps{opacity:.5}
+.std-pick-slot.empty-ps .sp-img{color:#444;font-size:1.2rem}
+.std-vs{font-weight:700;color:#444;font-size:1rem;margin:0 6px}
+/* Turn strip */
+.std-turn-strip{display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap}
+.std-tc{width:30px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;letter-spacing:.3px}
+.std-tc.ban.t1c{background:rgba(232,122,32,.12);color:var(--t1m);border:1px solid rgba(232,122,32,.25)}
+.std-tc.ban.t2c{background:rgba(74,138,223,.08);color:var(--t2m);border:1px solid rgba(74,138,223,.2)}
+.std-tc.pick.t1c{background:rgba(232,122,32,.06);color:var(--t1l);border:1px solid rgba(232,122,32,.15)}
+.std-tc.pick.t2c{background:rgba(74,138,223,.04);color:var(--t2m);border:1px solid rgba(74,138,223,.12)}
+.std-tc.done{opacity:.3}
+.std-tc.active{border:2px solid #ffcc00;opacity:1;transform:scale(1.15)}
+.std-tc.future{opacity:.55}
+.std-tc-sep{width:1px;height:14px;background:#333355;margin:0 2px}
+/* Main area */
 .std-draft-content{flex:1;display:flex;overflow:hidden}
 .std-side-panel{
-  width:220px;min-width:180px;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;padding:12px;overflow-y:auto;
+  width:180px;min-width:160px;background:var(--panel);display:flex;flex-direction:column;padding:10px;overflow-y:auto;gap:3px;
 }
-.std-side-panel.right{border-right:none;border-left:1px solid var(--border)}
-.std-side-panel h3{font-size:.85rem;font-weight:800;margin-bottom:8px;letter-spacing:1px}
-.std-side-panel.t1 h3{background:linear-gradient(90deg,var(--t1),var(--t1m),var(--t1l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.std-side-panel.t2 h3{background:linear-gradient(90deg,var(--t2),var(--t2m),var(--t2l));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.std-section-label{font-size:.6rem;font-weight:700;letter-spacing:1.5px;color:#444;margin:10px 0 6px;text-transform:uppercase}
-.std-hero-slot{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;margin:3px 0;
-  border-radius:6px;font-size:.8rem;font-weight:600;min-height:38px;
-  animation:fadeIn .3s ease-out both;
-}
-.std-hero-slot img{width:30px;height:30px;border-radius:4px;object-fit:cover}
-.std-hero-slot.pick-slot{background:rgba(255,255,255,.04);color:#ccc}
-.std-hero-slot.ban-slot{background:rgba(204,68,68,.08);color:var(--ban);font-size:.75rem}
-.std-hero-slot.ban-slot img{filter:grayscale(.8) brightness(.5);width:24px;height:24px}
-.std-hero-slot.empty-slot{background:rgba(255,255,255,.02);color:#333;font-style:italic;border:1px dashed #222}
-.std-hero-slot.active-slot{border:1px solid var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);animation:glowPulse 2s infinite}
-.std-center{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
-.std-center.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
-.std-center.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
+.std-side-panel.left{border-right:1px solid var(--border)}
+.std-side-panel.right{border-left:1px solid var(--border)}
+.std-team-label{font-size:.72rem;font-weight:700;margin-bottom:4px;letter-spacing:.5px}
+.std-side-panel.t1 .std-team-label{color:var(--t1m)}
+.std-side-panel.t2 .std-team-label{color:var(--t2m)}
+.std-player-row{display:flex;flex-direction:column;padding:5px 8px;border-radius:5px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);gap:2px}
+.std-player-row.assigned{border-color:#22aa44;background:rgba(34,170,68,.06)}
+.std-player-row.filler{border-style:dashed;opacity:.65}
+.std-pr-top{display:flex;align-items:center;gap:6px;width:100%}
+.std-pr-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.t1 .std-pr-dot{background:var(--t1m)}
+.t2 .std-pr-dot{background:var(--t2m)}
+.std-pr-dot.filler-dot{opacity:.35}
+.std-pr-name{font-size:.75rem;color:#ccc;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.std-pr-name.is-filler{color:#777;cursor:pointer}
+.std-pr-name.is-filler:hover{color:var(--accent)}
+.std-pr-assigned{font-size:.6rem;color:#22aa44;margin-left:auto;white-space:nowrap}
+.std-pr-prefs{display:flex;gap:2px;flex-wrap:wrap;padding-left:13px}
+.std-pref-chip{font-size:.55rem;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.15);border-radius:3px;padding:0 4px;color:#44ddaa}
+.std-reserve-box{margin-top:auto;padding:5px 8px;border-radius:4px;background:rgba(255,255,255,.03);text-align:center}
+.std-reserve-label{font-size:.55rem;color:#555;letter-spacing:.5px}
+.std-reserve-val{font-size:1.1rem;font-weight:700}
+.t1 .std-reserve-val{color:var(--t1m)}
+.t2 .std-reserve-val{color:var(--t2m)}
+.std-reserve-box.low-reserve .std-reserve-val{color:var(--ban)}
+/* Center hero grid */
+.std-center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.std-grid-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;justify-content:center}
+.std-grid-area.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
+.std-grid-area.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
 .std-hero-card-ban{border-color:#2a0a0a!important;opacity:.25!important;pointer-events:none!important}
 .std-hero-card-ban::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
 .std-hero-card-picked{border-color:#1a2a1a!important;opacity:.2!important;pointer-events:none!important}
-.std-bottom{display:flex;justify-content:center;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #2a2a35;gap:16px}
-.std-bottom .btn-main{background:var(--phase-accent-dim)}
+.hero-card.ghost-marked{border-color:#44ddaa}
+.hero-card.ghost-marked::after{content:'';position:absolute;top:2px;right:3px;width:6px;height:6px;border-radius:50%;background:#44ddaa}
+/* Fixed chat */
+.std-chat-box{height:100px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.std-chat-log{flex:1;overflow-y:auto;padding:5px 10px;font-size:.78rem;display:flex;flex-direction:column;gap:2px}
+.std-chat-msg .std-chat-name{font-weight:700;color:var(--accent);margin-right:5px;font-size:.72rem}
+.std-chat-msg{color:#999}
+.std-chat-input-row{display:flex;gap:4px;padding:4px 10px;border-top:1px solid rgba(255,255,255,.04);flex-shrink:0}
+.std-chat-input{flex:1;background:#16161e;border:1px solid var(--border);color:#eee;padding:4px 8px;border-radius:4px;font-size:.78rem;outline:none}
+.std-chat-input:focus{border-color:var(--accent)}
+.std-chat-send{padding:4px 12px;border:none;border-radius:4px;background:var(--accent-dim);color:#fff;font-size:.75rem;font-weight:700;cursor:pointer}
+/* Bottom bar */
+.std-bottom{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--panel);border-top:1px solid var(--border);gap:12px}
+.std-status{font-size:.82rem;color:#777;flex:1}.std-status .hi{color:var(--phase-accent);font-weight:700}
+.std-timer-display{font-size:1.4rem;font-weight:700;color:#ffcc00;font-family:monospace;min-width:44px;text-align:center}
+.std-timer-display.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
+.std-timer-display.reserve{color:var(--ban)}
+.std-bottom .btn-main{padding:10px 24px;background:var(--phase-accent-dim)}
 .std-bottom .btn-main:hover:not(:disabled){box-shadow:0 4px 20px var(--phase-glow)}
-.std-status{font-size:.85rem;color:#666}.std-status .hi{color:var(--phase-accent);font-weight:700}
-
-/* ── Turn timeline ──────────────────────── */
-.std-timeline{display:flex;gap:4px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap}
-.std-turn-pip{
-  width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;
-  font-size:.7rem;font-weight:700;border:2px solid #222;transition:all .3s;
-}
-.std-turn-pip.ban-pip{background:#1a0808;color:#cc4444}
-.std-turn-pip.pick-pip{background:#081a08;color:#44cc66}
-.std-turn-pip.done-pip{opacity:.35}
-.std-turn-pip.active-pip{border-color:var(--phase-accent);box-shadow:0 0 10px var(--phase-glow);transform:scale(1.3)}
-.std-turn-pip.t1-pip{border-color:var(--t1m);color:var(--t1l)}
-.std-turn-pip.t1-pip.ban-pip{background:rgba(232,122,32,.1)}
-.std-turn-pip.t1-pip.pick-pip{background:rgba(232,122,32,.08)}
-.std-turn-pip.t2-pip{border-color:var(--t2m);color:var(--t2m)}
-.std-turn-pip.t2-pip.ban-pip{background:rgba(74,138,223,.08)}
-.std-turn-pip.t2-pip.pick-pip{background:rgba(74,138,223,.06)}
-.std-turn-pip.done-pip.t1-pip{border-color:rgba(232,122,32,.2);color:rgba(240,192,64,.3)}
-.std-turn-pip.done-pip.t2-pip{border-color:rgba(74,138,223,.15);color:rgba(74,138,223,.3)}
+/* Inline assign buttons in bottom bar */
+.std-assign-area{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.std-assign-label{font-size:.78rem;color:#aaa}
+.std-assign-btn{padding:4px 12px;border-radius:4px;background:#222250;border:1px solid #444477;color:#ddd;font-size:.78rem;cursor:pointer;transition:all .15s}
+.std-assign-btn:hover{border-color:var(--accent);background:rgba(232,122,32,.1)}
 
 /* ── BACK BUTTON (top-left) ────────────── */
 .back-btn{
@@ -647,52 +678,49 @@ input,select{font-family:inherit}
 <!-- ═══════ STANDARD DRAFT ═══════ -->
 <div class="screen" id="stdDraft" style="padding:0">
   <div class="std-draft-app">
-    <div class="std-draft-header">
-      <div class="phase-role-tag captain-tag" id="stdRoleTag">CAPTAIN</div>
-      <div class="std-turn-indicator" id="stdTurnIndicator">Ban Phase</div>
-      <div class="std-turn-sub" id="stdTurnSub">Team 1 is banning...</div>
-      <div class="std-timeline" id="stdTimeline"></div>
-      <div class="timer-bar" id="stdTimerWrap">
-        <div class="timer-num" id="stdTimerNum">60</div>
-        <div class="timer-track"><div class="timer-fill" id="stdTimerFill"></div></div>
-      </div>
+    <div class="std-top-bar">
+      <span id="stdTopTitle">Deadlock Drafting Tool</span>
+      <span id="stdTopLobby">Standard Draft</span>
+      <span class="std-phase-tag" id="stdPhaseTag">BAN PHASE</span>
+    </div>
+    <div class="std-banner" id="stdBanner">
+      <div class="std-banner-row" id="stdBannerRow"></div>
+      <div class="std-turn-strip" id="stdTurnStrip"></div>
     </div>
     <div class="std-draft-content">
-      <div class="std-side-panel t1" id="stdPanel0">
-        <h3 id="stdT1Name">Hidden King</h3>
-        <div class="std-reserve" id="stdReserve0">Reserve: 60s</div>
-        <div class="std-section-label">PICKS</div>
-        <div id="stdPicks0"></div>
-        <div class="std-section-label">BANS</div>
-        <div id="stdBans0"></div>
-        <div class="std-section-label">PLAYERS</div>
-        <div id="stdGhosts0"></div>
+      <div class="std-side-panel t1 left" id="stdPanel0">
+        <div class="std-team-label" id="stdTeamLabel0">Team 1</div>
+        <div id="stdPlayerList0"></div>
+        <div class="std-reserve-box" id="stdReserveBox0">
+          <div class="std-reserve-label">RESERVE TIME</div>
+          <div class="std-reserve-val" id="stdReserveVal0">2:00</div>
+        </div>
       </div>
-      <div class="std-center" id="stdGrid"></div>
+      <div class="std-center">
+        <div class="std-grid-area" id="stdGrid"></div>
+        <div class="std-chat-box" id="stdChatBox">
+          <div class="std-chat-log" id="stdChatLog"></div>
+          <div class="std-chat-input-row" id="stdChatInputRow">
+            <input class="std-chat-input" id="stdChatInput" placeholder="Team chat..." maxlength="200" onkeydown="if(event.key==='Enter')sendTeamChat()">
+            <button class="std-chat-send" onclick="sendTeamChat()">Send</button>
+          </div>
+        </div>
+      </div>
       <div class="std-side-panel t2 right" id="stdPanel1">
-        <h3 id="stdT2Name">Archmother</h3>
-        <div class="std-reserve" id="stdReserve1">Reserve: 60s</div>
-        <div class="std-section-label">PICKS</div>
-        <div id="stdPicks1"></div>
-        <div class="std-section-label">BANS</div>
-        <div id="stdBans1"></div>
-        <div class="std-section-label">PLAYERS</div>
-        <div id="stdGhosts1"></div>
+        <div class="std-team-label" id="stdTeamLabel1">Team 2</div>
+        <div id="stdPlayerList1"></div>
+        <div class="std-reserve-box" id="stdReserveBox1">
+          <div class="std-reserve-label">RESERVE TIME</div>
+          <div class="std-reserve-val" id="stdReserveVal1">2:00</div>
+        </div>
       </div>
     </div>
     <div class="std-bottom">
       <div class="std-status" id="stdStatus"></div>
+      <div class="std-timer-display" id="stdTimerDisplay">30</div>
+      <div class="std-assign-area hidden" id="stdAssignArea"></div>
       <button class="btn-main orange" id="stdConfirmBtn" onclick="stdConfirm()" style="display:none" disabled>Confirm</button>
     </div>
-    <div class="team-chat hidden" id="stdTeamChat">
-      <div class="tc-title">TEAM CHAT</div>
-      <div class="tc-msgs" id="tcMsgs"></div>
-      <div class="tc-input-row">
-        <input class="tc-input" id="tcInput" placeholder="Message your team..." maxlength="200" onkeydown="if(event.key==='Enter')sendTeamChat()">
-        <button class="tc-send" onclick="sendTeamChat()">Send</button>
-      </div>
-    </div>
-    <div id="stdSpecChat" class="hidden" style="padding:8px 16px;width:100%"></div>
   </div>
 </div>
 
@@ -1564,7 +1592,11 @@ function dropOnGhost(ev,team,playerIndex){
 //  TEAM CHAT
 // ═══════════════════════════════════════════
 function sendTeamChat(mode){
-  const inp=document.getElementById(mode==='phase'?'tcInputPhase':'tcInput');
+  let inp;
+  if(mode==='phase') inp=document.getElementById('tcInputPhase');
+  else if(mode==='std'||(!mode&&S&&S.mode==='standard')) inp=document.getElementById('stdChatInput');
+  else inp=document.getElementById('tcInput');
+  if(!inp)return;
   const text=inp.value.trim();
   if(!text)return;
   socket.emit("teamChat",{text});
@@ -1584,17 +1616,20 @@ function showInlineAssign(hero){
   if(cap)players.push(cap.name);
   (S.spectators[myTeam]||[]).forEach(s=>players.push(s.name));
   const ghosts=(S.ghostPlayers||[[],[]])[myTeam]||[];
-  ghosts.forEach(gp=>players.push("\u{1F47B} "+gp.name));
+  ghosts.forEach(gp=>players.push(gp.name));
+  const fillers=(S.fillerPlayers||[[],[]])[myTeam]||[];
+  fillers.forEach(fp=>players.push(fp.name));
   const assigned=new Set((std.playerAssignments?.[myTeam]||[]).filter(Boolean));
-  const bottom=document.getElementById("stdStatus");
-  let h='<div class="inline-assign"><div class="ia-title">Who plays '+hero+'?</div><div class="ia-players">';
+  const area=document.getElementById("stdAssignArea");
+  let h='<span class="std-assign-label">Who plays '+hero+'?</span>';
   players.forEach(p=>{
     const taken=assigned.has(p);
-    h+='<button class="ia-btn'+(taken?' taken':'')+'" '+(taken?'disabled':'')+' onclick="confirmInlineAssign(\''+esc(p)+'\')">'+p+'</button>';
+    h+='<button class="std-assign-btn'+(taken?' taken':'')+'" '+(taken?'disabled style="opacity:.3;cursor:default"':'')+' onclick="confirmInlineAssign(\''+esc(p)+'\')">'+p+'</button>';
   });
-  h+='<button class="ia-btn ia-skip" onclick="confirmInlineAssign(null)">Unassigned</button>';
-  h+='</div><button class="ia-cancel" onclick="cancelInlineAssign()">Cancel</button></div>';
-  bottom.innerHTML=h;
+  h+='<button class="std-assign-btn" style="border-style:dashed;color:#666" onclick="confirmInlineAssign(null)">Skip</button>';
+  h+='<button class="std-assign-btn" style="color:var(--ban);border-color:rgba(204,68,68,.3)" onclick="cancelInlineAssign()">Cancel</button>';
+  area.innerHTML=h;
+  area.classList.remove("hidden");
   document.getElementById("stdConfirmBtn").style.display="none";
 }
 function confirmInlineAssign(player){
@@ -1605,12 +1640,19 @@ function confirmInlineAssign(player){
 }
 function cancelInlineAssign(){
   pendingPickHero=null;
+  const area=document.getElementById("stdAssignArea");
+  if(area){area.innerHTML="";area.classList.add("hidden");}
   renderStdDraft();
 }
 
 // ═══════════════════════════════════════════
 //  REASSIGN PICKS
 // ═══════════════════════════════════════════
+function renameFiller(team,index){
+  const name=prompt("Rename player:");
+  if(name&&name.trim())socket.emit("renameFiller",{team,index,name:name.trim()});
+}
+
 let reassignIndex=null;
 function showReassign(team,pickIndex){
   reassignIndex={team,pickIndex};
@@ -1894,42 +1936,30 @@ function tickStdTimer(){
   const inReserve=std.inReserve;
   const activeTurn=std.activeTurn;
 
-  const el=document.getElementById("stdTimerNum");
-  const fill=document.getElementById("stdTimerFill");
-  const timerWrap=document.getElementById("stdTimerWrap");
-
-  if(inReserve){
-    const maxReserve=S.timerDuration||60;
-    const pct=maxReserve>0?(rem/maxReserve)*100:0;
-    if(el){el.textContent=rem+"s";el.classList.add("urgent");el.classList.add("reserve-timer");}
-    if(fill){fill.style.width=pct+"%";fill.classList.add("urgent");}
-    if(timerWrap)timerWrap.classList.add("reserve-mode");
-  } else {
-    const baseTime=std.baseTime||30;
-    const pct=baseTime>0?(rem/baseTime)*100:0;
-    if(el){el.textContent=rem;el.classList.toggle("urgent",rem<=5);el.classList.remove("reserve-timer");}
-    if(fill){fill.style.width=pct+"%";fill.classList.toggle("urgent",rem<=5);}
-    if(timerWrap)timerWrap.classList.remove("reserve-mode");
-  }
-
-  // Show reserve time for both teams
-  const reserveEl0=document.getElementById("stdReserve0");
-  const reserveEl1=document.getElementById("stdReserve1");
-  if(reserveEl0&&std.reserve){
-    const r0=Math.ceil(std.reserve[0]);
-    const r1=Math.ceil(std.reserve[1]);
-    if(inReserve&&activeTurn){
-      if(activeTurn.team===0)reserveEl0.textContent="Reserve: "+rem+"s";
-      else reserveEl0.textContent="Reserve: "+r0+"s";
-      if(activeTurn.team===1)reserveEl1.textContent="Reserve: "+rem+"s";
-      else reserveEl1.textContent="Reserve: "+r1+"s";
+  const el=document.getElementById("stdTimerDisplay");
+  if(el){
+    if(inReserve){
+      el.textContent=rem+"s";
+      el.className="std-timer-display reserve";
     } else {
-      reserveEl0.textContent="Reserve: "+r0+"s";
-      reserveEl1.textContent="Reserve: "+r1+"s";
+      el.textContent=rem;
+      el.className="std-timer-display"+(rem<=5?" urgent":"");
     }
-    reserveEl0.classList.toggle("low-reserve",r0<=15);
-    reserveEl1.classList.toggle("low-reserve",r1<=15);
   }
+
+  // Update reserve values in side panels
+  [0,1].forEach(t=>{
+    const rEl=document.getElementById("stdReserveVal"+t);
+    const rBox=document.getElementById("stdReserveBox"+t);
+    if(!rEl||!std.reserve)return;
+    const r=Math.ceil(std.reserve[t]);
+    let val=r;
+    if(inReserve&&activeTurn&&activeTurn.team===t)val=rem;
+    const mins=Math.floor(val/60);
+    const secs=val%60;
+    rEl.textContent=mins+":"+(secs<10?"0":"")+secs;
+    if(rBox)rBox.classList.toggle("low-reserve",r<=15);
+  });
 }
 
 // ═══════════════════════════════════════════
@@ -1937,21 +1967,24 @@ function tickStdTimer(){
 // ═══════════════════════════════════════════
 function stdClickHero(hero){
   if(!S||!S.std)return;
-  // Spectators/players vote for a hero (1 at a time)
-  if(S.role==="spectator"){
+  const isCap=S.role==="captain";
+  const isPlayer=S.role==="spectator"; // "spectator" on a team = player
+  const isComplete=S.std.step>=S.std.totalSteps;
+  // Players build a preference list (toggle on/off, multiple allowed)
+  if(isPlayer&&!isComplete){
     if(specPrefs.has(hero)){
-      specPrefs.delete(hero);socket.emit("specPref",{hero,on:false});
+      specPrefs.delete(hero);socket.emit("playerPref",{hero,on:false});
     } else {
-      for(const prev of specPrefs){socket.emit("specPref",{hero:prev,on:false});}
-      specPrefs.clear();
-      specPrefs.add(hero);socket.emit("specPref",{hero,on:true});
+      specPrefs.add(hero);socket.emit("playerPref",{hero,on:true});
     }
     renderStdDraft();return;
   }
   // Captain selects (toggle) — must confirm with button
-  if(stdSelected===hero){stdSelected=null;}
-  else{stdSelected=hero;}
-  renderStdDraft();
+  if(isCap){
+    if(stdSelected===hero){stdSelected=null;}
+    else{stdSelected=hero;}
+    renderStdDraft();
+  }
 }
 function stdConfirm(){
   if(!S||!S.std||!stdSelected)return;
@@ -1973,184 +2006,205 @@ function renderStdDraft(){
   if(!S||!S.std)return;
   const std=S.std;
   const isCap=S.role==="captain";
+  const isPlayer=S.role==="spectator"; // spectator on a team = player
+  const isNeutral=S.role==="unassigned";
   const myTeam=S.myTeam;
   const step=std.step;
   const turns=std.turns;
   const totalSteps=std.totalSteps;
   const isComplete=step>=totalSteps;
   const activeTurn=std.activeTurn;
-  // Set accent color based on current turn type
+  const stepChanged=lastStdStep!==step;
+  if(stepChanged)stdSelected=null;
+
+  // Set accent color
   if(!isComplete&&activeTurn)setPhaseAccent(activeTurn.type);
   else setPhaseAccent("pick");
 
-  // Team names
-  document.getElementById("stdT1Name").textContent=S.teamNames[0];
-  document.getElementById("stdT2Name").textContent=S.teamNames[1];
-
-  // Role tag
-  const roleTag=document.getElementById("stdRoleTag");
-  if(isCap){
-    roleTag.className="phase-role-tag captain-tag"+(myTeam===1?" t2-cap":"");
-    roleTag.textContent="CAPTAIN — "+S.teamNames[myTeam];
-  } else if(S.role==="spectator"){
-    roleTag.className="phase-role-tag spectator-tag";
-    roleTag.textContent="PLAYER — "+S.teamNames[myTeam];
-  } else {
-    roleTag.className="phase-role-tag spectator-tag";
-    roleTag.textContent="SPECTATOR";
-  }
-
-  // Turn indicator
-  const turnInd=document.getElementById("stdTurnIndicator");
-  const turnSub=document.getElementById("stdTurnSub");
+  // ── Top bar ──
+  const phaseTag=document.getElementById("stdPhaseTag");
   if(isComplete){
-    turnInd.textContent="Draft Complete!";
-    turnSub.textContent="All picks and bans are locked in.";
+    phaseTag.textContent="DRAFT COMPLETE";
   } else {
-    const actionWord=activeTurn.type==="ban"?"BAN":"PICK";
-    const teamName=S.teamNames[activeTurn.team];
-    const isMyTurn=isCap&&myTeam===activeTurn.team;
-    turnInd.textContent=actionWord+" PHASE";
-    if(isMyTurn){
-      turnSub.textContent="Your turn to "+actionWord.toLowerCase()+"!";
-      turnSub.style.color="var(--accent)";
-    } else {
-      turnSub.textContent=teamName+" is "+actionWord.toLowerCase()+"ing...";
-      turnSub.style.color="#777";
-    }
+    phaseTag.textContent=(activeTurn.type==="ban"?"BAN":"PICK")+" PHASE";
   }
+  document.getElementById("stdTopLobby").textContent=S.lobbyCode?" ["+S.lobbyCode+"]":"Standard Draft";
 
-  // Timeline pips
-  const timeline=document.getElementById("stdTimeline");
-  let tlHtml="";
-  for(let i=0;i<totalSteps;i++){
-    const t=turns[i];
-    let cls="std-turn-pip";
-    cls+=t.type==="ban"?" ban-pip":" pick-pip";
-    cls+=t.team===0?" t1-pip":" t2-pip";
-    if(i<step)cls+=" done-pip";
-    if(i===step)cls+=" active-pip";
-    const label=t.type==="ban"?"B":"P";
-    tlHtml+=`<div class="${cls}">${label}</div>`;
-  }
-  timeline.innerHTML=tlHtml;
-
-  // Timer
-  document.getElementById("stdTimerWrap").classList.toggle("hidden",!S.timerEnd||isComplete);
-
-  // Side panels — picks and bans
-  const allUsed=new Set([...std.bans[0],...std.bans[1],...std.picks[0],...std.picks[1]]);
-
+  // ── Banner: 6 pick slots per team with VS separator ──
+  const bannerRow=document.getElementById("stdBannerRow");
+  let bannerHtml="";
   [0,1].forEach(t=>{
-    // Picks — 6 slots with player assignments
-    const picksEl=document.getElementById("stdPicks"+t);
+    if(t===1)bannerHtml+=`<div class="std-vs">VS</div>`;
+    const picks=std.picks[t]||[];
     const assignments=std.playerAssignments?.[t]||[];
-    const isMyCap=isCap&&myTeam===t;
-    let ph="";
+    const isEnemy=myTeam>=0&&t!==myTeam;
     for(let i=0;i<6;i++){
-      const hero=std.picks[t][i];
+      const hero=picks[i];
       const assign=assignments[i];
-      const isNextSlot=!hero&&std.picks[t].length===i&&!isComplete&&activeTurn&&activeTurn.type==="pick"&&activeTurn.team===t;
-      if(hero){
-        const showReassignDrop=reassignIndex&&reassignIndex.team===t&&reassignIndex.pickIndex===i;
-        ph+=`<div class="std-hero-slot pick-slot${isMyCap?' reassignable':''}" ${isMyCap&&!showReassignDrop?`onclick="showReassign(${t},${i})"`:''}>`;
-        ph+=`${heroImg(hero,30)} <span class="pick-hero-name">${hero}</span>`;
-        if(assign)ph+=`<div class="pick-assign-name">${assign}</div>`;
-        if(showReassignDrop){
-          const players2=[];
-          const cap2=S.captains[t];
-          if(cap2)players2.push(cap2.name);
-          (S.spectators[t]||[]).forEach(s2=>players2.push(s2.name));
-          const gh2=(S.ghostPlayers||[[],[]])[t]||[];
-          gh2.forEach(gp=>players2.push("\u{1F47B} "+gp.name));
-          ph+='<div class="reassign-drop">';
-          players2.forEach(p=>{
-            ph+='<div class="reassign-opt" onclick="event.stopPropagation();doReassign(\''+esc(p)+'\')">'+p+'</div>';
-          });
-          ph+='<div class="reassign-opt reassign-none" onclick="event.stopPropagation();doReassign(null)">Unassigned</div>';
-          ph+='<div class="reassign-opt reassign-cancel" onclick="event.stopPropagation();reassignIndex=null;renderStdDraft()">Cancel</div>';
-          ph+='</div>';
-        }
-        ph+=`</div>`;
+      const filled=!!hero;
+      const teamCls=t===1?"t2s":"";
+      if(filled){
+        const imgUrl=`https://deadlock.wiki/Special:FilePath/${hero.replace(/ /g,'_')}_card.png`;
+        const nameText=isEnemy?(assign?"???":""): (assign||"");
+        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}">`;
+        bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}" title="${hero}"></div>`;
+        bannerHtml+=`<div class="sp-name${isEnemy&&assign?' hidden-name':''}">${nameText||hero}</div>`;
+        bannerHtml+=`</div>`;
       } else {
-        ph+=`<div class="std-hero-slot empty-slot${isNextSlot?' active-slot':''}">Pick ${i+1}</div>`;
+        bannerHtml+=`<div class="std-pick-slot empty-ps ${teamCls}"><div class="sp-img">${i+1}</div><div class="sp-name">—</div></div>`;
       }
-    }
-    picksEl.innerHTML=ph;
-
-    // Bans
-    const bansEl=document.getElementById("stdBans"+t);
-    let bh="";
-    const teamBans=std.bans[t];
-    if(teamBans.length===0){
-      // Show empty slots based on how many bans this team will make
-      const isNextBan=!isComplete&&activeTurn&&activeTurn.type==="ban"&&activeTurn.team===t;
-      bh+=`<div class="std-hero-slot empty-slot${isNextBan?' active-slot':''}">—</div>`;
-    } else {
-      teamBans.forEach(h=>{
-        bh+=`<div class="std-hero-slot ban-slot">${heroImg(h,24)} ${h}</div>`;
-      });
-      // Show active slot if it's this team's ban turn
-      if(!isComplete&&activeTurn&&activeTurn.type==="ban"&&activeTurn.team===t){
-        bh+=`<div class="std-hero-slot empty-slot active-slot">—</div>`;
-      }
-    }
-    bansEl.innerHTML=bh;
-
-    // Ghost players for this team
-    const gpEl=document.getElementById("stdGhosts"+t);
-    if(gpEl){
-      const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
-      let gh="";
-      ghosts.forEach((gp,gi)=>{
-        const heroesList=gp.heroes.map(gh2=>`<span class="ghost-hero-tag">${heroImg(gh2,16)} ${gh2}</span>`).join("");
-        gh+=`<div class="std-ghost-player" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="this.classList.remove('drag-over');dropOnGhost(event,${t},${gi})">`;
-        gh+=`<div class="sgp-name">\u{1F47B} ${gp.name}</div>`;
-        gh+=`<div class="sgp-heroes">${heroesList||"<span style='color:#444;font-size:.6rem'>Drop heroes here</span>"}</div>`;
-        gh+=`</div>`;
-      });
-      gpEl.innerHTML=gh;
     }
   });
+  bannerRow.innerHTML=bannerHtml;
 
-  // Hero grid — center
+  // ── Turn strip: B B | P×6 | B B | P×6 ──
+  const turnStrip=document.getElementById("stdTurnStrip");
+  let stripHtml="";
+  for(let i=0;i<totalSteps;i++){
+    // Insert separators: after index 1 (end of ban1) and after index 7 (end of pick1), after index 9 (end of ban2)
+    if(i===2||i===8)stripHtml+=`<div class="std-tc-sep"></div>`;
+    const t=turns[i];
+    const label=t.type==="ban"?"B":"P";
+    const teamCls=t.team===0?"t1c":"t2c";
+    let state="future";
+    if(i<step)state="done";
+    if(i===step&&!isComplete)state="active";
+    stripHtml+=`<div class="std-tc ${t.type} ${teamCls} ${state}">${label}</div>`;
+  }
+  turnStrip.innerHTML=stripHtml;
+
+  // ── Side panels: player lists ──
+  [0,1].forEach(t=>{
+    document.getElementById("stdTeamLabel"+t).textContent=S.teamNames[t];
+    const listEl=document.getElementById("stdPlayerList"+t);
+    const isEnemy=myTeam>=0&&t!==myTeam;
+    const isMyTeam=myTeam===t;
+    const isMyCap=isCap&&isMyTeam;
+    const assignments=std.playerAssignments?.[t]||[];
+    const picks=std.picks[t]||[];
+    // Build player list: captain, players (spectators on team), ghosts, fillers
+    const playerRows=[];
+    const cap=S.captains[t];
+    if(cap)playerRows.push({name:cap.name,type:"real",isCaptain:true});
+    (S.spectators[t]||[]).forEach(s=>playerRows.push({name:s.name,type:"real"}));
+    const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
+    ghosts.forEach(gp=>playerRows.push({name:gp.name,type:"ghost",heroes:gp.heroes}));
+    const fillers=(S.fillerPlayers||[[],[]])[t]||[];
+    fillers.forEach((fp,fi)=>playerRows.push({name:fp.name,type:"filler",fillerIndex:fi}));
+
+    // Determine which heroes each player is assigned to
+    const assignedMap={};
+    assignments.forEach((name,idx)=>{if(name)assignedMap[name]=picks[idx];});
+
+    // Player prefs — only visible for own team
+    const prefs=isMyTeam?(S.playerPrefs||{}):{};
+
+    let ph="";
+    playerRows.forEach(pr=>{
+      const assignedHero=assignedMap[pr.name];
+      const isFiller=pr.type==="filler";
+      const isGhost=pr.type==="ghost";
+      let rowCls="std-player-row";
+      if(assignedHero)rowCls+=" assigned";
+      if(isFiller)rowCls+=" filler";
+      ph+=`<div class="${rowCls}">`;
+      ph+=`<div class="std-pr-top">`;
+      ph+=`<div class="std-pr-dot${isFiller?' filler-dot':''}"></div>`;
+      if(isFiller&&isMyCap){
+        ph+=`<span class="std-pr-name is-filler" onclick="renameFiller(${t},${pr.fillerIndex})">${pr.name}</span>`;
+      } else {
+        ph+=`<span class="std-pr-name">${isGhost?'👻 ':''}${isEnemy?'???':pr.name}${pr.isCaptain?' ⭐':''}</span>`;
+      }
+      if(assignedHero&&!isEnemy){
+        ph+=`<span class="std-pr-assigned">${assignedHero}</span>`;
+      }
+      ph+=`</div>`;
+      // Show pref chips for own team's players (from playerPrefs keyed by socket id)
+      // We aggregate: count how many prefs each hero has
+      if(isMyTeam&&!isEnemy){
+        // Ghost heroes (pool)
+        if(isGhost&&pr.heroes&&pr.heroes.length>0){
+          ph+=`<div class="std-pr-prefs">`;
+          pr.heroes.forEach(gh=>{ph+=`<span class="std-pref-chip">${gh}</span>`;});
+          ph+=`</div>`;
+        }
+      }
+      ph+=`</div>`;
+    });
+    listEl.innerHTML=ph;
+  });
+
+  // ── Hero grid ──
   const grid=document.getElementById("stdGrid");
   const heroes=S.heroes||[];
-  const stepChanged=lastStdStep!==step;
   if(stepChanged){grid.classList.add("animate-cards");lastStdStep=step;}
-  // Only animate on first render
-  if(lastStdStep===step&&grid.children.length>0){grid.classList.remove("animate-cards");}
+  if(lastStdStep===step&&grid.children.length>0)grid.classList.remove("animate-cards");
 
   const isMyTurn=isCap&&!isComplete&&activeTurn&&myTeam===activeTurn.team;
-  const isSpec=S.role==="spectator";
-  const isNeutral=S.role==="unassigned";
-  const prefs=S.specPrefs?.[myTeam]||{};
-  const canVote=isSpec&&!isComplete;
+  const canVote=isPlayer&&!isComplete;
 
-  // Clear stdSelected if turn changed (server advanced)
-  if(stepChanged)stdSelected=null;
+  // Aggregate player preferences for captain view
+  const prefCounts={};
+  if(isCap){
+    const prefs=S.playerPrefs||{};
+    Object.values(prefs).forEach(heroList=>{
+      if(Array.isArray(heroList))heroList.forEach(h=>{prefCounts[h]=(prefCounts[h]||0)+1;});
+    });
+  }
+  // Also aggregate specPrefs counts from server state
+  const serverSpecPrefs=S.specPrefs?.[myTeam]||{};
+  if(isCap){
+    Object.entries(serverSpecPrefs).forEach(([h,cnt])=>{
+      if(cnt>0)prefCounts[h]=(prefCounts[h]||0)+cnt;
+    });
+  }
 
   grid.innerHTML=heroes.map((h,i)=>{
     let cls="hero-card";
     const isBanned=std.bans[0].includes(h)||std.bans[1].includes(h);
     const isPicked=std.picks[0].includes(h)||std.picks[1].includes(h);
-    const prefCount=prefs[h]||0;
+    const prefCount=prefCounts[h]||0;
 
     if(isBanned){cls+=" std-hero-card-ban";}
     else if(isPicked){cls+=" std-hero-card-picked";}
     else if(isMyTurn&&stdSelected===h){cls+=" sel";}
-    else if(canVote&&specPrefs.has(h)){cls+=" sel";}
+    else if(canVote&&specPrefs.has(h)){cls+=" sel ghost-marked";}
     else if(!isMyTurn&&!canVote){cls+=" disabled";}
 
     if(prefCount>0&&isCap)cls+=" has-pref";
     const clickable=!isBanned&&!isPicked&&(isMyTurn||canVote);
     return`<div class="${cls}" style="--i:${i}" draggable="true" ondragstart="dragHero(event,'${esc(h)}')"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
-      ${heroImg(h,68)}<div class="pref-badge">${prefCount}\u{1F44D}</div><div class="hl">${h}</div></div>`;
+      ${heroImg(h,68)}<div class="pref-badge">${prefCount}👍</div><div class="hl">${h}</div></div>`;
   }).join("");
 
-  // Confirm button
+  // ── Chat log ──
+  const chatLog=document.getElementById("stdChatLog");
+  const chatInputRow=document.getElementById("stdChatInputRow");
+  if(myTeam>=0){
+    const tcMsgs=S.teamChat||[];
+    chatLog.innerHTML=tcMsgs.slice(-50).map(m=>
+      `<div class="std-chat-msg"><span class="std-chat-name">${m.from}:</span> ${m.text.replace(/</g,'&lt;')}</div>`
+    ).join("");
+    chatLog.scrollTop=chatLog.scrollHeight;
+    chatInputRow.classList.remove("hidden");
+  } else if(isNeutral){
+    // Spectator sees both chats interleaved or side by side
+    const t0Msgs=S.teamChat0||[];
+    const t1Msgs=S.teamChat1||[];
+    let ch="";
+    t0Msgs.slice(-20).forEach(m=>{ch+=`<div class="std-chat-msg"><span class="std-chat-name" style="color:var(--t1m)">[${S.teamNames[0]}] ${m.from}:</span> ${m.text.replace(/</g,'&lt;')}</div>`;});
+    t1Msgs.slice(-20).forEach(m=>{ch+=`<div class="std-chat-msg"><span class="std-chat-name" style="color:var(--t2m)">[${S.teamNames[1]}] ${m.from}:</span> ${m.text.replace(/</g,'&lt;')}</div>`;});
+    chatLog.innerHTML=ch;
+    chatLog.scrollTop=chatLog.scrollHeight;
+    chatInputRow.classList.add("hidden");
+  } else {
+    chatLog.innerHTML="";
+    chatInputRow.classList.add("hidden");
+  }
+
+  // ── Confirm button ──
   const confirmBtn=document.getElementById("stdConfirmBtn");
-  if(isMyTurn){
+  if(isMyTurn&&!pendingPickHero){
     confirmBtn.style.display="inline-block";
     const actionLabel=activeTurn.type==="ban"?"Ban":"Pick";
     if(stdSelected){
@@ -2164,9 +2218,11 @@ function renderStdDraft(){
     confirmBtn.style.display="none";
   }
 
-  // Status bar
+  // ── Status bar ──
   const statusEl=document.getElementById("stdStatus");
-  if(isComplete){
+  if(pendingPickHero){
+    // Assignment flow active — status managed by showInlineAssign
+  } else if(isComplete){
     statusEl.innerHTML=`<span class="hi">Draft complete!</span>`;
   } else if(isMyTurn&&stdSelected){
     statusEl.innerHTML=`<span class="hi">${stdSelected}</span> selected — click Confirm to lock in`;
@@ -2174,41 +2230,16 @@ function renderStdDraft(){
     statusEl.innerHTML=`<span class="hi">Your turn!</span> Click a hero to ${activeTurn.type}`;
   } else if(isCap){
     statusEl.innerHTML=`Waiting for ${S.teamNames[activeTurn.team]} to ${activeTurn.type}...`;
-  } else if(isSpec){
-    statusEl.innerHTML=`Tap a hero to vote for your captain — ${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing (Turn ${step+1}/${totalSteps})`;
+  } else if(isPlayer){
+    statusEl.innerHTML=`Click heroes to set your preferences — ${S.teamNames[activeTurn.team]} ${activeTurn.type}ing (${step+1}/${totalSteps})`;
   } else {
-    statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (Turn ${step+1}/${totalSteps})`;
+    statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (${step+1}/${totalSteps})`;
   }
 
-  // Team chat rendering (standard draft)
-  const tcEl=document.getElementById("tcMsgs");
-  const tcMsgs=S.teamChat||[];
-  if(S.myTeam>=0){
-    tcEl.innerHTML=tcMsgs.slice(-40).map(m=>`<div class="tc-msg"><span class="tc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("");
-    tcEl.scrollTop=tcEl.scrollHeight;
-    document.getElementById("stdTeamChat").classList.remove("hidden");
-  } else {
-    document.getElementById("stdTeamChat").classList.add("hidden");
-  }
-
-  // Spectator: show both team chats
-  if(isNeutral){
-    const specChat=document.getElementById("stdSpecChat");
-    if(specChat){
-      let ch="<div style='display:flex;gap:16px;flex-wrap:wrap'>";
-      [0,1].forEach(t=>{
-        const tMsgs=t===0?(S.teamChat0||[]):(S.teamChat1||[]);
-        ch+=`<div style="flex:1;min-width:200px"><div style="font-size:.6rem;font-weight:700;color:#555;letter-spacing:1px;margin-bottom:4px">${S.teamNames[t]} CHAT</div>`;
-        ch+=`<div class="tc-msgs">${tMsgs.slice(-20).map(m=>`<div class="tc-msg"><span class="tc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("")}</div>`;
-        ch+=`</div>`;
-      });
-      ch+=`</div>`;
-      specChat.innerHTML=ch;
-      specChat.classList.remove("hidden");
-    }
-  } else {
-    const specChat=document.getElementById("stdSpecChat");
-    if(specChat) specChat.classList.add("hidden");
+  // Hide assign area if no pending pick
+  if(!pendingPickHero){
+    const area=document.getElementById("stdAssignArea");
+    if(area){area.innerHTML="";area.classList.add("hidden");}
   }
 }
 
