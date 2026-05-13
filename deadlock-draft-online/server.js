@@ -179,12 +179,18 @@ function stateFor(lobby, sid) {
   // ── STANDARD DRAFT ──
   if (lobby.mode === "standard" && lobby.std) {
     const st = lobby.std;
-    // Hide enemy player assignments — show own team's, mask the other
-    const myAssignments = myTeam >= 0 ? (st.playerAssignments?.[myTeam] || []) : [];
-    const oppAssignments = myTeam >= 0 ? (st.playerAssignments?.[oppTeam] || []).map(() => null) : [];
-    const assignments = myTeam === 0 ? [myAssignments, oppAssignments]
-                      : myTeam === 1 ? [oppAssignments, myAssignments]
-                      : [st.playerAssignments?.[0] || [], st.playerAssignments?.[1] || []]; // unassigned sees all
+    // Hide enemy player assignments during draft — show all on complete
+    const draftComplete = st.step >= STD_TURNS.length;
+    let assignments;
+    if (draftComplete || myTeam < 0) {
+      // Complete or spectator: show all assignments
+      assignments = [st.playerAssignments?.[0] || [], st.playerAssignments?.[1] || []];
+    } else {
+      const myAssignments = st.playerAssignments?.[myTeam] || [];
+      const oppAssignments = (st.playerAssignments?.[oppTeam] || []).map(() => null);
+      assignments = myTeam === 0 ? [myAssignments, oppAssignments]
+                  : [oppAssignments, myAssignments];
+    }
 
     s.std = {
       step: st.step,
@@ -204,13 +210,27 @@ function stateFor(lobby, sid) {
 
   // Filler players (pad to 6 per team)
   s.fillerPlayers = lobby.fillerPlayers || [[], []];
-  // Player preferences (per-player hero wish lists, only visible to own team)
+  // Player preferences — resolve socket IDs to player names
+  function resolvePrefs(teamIdx) {
+    const raw = lobby.playerPrefs?.[teamIdx] || {};
+    const resolved = {};
+    for (const [sid, heroes] of Object.entries(raw)) {
+      // Find this socket's name
+      let name = null;
+      if (lobby.captains[teamIdx]?.id === sid) name = lobby.captains[teamIdx].name;
+      else {
+        const sp = lobby.spectators[teamIdx].find(p => p.id === sid);
+        if (sp) name = sp.name;
+      }
+      if (name && heroes.length > 0) resolved[name] = heroes;
+    }
+    return resolved;
+  }
   if (myTeam >= 0) {
-    s.playerPrefs = lobby.playerPrefs?.[myTeam] || {};
+    s.playerPrefs = resolvePrefs(myTeam);
   } else {
-    // Spectators/unassigned see both teams' prefs
-    s.playerPrefs0 = lobby.playerPrefs?.[0] || {};
-    s.playerPrefs1 = lobby.playerPrefs?.[1] || {};
+    s.playerPrefs0 = resolvePrefs(0);
+    s.playerPrefs1 = resolvePrefs(1);
   }
 
   return s;
@@ -978,7 +998,7 @@ io.on("connection", (socket) => {
     const lobby = {
       code, hostId: socket.id,
       mode: mode || "phase", // "phase", "standard", or "duel"
-      timerDuration: timerDuration || 60,
+      timerDuration: timerDuration || 120,
       phase: "waiting",
       teamNames: isDuel ? [name || "Player 1", "Player 2"] : ["Hidden King", "Archmother"],
       captains: isDuel ? [{ id: socket.id, name }, null] : [null, null],
@@ -1057,7 +1077,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
-  socket.on("joinAsSpectator", ({ code, name }) => {
+  socket.on("joinAsSpectator", ({ code, name, team }) => {
     const c = code.toUpperCase();
     const lobby = lobbies.get(c);
     if (!lobby) return socket.emit("err", "Lobby not found.");
@@ -1076,9 +1096,16 @@ io.on("connection", (socket) => {
         broadcast(lobby); return;
       }
     }
-    lobby.unassigned.push({ id: socket.id, name });
-    myLobby = c; socket.join(c);
-    socket.emit("joined", { code: c, role: "unassigned" });
+    // If team specified (0 or 1), join that team directly; otherwise unassigned
+    if (typeof team === "number" && (team === 0 || team === 1) && lobby.phase === "waiting") {
+      lobby.spectators[team].push({ id: socket.id, name });
+      myLobby = c; socket.join(c);
+      socket.emit("joined", { code: c, role: "spectator" });
+    } else {
+      lobby.unassigned.push({ id: socket.id, name });
+      myLobby = c; socket.join(c);
+      socket.emit("joined", { code: c, role: "unassigned" });
+    }
     broadcast(lobby);
   });
 
@@ -1105,6 +1132,36 @@ io.on("connection", (socket) => {
     } else {
       const t = team === 0 ? 0 : 1;
       lobby.spectators[t].push({ id: socket.id, name: playerName });
+    }
+    broadcast(lobby);
+  });
+
+  // Host can move any player between teams/spectator
+  socket.on("hostMovePlayer", ({ playerId, toTeam }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || lobby.phase !== "waiting" || socket.id !== lobby.hostId) return;
+    const target = findPerson(lobby, playerId);
+    if (!target || playerId === lobby.hostId) return; // can't move yourself or non-existent
+    // Remove from current position
+    let playerName = "Player";
+    if (target.role === "unassigned") {
+      playerName = lobby.unassigned[target.idx]?.name || "Player";
+      lobby.unassigned.splice(target.idx, 1);
+    } else if (target.role === "spectator") {
+      playerName = lobby.spectators[target.team][target.idx]?.name || "Player";
+      lobby.spectators[target.team].splice(target.idx, 1);
+    } else if (target.role === "captain") {
+      playerName = lobby.captains[target.team]?.name || "Player";
+      lobby.captains[target.team] = null;
+      lobby.ready[target.team] = false;
+    } else return;
+    // Place in new position
+    if (toTeam === -1) {
+      lobby.unassigned.push({ id: playerId, name: playerName });
+    } else {
+      const t = toTeam === 0 ? 0 : 1;
+      lobby.spectators[t].push({ id: playerId, name: playerName });
     }
     broadcast(lobby);
   });
@@ -1741,7 +1798,12 @@ io.on("connection", (socket) => {
     if (!lobby.fillerPlayers?.[team]?.[index]) return;
     const n = (name || "").trim().slice(0, 20);
     if (!n) return;
+    const oldName = lobby.fillerPlayers[team][index].name;
     lobby.fillerPlayers[team][index].name = n;
+    // Update playerAssignments if the old name was assigned to a pick
+    if (lobby.std && lobby.std.playerAssignments && lobby.std.playerAssignments[team]) {
+      lobby.std.playerAssignments[team] = lobby.std.playerAssignments[team].map(a => a === oldName ? n : a);
+    }
     broadcast(lobby);
   });
 

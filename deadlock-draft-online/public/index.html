@@ -89,6 +89,9 @@ input,select{font-family:inherit}
 .lobby-slot .join-hint{font-size:.65rem;color:#444;margin-top:6px;transition:color .2s}
 .lobby-slot.t1:hover .join-hint{color:var(--t1m)}.lobby-slot.t2:hover .join-hint{color:var(--t2m)}
 .person{padding:6px 10px;background:rgba(255,255,255,.04);border-radius:5px;margin:3px 0;font-size:.85rem;display:flex;align-items:center;justify-content:space-between;animation:fadeIn .3s ease-out both}
+.person.draggable-player{cursor:grab}
+.person.draggable-player:active{cursor:grabbing}
+.lobby-slot.drag-over-slot{border-color:var(--accent)!important;box-shadow:0 0 16px rgba(232,122,32,.3)!important;transform:scale(1.02)}
 .person.empty{color:#444;font-style:italic}
 .tag{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:6px}
 .tag.you{background:var(--accent-dim);color:var(--accent-light)}
@@ -242,16 +245,16 @@ input,select{font-family:inherit}
 .std-top-bar .std-phase-tag{color:#ffcc00;font-weight:700;letter-spacing:.5px}
 .std-banner{background:#16163a;padding:10px 12px 8px;text-align:center}
 .std-banner-row{display:flex;align-items:center;gap:5px;justify-content:center;margin-bottom:6px;flex-wrap:wrap}
-.std-pick-slot{width:52px;height:66px;border-radius:5px;background:#222250;border:1px solid #333366;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:border-color .3s}
+.std-pick-slot{width:72px;height:88px;border-radius:6px;background:#222250;border:2px solid #333366;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:border-color .3s}
 .std-pick-slot.filled{border-color:var(--t1m)}
 .std-pick-slot.filled.t2s{border-color:var(--t2m)}
-.std-pick-slot .sp-img{width:100%;height:44px;background:#333366;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.std-pick-slot .sp-img{width:100%;height:62px;background:#333366;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .std-pick-slot .sp-img img{width:100%;height:100%;object-fit:cover}
-.std-pick-slot .sp-name{font-size:.55rem;color:#888;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
+.std-pick-slot .sp-name{font-size:.65rem;color:#888;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
 .std-pick-slot .sp-name.hidden-name{color:#444;font-style:italic}
 .std-pick-slot.empty-ps{opacity:.5}
-.std-pick-slot.empty-ps .sp-img{color:#444;font-size:1.2rem}
-.std-vs{font-weight:700;color:#444;font-size:1rem;margin:0 6px}
+.std-pick-slot.empty-ps .sp-img{color:#444;font-size:1.4rem}
+.std-vs{font-weight:900;color:#555;font-size:1.3rem;margin:0 10px}
 /* Turn strip */
 .std-turn-strip{display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap}
 .std-tc{width:30px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;letter-spacing:.3px}
@@ -266,27 +269,36 @@ input,select{font-family:inherit}
 /* Main area */
 .std-draft-content{flex:1;display:flex;overflow:hidden}
 .std-side-panel{
-  width:180px;min-width:160px;background:var(--panel);display:flex;flex-direction:column;padding:10px;overflow-y:auto;gap:3px;
+  width:210px;min-width:190px;background:var(--panel);display:flex;flex-direction:column;padding:10px;overflow-y:auto;gap:4px;
 }
 .std-side-panel.left{border-right:1px solid var(--border)}
 .std-side-panel.right{border-left:1px solid var(--border)}
-.std-team-label{font-size:.72rem;font-weight:700;margin-bottom:4px;letter-spacing:.5px}
+.std-team-label{font-size:.85rem;font-weight:700;margin-bottom:6px;letter-spacing:.5px}
 .std-side-panel.t1 .std-team-label{color:var(--t1m)}
 .std-side-panel.t2 .std-team-label{color:var(--t2m)}
 .std-player-row{display:flex;flex-direction:column;padding:5px 8px;border-radius:5px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);gap:2px}
 .std-player-row.assigned{border-color:#22aa44;background:rgba(34,170,68,.06)}
+.std-player-row.drag-over-player{border-color:var(--accent)!important;background:rgba(232,122,32,.08)!important;box-shadow:0 0 8px rgba(232,122,32,.2)}
 .std-player-row.filler{border-style:dashed;opacity:.65}
 .std-pr-top{display:flex;align-items:center;gap:6px;width:100%}
 .std-pr-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .t1 .std-pr-dot{background:var(--t1m)}
 .t2 .std-pr-dot{background:var(--t2m)}
 .std-pr-dot.filler-dot{opacity:.35}
-.std-pr-name{font-size:.75rem;color:#ccc;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.std-pr-name{font-size:.82rem;color:#ccc;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .std-pr-name.is-filler{color:#777;cursor:pointer}
 .std-pr-name.is-filler:hover{color:var(--accent)}
 .std-pr-assigned{font-size:.6rem;color:#22aa44;margin-left:auto;white-space:nowrap}
 .std-pr-prefs{display:flex;gap:2px;flex-wrap:wrap;padding-left:13px}
-.std-pref-chip{font-size:.55rem;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.15);border-radius:3px;padding:0 4px;color:#44ddaa}
+.std-pref-chip{font-size:.55rem;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.15);border-radius:3px;padding:1px 4px;color:#44ddaa;display:inline-flex;align-items:center;gap:2px}
+.std-pref-chip img{width:16px;height:16px;border-radius:2px;object-fit:cover}
+/* Panel timer (above team label) */
+.std-panel-timer{text-align:center;padding:8px;margin-bottom:6px;border-radius:6px;background:rgba(255,204,0,.06);border:2px solid rgba(255,204,0,.25);animation:pulse 1s infinite alternate}
+.std-panel-timer-val{font-size:1.8rem;font-weight:900;color:#ffcc00;font-family:monospace}
+.std-panel-timer-val.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
+.std-panel-timer-val.reserve{color:var(--ban)}
+.std-panel-timer-label{font-size:.55rem;font-weight:700;letter-spacing:1px;color:#888}
+.std-panel-timer.active-timer{border-color:rgba(255,204,0,.5);box-shadow:0 0 12px rgba(255,204,0,.15)}
 .std-reserve-box{margin-top:auto;padding:5px 8px;border-radius:4px;background:rgba(255,255,255,.03);text-align:center}
 .std-reserve-label{font-size:.55rem;color:#555;letter-spacing:.5px}
 .std-reserve-val{font-size:1.1rem;font-weight:700}
@@ -298,8 +310,9 @@ input,select{font-family:inherit}
 .std-grid-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;justify-content:center}
 .std-grid-area.animate-cards .hero-card{animation:cardEnter .3s ease-out both}
 .std-grid-area.animate-cards .hero-card:nth-child(n){animation-delay:calc(var(--i,0) * 15ms)}
-.std-hero-card-ban{border-color:#2a0a0a!important;opacity:.25!important;pointer-events:none!important}
-.std-hero-card-ban::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
+.std-hero-card-ban{border-color:var(--ban)!important;opacity:.6!important;pointer-events:none!important;background:rgba(204,68,68,.08)!important}
+.std-hero-card-ban img{filter:grayscale(.8) brightness(.4)!important}
+.std-hero-card-ban::after{content:'✕';position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);color:var(--ban);font-size:3rem;font-weight:900;text-shadow:0 0 10px rgba(204,68,68,.6),0 2px 4px rgba(0,0,0,.8);pointer-events:none}
 .std-hero-card-picked{border-color:#1a2a1a!important;opacity:.2!important;pointer-events:none!important}
 .hero-card.ghost-marked{border-color:#44ddaa}
 .hero-card.ghost-marked::after{content:'';position:absolute;top:2px;right:3px;width:6px;height:6px;border-radius:50%;background:#44ddaa}
@@ -620,10 +633,17 @@ input,select{font-family:inherit}
 
   <!-- Link join: shown when URL has lobby+role -->
   <div id="homeLinkJoin" class="hidden">
-    <!-- Non-captain: simple join button -->
+    <!-- Non-captain: team chooser -->
     <div id="linkJoinSimple">
-      <div style="margin-top:14px">
-        <button class="btn-main orange" id="linkJoinBtn" onclick="joinViaLink()">Join Lobby</button>
+      <div class="team-chooser">
+        <p>Which team do you want to join?</p>
+        <div class="team-choose-row">
+          <button class="team-choose-btn t1-choose" id="playerTeamChoose0" onclick="joinViaLinkPlayerTeam(0)">Hidden King</button>
+          <button class="team-choose-btn t2-choose" id="playerTeamChoose1" onclick="joinViaLinkPlayerTeam(1)">Archmother</button>
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn-main" onclick="joinViaLink()" style="padding:8px 20px;font-size:.85rem;background:#2a2a35">Join as Spectator</button>
+        </div>
       </div>
     </div>
     <!-- Captain: team chooser -->
@@ -689,6 +709,10 @@ input,select{font-family:inherit}
     </div>
     <div class="std-draft-content">
       <div class="std-side-panel t1 left" id="stdPanel0">
+        <div class="std-panel-timer hidden" id="stdPanelTimer0">
+          <div class="std-panel-timer-val" id="stdPanelTimerVal0">30</div>
+          <div class="std-panel-timer-label">YOUR TURN</div>
+        </div>
         <div class="std-team-label" id="stdTeamLabel0">Team 1</div>
         <div id="stdPlayerList0"></div>
         <div class="std-reserve-box" id="stdReserveBox0">
@@ -707,6 +731,10 @@ input,select{font-family:inherit}
         </div>
       </div>
       <div class="std-side-panel t2 right" id="stdPanel1">
+        <div class="std-panel-timer hidden" id="stdPanelTimer1">
+          <div class="std-panel-timer-val" id="stdPanelTimerVal1">30</div>
+          <div class="std-panel-timer-label">YOUR TURN</div>
+        </div>
         <div class="std-team-label" id="stdTeamLabel1">Team 2</div>
         <div id="stdPlayerList1"></div>
         <div class="std-reserve-box" id="stdReserveBox1">
@@ -729,33 +757,33 @@ input,select{font-family:inherit}
   <h2 style="margin-bottom:2px">Draft Lobby</h2>
   <div class="code-display" id="lobbyCode"></div>
 
-  <!-- Host sees both links -->
+  <!-- Host sees copy buttons -->
   <div class="links-box" id="linksBox">
-    <div class="link-label">CAPTAIN LINK (send to team captains)</div>
     <div class="link-row">
-      <div class="link-url" id="captainLink"></div>
-      <button class="copy-btn" onclick="copyLink('captainLink')">Copy</button>
+      <div class="link-label" style="flex:1;margin:0">CAPTAIN LINK</div>
+      <span class="link-url hidden" id="captainLink"></span>
+      <button class="copy-btn" onclick="copyLink('captainLink')">Copy Captain Link</button>
     </div>
-    <div class="link-label">PLAYER LINK (send to everyone else)</div>
     <div class="link-row" style="margin-bottom:0">
-      <div class="link-url" id="playerLink"></div>
-      <button class="copy-btn" onclick="copyLink('playerLink')">Copy</button>
+      <div class="link-label" style="flex:1;margin:0">PLAYER LINK</div>
+      <span class="link-url hidden" id="playerLink"></span>
+      <button class="copy-btn" onclick="copyLink('playerLink')">Copy Player Link</button>
     </div>
   </div>
 
   <div class="lobby-row">
-    <div class="lobby-slot t1" id="slot0" onclick="joinTeam(0)">
+    <div class="lobby-slot t1" id="slot0" onclick="joinTeam(0)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,0)">
       <h3 id="lt1name">Hidden King</h3>
       <div id="lt1people"></div>
       <div class="join-hint">Click to join</div>
       <button class="host-cap-toggle hidden" id="hostCap0" onclick="event.stopPropagation();hostToggleCaptain(0)">Become Captain</button>
     </div>
-    <div class="lobby-slot unassigned" id="slotU" onclick="joinTeam(-1)">
+    <div class="lobby-slot unassigned" id="slotU" onclick="joinTeam(-1)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,-1)">
       <h3>Spectators</h3>
       <div id="unassignedList"></div>
-      <div class="join-hint">Click to spectate</div>
+      <div class="join-hint">Click to join</div>
     </div>
-    <div class="lobby-slot t2" id="slot1" onclick="joinTeam(1)">
+    <div class="lobby-slot t2" id="slot1" onclick="joinTeam(1)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,1)">
       <h3 id="lt2name">Archmother</h3>
       <div id="lt2people"></div>
       <div class="join-hint">Click to join</div>
@@ -793,8 +821,8 @@ input,select{font-family:inherit}
     </div>
     <div class="timer-row">
       <label>Phase timer:</label>
-      <input type="range" id="timerSlider" min="10" max="300" step="10" value="60" oninput="onTimerSlide()">
-      <span class="timer-val" id="timerValLabel">60s</span>
+      <input type="range" id="timerSlider" min="10" max="300" step="10" value="120" oninput="onTimerSlide()">
+      <span class="timer-val" id="timerValLabel">120s</span>
     </div>
     <button class="btn-main orange" id="startBtn" onclick="startDraft()" disabled>Start Draft</button>
     <div style="font-size:.75rem;color:#555;margin-top:4px" id="startHint">Need 2 captains to start</div>
@@ -1126,9 +1154,10 @@ if (urlCode && urlRole) {
   } else {
     document.getElementById("linkJoinSimple").classList.remove("hidden");
     document.getElementById("linkJoinCaptain").classList.add("hidden");
-    document.getElementById("linkJoinBtn").textContent="Join Lobby";
     document.getElementById("homeSubtitle").textContent="You've been invited to a draft lobby.";
     document.getElementById("linkJoinHint").textContent="Lobby: "+urlCode.toUpperCase();
+    // Query lobby to get team names for buttons
+    socket.emit("queryLobby",{code:urlCode});
   }
 } else if (urlCode) {
   document.getElementById("codeInput").value = urlCode;
@@ -1136,22 +1165,30 @@ if (urlCode && urlRole) {
 
 socket.on("lobbyInfo",(info)=>{
   if(info.error)return;
+  // Captain team chooser buttons
   const btn0=document.getElementById("teamChoose0");
   const btn1=document.getElementById("teamChoose1");
-  btn0.textContent=info.teamNames[0];
-  btn1.textContent=info.teamNames[1];
-  if(info.captains[0]){
-    btn0.disabled=true;btn0.style.opacity=".35";btn0.style.cursor="default";
-    btn0.textContent=info.teamNames[0]+" (Taken)";
-  } else {
-    btn0.disabled=false;btn0.style.opacity="";btn0.style.cursor="";
+  if(btn0&&btn1){
+    btn0.textContent=info.teamNames[0];
+    btn1.textContent=info.teamNames[1];
+    if(info.captains[0]){
+      btn0.disabled=true;btn0.style.opacity=".35";btn0.style.cursor="default";
+      btn0.textContent=info.teamNames[0]+" (Taken)";
+    } else {
+      btn0.disabled=false;btn0.style.opacity="";btn0.style.cursor="";
+    }
+    if(info.captains[1]){
+      btn1.disabled=true;btn1.style.opacity=".35";btn1.style.cursor="default";
+      btn1.textContent=info.teamNames[1]+" (Taken)";
+    } else {
+      btn1.disabled=false;btn1.style.opacity="";btn1.style.cursor="";
+    }
   }
-  if(info.captains[1]){
-    btn1.disabled=true;btn1.style.opacity=".35";btn1.style.cursor="default";
-    btn1.textContent=info.teamNames[1]+" (Taken)";
-  } else {
-    btn1.disabled=false;btn1.style.opacity="";btn1.style.cursor="";
-  }
+  // Player team chooser buttons
+  const pbtn0=document.getElementById("playerTeamChoose0");
+  const pbtn1=document.getElementById("playerTeamChoose1");
+  if(pbtn0)pbtn0.textContent=info.teamNames[0];
+  if(pbtn1)pbtn1.textContent=info.teamNames[1];
 });
 
 // Tournament join via URL
@@ -1236,7 +1273,7 @@ function createLobby(){
 function selectMode(mode){
   chosenMode=mode;
   const name=document.getElementById("nameInput").value.trim();
-  socket.emit("createLobby",{name,timerDuration:60,mode});
+  socket.emit("createLobby",{name,timerDuration:120,mode});
 }
 function joinManual(){
   const name=document.getElementById("nameInput").value.trim();
@@ -1250,6 +1287,12 @@ function joinViaLink(){
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
   socket.emit("joinAsSpectator",{code:urlCode,name});
+}
+function joinViaLinkPlayerTeam(team){
+  const name=document.getElementById("nameInput").value.trim();
+  if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
+  if(!urlCode)return;
+  socket.emit("joinAsSpectator",{code:urlCode,name,team});
 }
 function joinViaLinkTeam(team){
   const name=document.getElementById("nameInput").value.trim();
@@ -1265,6 +1308,11 @@ function joinTeam(t){socket.emit("joinTeam",{team:t});}
 function toggleReady(){socket.emit("toggleReady");}
 function hostToggleCaptain(t){socket.emit("hostToggleCaptain",{team:t});}
 function promoteToCaptain(pid,t){socket.emit("promoteToCaptain",{playerId:pid,team:t});}
+function dropPlayerOnTeam(ev,team){
+  ev.preventDefault();
+  const playerId=ev.dataTransfer.getData("playerId");
+  if(playerId&&S&&S.isHost){socket.emit("hostMovePlayer",{playerId,toTeam:team});}
+}
 function onTimerSlide(){
   const v=parseInt(document.getElementById("timerSlider").value);
   document.getElementById("timerValLabel").textContent=v+"s";
@@ -1418,10 +1466,10 @@ function renderLobby(){
     (S.spectators[t]||[]).forEach(s=>{
       let btns='';
       if(canPromote&&!cap){
-        // Show promote button if captain slot is empty
         btns=`<button class="promote-btn" onclick="event.stopPropagation();promoteToCaptain('${s.id}',${t})">⬆ Captain</button>`;
       }
-      h+=`<div class="person">${s.name}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
+      const draggable=isHost&&s.id!==socket.id;
+      h+=`<div class="person${draggable?' draggable-player':''}"${draggable?` draggable="true" ondragstart="event.dataTransfer.setData('playerId','${s.id}')"`:''}>${s.name}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
     });
     // Ghost players
     const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
@@ -1444,13 +1492,13 @@ function renderLobby(){
   else{S.unassigned.forEach(u=>{
     let tags="";
     if(u.id===socket.id)tags+='<span class="tag you">YOU</span>';
-    // Host can promote unassigned players to captain on either team
     let promBtns='';
     if(canPromote&&u.id!==socket.id){
       if(!S.captains[0])promBtns+=`<button class="promote-btn t1p" onclick="event.stopPropagation();promoteToCaptain('${u.id}',0)">⬆ ${S.teamNames[0]}</button>`;
       if(!S.captains[1])promBtns+=`<button class="promote-btn t2p" onclick="event.stopPropagation();promoteToCaptain('${u.id}',1)">⬆ ${S.teamNames[1]}</button>`;
     }
-    uh+=`<div class="person">${u.name}<span>${tags}${promBtns}</span></div>`;
+    const draggable=isHost&&u.id!==socket.id;
+    uh+=`<div class="person${draggable?' draggable-player':''}"${draggable?` draggable="true" ondragstart="event.dataTransfer.setData('playerId','${u.id}')"`:''}>${u.name}<span>${tags}${promBtns}</span></div>`;
   });}
   uList.innerHTML=uh;
 
@@ -1587,6 +1635,27 @@ function dropOnGhost(ev,team,playerIndex){
   const hero=ev.dataTransfer.getData("text/plain");
   if(hero)socket.emit("ghostPick",{team,playerIndex,hero});
 }
+function dropHeroOnPlayer(ev,playerName,team){
+  ev.preventDefault();
+  const hero=ev.dataTransfer.getData("text/plain");
+  if(!hero||!S||!S.std)return;
+  // Captain shadow-picks: if the hero is already picked for this team, reassign it to this player
+  const std=S.std;
+  const picks=std.picks[team]||[];
+  const idx=picks.indexOf(hero);
+  if(idx>=0){
+    // Hero already picked — reassign to this player
+    socket.emit("reassignPick",{team,pickIndex:idx,assignedTo:playerName});
+  }
+  // If it's the captain's turn to pick and hero is the selected one, auto-confirm + assign
+  else if(S.role==="captain"&&S.myTeam===team&&std.activeTurn&&std.activeTurn.team===team&&std.activeTurn.type==="pick"){
+    const allUsed=new Set([...std.bans[0],...std.bans[1],...picks,...(std.picks[1-team]||[])]);
+    if(!allUsed.has(hero)){
+      socket.emit("stdAction",{hero,assignedTo:playerName});
+      stdSelected=null;
+    }
+  }
+}
 
 // ═══════════════════════════════════════════
 //  TEAM CHAT
@@ -1656,12 +1725,35 @@ function renameFiller(team,index){
 let reassignIndex=null;
 function showReassign(team,pickIndex){
   reassignIndex={team,pickIndex};
-  renderStdDraft();
+  const std=S.std;
+  const hero=std.picks[team][pickIndex];
+  if(!hero)return;
+  const area=document.getElementById("stdAssignArea");
+  const players=[];
+  const cap=S.captains[team];
+  if(cap)players.push(cap.name);
+  (S.spectators[team]||[]).forEach(s=>players.push(s.name));
+  const ghosts=(S.ghostPlayers||[[],[]])[team]||[];
+  ghosts.forEach(gp=>players.push(gp.name));
+  const fillers=(S.fillerPlayers||[[],[]])[team]||[];
+  fillers.forEach(fp=>players.push(fp.name));
+  const assigned=new Set((std.playerAssignments?.[team]||[]).filter((v,idx)=>v&&idx!==pickIndex));
+  let h=`<span class="std-assign-label">Reassign ${hero}:</span>`;
+  players.forEach(p=>{
+    const taken=assigned.has(p);
+    h+=`<button class="std-assign-btn${taken?' taken':''}" ${taken?'disabled style="opacity:.3;cursor:default"':''} onclick="doReassign('${esc(p)}')">${p}</button>`;
+  });
+  h+=`<button class="std-assign-btn" style="border-style:dashed;color:#666" onclick="doReassign(null)">Unassigned</button>`;
+  h+=`<button class="std-assign-btn" style="color:var(--ban);border-color:rgba(204,68,68,.3)" onclick="reassignIndex=null;document.getElementById('stdAssignArea').classList.add('hidden');document.getElementById('stdAssignArea').innerHTML=''">Cancel</button>`;
+  area.innerHTML=h;
+  area.classList.remove("hidden");
 }
 function doReassign(player){
   if(!reassignIndex)return;
   socket.emit("reassignPick",{team:reassignIndex.team,pickIndex:reassignIndex.pickIndex,assignedTo:player});
   reassignIndex=null;
+  const area=document.getElementById("stdAssignArea");
+  if(area){area.innerHTML="";area.classList.add("hidden");}
 }
 
 // ═══════════════════════════════════════════
@@ -1935,20 +2027,34 @@ function tickStdTimer(){
   const std=S.std;
   const inReserve=std.inReserve;
   const activeTurn=std.activeTurn;
+  const isComplete=std.step>=std.totalSteps;
 
+  // Bottom bar timer (small, secondary)
   const el=document.getElementById("stdTimerDisplay");
   if(el){
-    if(inReserve){
-      el.textContent=rem+"s";
-      el.className="std-timer-display reserve";
-    } else {
-      el.textContent=rem;
-      el.className="std-timer-display"+(rem<=5?" urgent":"");
-    }
+    if(isComplete){el.textContent="";el.className="std-timer-display";}
+    else if(inReserve){el.textContent=rem+"s";el.className="std-timer-display reserve";}
+    else{el.textContent=rem;el.className="std-timer-display"+(rem<=5?" urgent":"");}
   }
 
-  // Update reserve values in side panels
+  // Panel timers — show on active team's panel
   [0,1].forEach(t=>{
+    const panelTimer=document.getElementById("stdPanelTimer"+t);
+    const panelVal=document.getElementById("stdPanelTimerVal"+t);
+    if(!panelTimer||!panelVal)return;
+    const isActive=!isComplete&&activeTurn&&activeTurn.team===t;
+    panelTimer.classList.toggle("hidden",!isActive);
+    panelTimer.classList.toggle("active-timer",isActive);
+    if(isActive){
+      if(inReserve){
+        panelVal.textContent=rem+"s";
+        panelVal.className="std-panel-timer-val reserve";
+      } else {
+        panelVal.textContent=rem;
+        panelVal.className="std-panel-timer-val"+(rem<=5?" urgent":"");
+      }
+    }
+    // Reserve values
     const rEl=document.getElementById("stdReserveVal"+t);
     const rBox=document.getElementById("stdReserveBox"+t);
     if(!rEl||!std.reserve)return;
@@ -2046,8 +2152,9 @@ function renderStdDraft(){
       if(filled){
         const imgUrl=`https://deadlock.wiki/Special:FilePath/${hero.replace(/ /g,'_')}_card.png`;
         const nameText=isEnemy?(assign?"???":""): (assign||"");
-        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}">`;
-        bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}" title="${hero}"></div>`;
+        const canReassign=isCap&&myTeam===t;
+        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}"${canReassign?` style="cursor:pointer" onclick="showReassign(${t},${i})" title="Click to reassign"`:` title="${hero}"`}>`;
+        bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}"></div>`;
         bannerHtml+=`<div class="sp-name${isEnemy&&assign?' hidden-name':''}">${nameText||hero}</div>`;
         bannerHtml+=`</div>`;
       } else {
@@ -2107,7 +2214,8 @@ function renderStdDraft(){
       let rowCls="std-player-row";
       if(assignedHero)rowCls+=" assigned";
       if(isFiller)rowCls+=" filler";
-      ph+=`<div class="${rowCls}">`;
+      const dropHandler=isMyCap?` ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-player')" ondragleave="this.classList.remove('drag-over-player')" ondrop="this.classList.remove('drag-over-player');dropHeroOnPlayer(event,'${esc(pr.name)}',${t})"`:''
+      ph+=`<div class="${rowCls}"${dropHandler}>`;
       ph+=`<div class="std-pr-top">`;
       ph+=`<div class="std-pr-dot${isFiller?' filler-dot':''}"></div>`;
       if(isFiller&&isMyCap){
@@ -2119,13 +2227,19 @@ function renderStdDraft(){
         ph+=`<span class="std-pr-assigned">${assignedHero}</span>`;
       }
       ph+=`</div>`;
-      // Show pref chips for own team's players (from playerPrefs keyed by socket id)
-      // We aggregate: count how many prefs each hero has
+      // Show pref chips and hero preferences under player name
       if(isMyTeam&&!isEnemy){
         // Ghost heroes (pool)
         if(isGhost&&pr.heroes&&pr.heroes.length>0){
           ph+=`<div class="std-pr-prefs">`;
-          pr.heroes.forEach(gh=>{ph+=`<span class="std-pref-chip">${gh}</span>`;});
+          pr.heroes.forEach(gh=>{ph+=`<span class="std-pref-chip">${heroImg(gh,16)} ${gh}</span>`;});
+          ph+=`</div>`;
+        }
+        // Player preferences (resolved by name)
+        const playerHeroPrefs=prefs[pr.name]||[];
+        if(playerHeroPrefs.length>0&&!assignedHero){
+          ph+=`<div class="std-pr-prefs">`;
+          playerHeroPrefs.forEach(h=>{ph+=`<span class="std-pref-chip">${heroImg(h,16)} ${h}</span>`;});
           ph+=`</div>`;
         }
       }
@@ -2143,19 +2257,12 @@ function renderStdDraft(){
   const isMyTurn=isCap&&!isComplete&&activeTurn&&myTeam===activeTurn.team;
   const canVote=isPlayer&&!isComplete;
 
-  // Aggregate player preferences for captain view
+  // Aggregate player preferences for captain view (now name-keyed)
   const prefCounts={};
   if(isCap){
-    const prefs=S.playerPrefs||{};
-    Object.values(prefs).forEach(heroList=>{
+    const teamPrefs=S.playerPrefs||{};
+    Object.values(teamPrefs).forEach(heroList=>{
       if(Array.isArray(heroList))heroList.forEach(h=>{prefCounts[h]=(prefCounts[h]||0)+1;});
-    });
-  }
-  // Also aggregate specPrefs counts from server state
-  const serverSpecPrefs=S.specPrefs?.[myTeam]||{};
-  if(isCap){
-    Object.entries(serverSpecPrefs).forEach(([h,cnt])=>{
-      if(cnt>0)prefCounts[h]=(prefCounts[h]||0)+cnt;
     });
   }
 
