@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<title>PwR Deadlock Draft</title>
+<title>Deadlock Drafting Tool</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh;overflow-x:hidden}
@@ -59,6 +59,10 @@ input,select{font-family:inherit}
 .btn-sm{padding:8px 16px;border:none;border-radius:6px;font-size:.82rem;font-weight:600;color:#ddd;background:#2a2a35;transition:all .2s}
 .btn-sm:hover{background:#3a3a45;transform:translateY(-1px)}
 .error-msg{color:var(--ban);font-size:.85rem;margin-top:8px;min-height:20px}
+.site-footer{margin-top:28px;font-size:.7rem;color:#444;display:flex;flex-direction:column;align-items:center;gap:4px}
+.site-footer a{color:var(--accent);text-decoration:none;font-weight:700;letter-spacing:.5px}
+.site-footer a:hover{color:var(--accent-light);text-decoration:underline}
+.footer-dates{color:#333;font-size:.62rem;letter-spacing:.5px}
 .code-display{font-size:2.8rem;font-weight:700;letter-spacing:8px;color:var(--accent);margin:8px 0;font-family:monospace;text-shadow:0 0 20px rgba(232,122,32,.3);animation:fadeIn .5s ease-out}
 
 /* ── LOBBY ──────────────────────────────── */
@@ -485,6 +489,42 @@ input,select{font-family:inherit}
 #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
 
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2a2a35;border-radius:3px}
+
+/* ── LOBBY CHAT ──────────────────────── */
+.lobby-chat-wrap{width:100%;max-width:520px;margin:16px auto 0;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;animation:fadeIn .4s ease-out}
+.lc-title{font-size:.65rem;font-weight:700;letter-spacing:1.5px;color:#555;margin-bottom:8px}
+.lc-msgs{max-height:140px;overflow-y:auto;margin-bottom:8px;font-size:.8rem;display:flex;flex-direction:column;gap:3px}
+.lc-msg{padding:3px 6px;border-radius:4px;background:rgba(255,255,255,.03)}
+.lc-msg .lc-name{color:var(--accent);font-weight:700;margin-right:6px;font-size:.75rem}
+.lc-input-row{display:flex;gap:6px;margin-bottom:8px}
+.lc-input{flex:1;background:#16161e;border:1px solid var(--border);color:#eee;padding:6px 10px;border-radius:6px;font-size:.8rem;outline:none}
+.lc-input:focus{border-color:var(--accent)}
+.lc-send{padding:6px 14px;border:none;border-radius:6px;background:var(--accent-dim);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer}
+.lc-send:hover{background:var(--accent)}
+.lc-coin{display:flex;align-items:center;gap:10px;margin:6px 0}
+.lc-coin-result{font-size:.85rem;font-weight:700;min-height:20px}
+.lc-leaderboard{font-size:.7rem;color:#555;margin-top:4px}
+
+/* ── TEAM CHAT ───────────────────────── */
+.team-chat{width:100%;background:var(--panel);border-top:1px solid var(--border);padding:8px 16px 10px}
+.tc-title{font-size:.6rem;font-weight:700;letter-spacing:1.5px;color:#555;margin-bottom:4px}
+.tc-msgs{max-height:100px;overflow-y:auto;font-size:.78rem;display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.tc-msg{padding:2px 0}
+.tc-msg .tc-name{color:var(--accent);font-weight:700;margin-right:5px;font-size:.72rem}
+.tc-input-row{display:flex;gap:6px}
+.tc-input{flex:1;background:#16161e;border:1px solid var(--border);color:#eee;padding:5px 8px;border-radius:5px;font-size:.78rem;outline:none}
+.tc-input:focus{border-color:var(--accent)}
+.tc-send{padding:5px 12px;border:none;border-radius:5px;background:var(--accent-dim);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer}
+
+/* ── GHOST PLAYERS ───────────────────── */
+.ghost-person{background:rgba(232,122,32,.05)!important;border-left:2px solid var(--accent-dim)}
+.ghost-heroes{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
+.add-ghost{font-size:.75rem;color:var(--accent);cursor:pointer;padding:6px;text-align:center;border:1px dashed var(--accent-dim);border-radius:5px;margin-top:4px;transition:all .2s}
+.add-ghost:hover{background:rgba(232,122,32,.1)}
+.std-ghost-player{padding:4px 6px;margin:3px 0;background:rgba(232,122,32,.05);border-radius:4px;border-left:2px solid var(--accent-dim)}
+.sgp-name{font-size:.72rem;font-weight:700;color:var(--accent)}
+.sgp-heroes{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px}
+.ghost-hero-tag{display:inline-flex;align-items:center;gap:2px;font-size:.6rem;background:rgba(255,255,255,.05);padding:1px 4px;border-radius:3px}
 </style>
 </head>
 <body>
@@ -494,7 +534,7 @@ input,select{font-family:inherit}
 
 <!-- ═══════ HOME ═══════ -->
 <div class="screen active" id="home">
-  <h1>⚡ PwR Draft</h1>
+  <h1>⚡ Deadlock Drafting Tool</h1>
   <p id="homeSubtitle">Create a draft lobby or join with a link.</p>
   <input class="input-field" id="nameInput" placeholder="Your name" maxlength="20">
 
@@ -533,11 +573,15 @@ input,select{font-family:inherit}
   </div>
 
   <div class="error-msg" id="homeErr"></div>
+  <div class="site-footer">
+    <a href="https://github.com/Konfoo1/deadlock-draft-online" target="_blank" rel="noopener">GitHub</a>
+    <span class="footer-dates">Est. May 2025 &middot; Last Updated 5/13/2026</span>
+  </div>
 </div>
 
 <!-- ═══════ MODE SELECT ═══════ -->
 <div class="screen" id="modeSelect">
-  <h1>⚡ PwR Draft</h1>
+  <h1>⚡ Deadlock Drafting Tool</h1>
   <p>Choose your game mode</p>
   <div class="mode-cards">
     <div class="mode-card" onclick="selectMode('phase')">
@@ -584,6 +628,8 @@ input,select{font-family:inherit}
         <div id="stdPicks0"></div>
         <div class="std-section-label">BANS</div>
         <div id="stdBans0"></div>
+        <div class="std-section-label">PLAYERS</div>
+        <div id="stdGhosts0"></div>
       </div>
       <div class="std-center" id="stdGrid"></div>
       <div class="std-side-panel t2 right" id="stdPanel1">
@@ -592,12 +638,23 @@ input,select{font-family:inherit}
         <div id="stdPicks1"></div>
         <div class="std-section-label">BANS</div>
         <div id="stdBans1"></div>
+        <div class="std-section-label">PLAYERS</div>
+        <div id="stdGhosts1"></div>
       </div>
     </div>
     <div class="std-bottom">
       <div class="std-status" id="stdStatus"></div>
       <button class="btn-main orange" id="stdConfirmBtn" onclick="stdConfirm()" style="display:none" disabled>Confirm</button>
     </div>
+    <div class="team-chat hidden" id="stdTeamChat">
+      <div class="tc-title">TEAM CHAT</div>
+      <div class="tc-msgs" id="tcMsgs"></div>
+      <div class="tc-input-row">
+        <input class="tc-input" id="tcInput" placeholder="Message your team..." maxlength="200" onkeydown="if(event.key==='Enter')sendTeamChat()">
+        <button class="tc-send" onclick="sendTeamChat()">Send</button>
+      </div>
+    </div>
+    <div id="stdSpecChat" class="hidden" style="padding:8px 16px;width:100%"></div>
   </div>
 </div>
 
@@ -678,6 +735,20 @@ input,select{font-family:inherit}
   </div>
   <div id="guestMsg" class="hidden" style="color:#666;margin-top:12px;font-size:.85rem">Waiting for host to start…</div>
   <div class="error-msg" id="lobbyErr"></div>
+
+  <div class="lobby-chat-wrap" id="lobbyChatWrap">
+    <div class="lc-title">LOBBY CHAT</div>
+    <div class="lc-msgs" id="lcMsgs"></div>
+    <div class="lc-input-row">
+      <input class="lc-input" id="lcInput" placeholder="Type a message..." maxlength="200" onkeydown="if(event.key==='Enter')sendLobbyChat()">
+      <button class="lc-send" onclick="sendLobbyChat()">Send</button>
+    </div>
+    <div class="lc-coin">
+      <button class="btn-main" id="lobbyCoinBtn" onclick="lobbyFlipCoin()" style="padding:8px 20px;font-size:.85rem;background:linear-gradient(135deg,#f0a030,#e8c020)">&#x1FA99; Flip!</button>
+      <div class="lc-coin-result" id="lobbyCoinResult"></div>
+    </div>
+    <div class="lc-leaderboard" id="lobbyCoinLB"></div>
+  </div>
 </div>
 
 <!-- ═══════ DRAFT ═══════ -->
@@ -696,7 +767,15 @@ input,select{font-family:inherit}
     <div class="draft-body" id="draftGrid"></div>
     <div class="draft-bottom">
       <div class="status-text" id="statusText"></div>
-      <button class="btn-main orange" id="lockBtn" onclick="lockIn()" disabled>🔒 Lock In</button>
+      <button class="btn-main orange" id="lockBtn" onclick="lockIn()" disabled>&#x1F512; Lock In</button>
+    </div>
+    <div class="team-chat hidden" id="phaseTeamChat">
+      <div class="tc-title">TEAM CHAT</div>
+      <div class="tc-msgs" id="tcMsgsPhase"></div>
+      <div class="tc-input-row">
+        <input class="tc-input" id="tcInputPhase" placeholder="Message your team..." maxlength="200" onkeydown="if(event.key==='Enter')sendTeamChat('phase')">
+        <button class="tc-send" onclick="sendTeamChat('phase')">Send</button>
+      </div>
     </div>
   </div>
 </div>
@@ -947,6 +1026,14 @@ input,select{font-family:inherit}
   <h1 style="background:linear-gradient(135deg,#f0a030,#ffcc00,#f0a030);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:2rem">Tournament Champion</h1>
   <div id="tourneyWinner" style="font-size:2rem;font-weight:700;color:#f0a030;margin:20px 0;animation:champReveal .6s ease-out"></div>
   <div id="tourneyFinalBracket" style="font-size:.85rem;color:#888"></div>
+</div>
+
+<div id="playerAssignOverlay" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%;text-align:center">
+    <div style="font-size:.7rem;font-weight:700;letter-spacing:1.5px;color:#555;margin-bottom:8px">ASSIGN PLAYER</div>
+    <div style="font-size:1rem;margin-bottom:12px" id="assignHeroName"></div>
+    <div id="assignPlayerList"></div>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -1277,6 +1364,17 @@ function renderLobby(){
       }
       h+=`<div class="person">${s.name}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
     });
+    // Ghost players
+    const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
+    ghosts.forEach((gp,gi)=>{
+      let heroes=gp.heroes.map(gh=>heroImg(gh,18)).join("");
+      let removeBtn=S.role==="captain"&&S.myTeam===t?`<button class="promote-btn" onclick="event.stopPropagation();removeGhost(${t},${gi})" style="color:var(--ban)">&#x2715;</button>`:"";
+      h+=`<div class="person ghost-person">&#x1F47B; ${gp.name}${removeBtn}<div class="ghost-heroes">${heroes||"<span style='color:#444;font-size:.65rem'>No heroes assigned</span>"}</div></div>`;
+    });
+    // Add ghost button for captain
+    if(S.role==="captain"&&S.myTeam===t&&ghosts.length<5){
+      h+=`<div class="add-ghost" onclick="event.stopPropagation();addGhostPrompt(${t})">+ Add absent player</div>`;
+    }
     el.innerHTML=h;
   });
 
@@ -1352,8 +1450,113 @@ function renderLobby(){
   // Update team names on team chooser buttons if present
   document.getElementById("teamChoose0").textContent=S.teamNames[0];
   document.getElementById("teamChoose1").textContent=S.teamNames[1];
+
+  // Lobby chat
+  const chatEl=document.getElementById("lcMsgs");
+  const msgs=S.chat||[];
+  chatEl.innerHTML=msgs.slice(-50).map(m=>`<div class="lc-msg"><span class="lc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("");
+  chatEl.scrollTop=chatEl.scrollHeight;
+  // Coin flip leaderboard
+  const lb=document.getElementById("lobbyCoinLB");
+  const streaks=S.coinStreaks||{};
+  const sorted=Object.entries(streaks).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  lb.innerHTML=sorted.length?("&#x1F3C6; "+sorted.map(([id,s])=>{
+    const allP=[...S.captains.filter(Boolean),...S.spectators[0],...S.spectators[1],...S.unassigned];
+    const p=allP.find(x=>x.id===id);
+    return (p?p.name:id)+": "+s;
+  }).join(" | ")):"";
 }
 // Not needed — host tag shown via S.isHost check on each person
+
+// ═══════════════════════════════════════════
+//  LOBBY CHAT + COIN FLIP
+// ═══════════════════════════════════════════
+function sendLobbyChat(){
+  const inp=document.getElementById("lcInput");
+  const text=inp.value.trim();
+  if(!text)return;
+  socket.emit("lobbyChat",{text});
+  inp.value="";
+}
+let lobbyCoinAnimating=false;
+function lobbyFlipCoin(){
+  if(lobbyCoinAnimating)return;
+  socket.emit("lobbyCoinFlip");
+}
+socket.on("lobbyCoinResult",({heads,currentStreak,bestStreak})=>{
+  lobbyCoinAnimating=true;
+  const btn=document.getElementById("lobbyCoinBtn");
+  const res=document.getElementById("lobbyCoinResult");
+  btn.disabled=true;
+  res.textContent="Flipping...";
+  res.style.color="#f0a030";
+  setTimeout(()=>{
+    res.textContent=heads?"&#x1FA99; HEADS!"+(currentStreak>1?" ("+currentStreak+" streak!)":""):"&#x1F480; TAILS!";
+    res.style.color=heads?"#4c4":"#c44";
+    btn.disabled=false;
+    lobbyCoinAnimating=false;
+  },1200);
+});
+socket.on("lobbyCoinFlipStarted",()=>{
+  // Other players see a brief note — no blocking needed
+});
+
+// ═══════════════════════════════════════════
+//  GHOST PLAYERS
+// ═══════════════════════════════════════════
+function addGhostPrompt(team){
+  const name=prompt("Enter absent player's name:");
+  if(name&&name.trim())socket.emit("addGhostPlayer",{team,name:name.trim()});
+}
+function removeGhost(team,index){
+  socket.emit("removeGhostPlayer",{team,index});
+}
+function dragHero(ev,hero){
+  ev.dataTransfer.setData("text/plain",hero);
+}
+function dropOnGhost(ev,team,playerIndex){
+  ev.preventDefault();
+  const hero=ev.dataTransfer.getData("text/plain");
+  if(hero)socket.emit("ghostPick",{team,playerIndex,hero});
+}
+
+// ═══════════════════════════════════════════
+//  TEAM CHAT
+// ═══════════════════════════════════════════
+function sendTeamChat(mode){
+  const inp=document.getElementById(mode==='phase'?'tcInputPhase':'tcInput');
+  const text=inp.value.trim();
+  if(!text)return;
+  socket.emit("teamChat",{text});
+  inp.value="";
+}
+
+// ═══════════════════════════════════════════
+//  PLAYER ASSIGNMENT
+// ═══════════════════════════════════════════
+function showPlayerAssignPopup(hero){
+  const overlay=document.getElementById("playerAssignOverlay");
+  overlay.classList.remove("hidden");
+  document.getElementById("assignHeroName").innerHTML=heroImg(hero,48)+"<br>"+hero;
+  const myTeam=S.myTeam;
+  var players=[];
+  const cap=S.captains[myTeam];
+  if(cap)players.push(cap.name);
+  (S.spectators[myTeam]||[]).forEach(function(s){players.push(s.name);});
+  const ghosts=(S.ghostPlayers||[[],[]])[myTeam]||[];
+  ghosts.forEach(function(gp){players.push("&#x1F47B; "+gp.name);});
+  const assigned=new Set((S.std.playerAssignments?.[myTeam]||[]).filter(Boolean));
+  const listEl=document.getElementById("assignPlayerList");
+  listEl.innerHTML=players.map(function(p){
+    const taken=assigned.has(p);
+    return '<button class="btn-sm" style="margin:3px;width:90%;padding:10px;font-size:.85rem;'+(taken?'opacity:.3;cursor:default':'')+'" '+(taken?'disabled':'')+' onclick="confirmAssignment(\''+esc(hero)+'\',\''+esc(p)+'\')">'+p+'</button>';
+  }).join('')+'<button class="btn-sm" style="margin:3px;width:90%;padding:10px;font-size:.85rem;color:#888" onclick="confirmAssignment(\''+esc(hero)+'\',null)">Skip (unassigned)</button>';
+}
+function confirmAssignment(hero,player){
+  document.getElementById("playerAssignOverlay").classList.add("hidden");
+  socket.emit("stdAction",{hero:hero,assignedTo:player});
+  stdSelected=null;
+}
 
 // ═══════════════════════════════════════════
 //  RENDER: DRAFT
@@ -1549,6 +1752,17 @@ function renderDraft(){
       }
     }
   }
+
+  // Phase draft: team chat rendering
+  const ptcEl=document.getElementById("tcMsgsPhase");
+  const ptcMsgs=S.teamChat||[];
+  if(S.myTeam>=0){
+    ptcEl.innerHTML=ptcMsgs.slice(-40).map(m=>`<div class="tc-msg"><span class="tc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("");
+    ptcEl.scrollTop=ptcEl.scrollHeight;
+    document.getElementById("phaseTeamChat").classList.remove("hidden");
+  } else {
+    document.getElementById("phaseTeamChat").classList.add("hidden");
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1642,8 +1856,15 @@ function stdClickHero(hero){
 }
 function stdConfirm(){
   if(!S||!S.std||!stdSelected)return;
-  socket.emit("stdAction",{hero:stdSelected});
-  stdSelected=null;
+  const std=S.std;
+  const activeTurn=std.activeTurn;
+  if(activeTurn&&activeTurn.type==="ban"){
+    socket.emit("stdAction",{hero:stdSelected});
+    stdSelected=null;
+    return;
+  }
+  // Pick — show player assignment popup
+  showPlayerAssignPopup(stdSelected);
 }
 
 // ═══════════════════════════════════════════
@@ -1722,14 +1943,16 @@ function renderStdDraft(){
   const allUsed=new Set([...std.bans[0],...std.bans[1],...std.picks[0],...std.picks[1]]);
 
   [0,1].forEach(t=>{
-    // Picks — 6 slots
+    // Picks — 6 slots with player assignments
     const picksEl=document.getElementById("stdPicks"+t);
+    const assignments=std.playerAssignments?.[t]||[];
     let ph="";
     for(let i=0;i<6;i++){
       const hero=std.picks[t][i];
+      const assign=assignments[i];
       const isNextSlot=!hero&&std.picks[t].length===i&&!isComplete&&activeTurn&&activeTurn.type==="pick"&&activeTurn.team===t;
       if(hero){
-        ph+=`<div class="std-hero-slot pick-slot">${heroImg(hero,30)} ${hero}</div>`;
+        ph+=`<div class="std-hero-slot pick-slot">${heroImg(hero,30)} ${hero}${assign?'<div style="font-size:.6rem;color:#888;margin-top:1px">'+assign+'</div>':''}</div>`;
       } else {
         ph+=`<div class="std-hero-slot empty-slot${isNextSlot?' active-slot':''}">Pick ${i+1}</div>`;
       }
@@ -1754,6 +1977,21 @@ function renderStdDraft(){
       }
     }
     bansEl.innerHTML=bh;
+
+    // Ghost players for this team
+    const gpEl=document.getElementById("stdGhosts"+t);
+    if(gpEl){
+      const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
+      let gh="";
+      ghosts.forEach((gp,gi)=>{
+        const heroesList=gp.heroes.map(gh2=>`<span class="ghost-hero-tag">${heroImg(gh2,16)} ${gh2}</span>`).join("");
+        gh+=`<div class="std-ghost-player" data-team="${t}" data-gi="${gi}" ondragover="event.preventDefault()" ondrop="dropOnGhost(event,${t},${gi})">`;
+        gh+=`<div class="sgp-name">&#x1F47B; ${gp.name}</div>`;
+        gh+=`<div class="sgp-heroes">${heroesList||"<span style='color:#444;font-size:.6rem'>Drop heroes here</span>"}</div>`;
+        gh+=`</div>`;
+      });
+      gpEl.innerHTML=gh;
+    }
   });
 
   // Hero grid — center
@@ -1787,8 +2025,8 @@ function renderStdDraft(){
 
     if(prefCount>0&&isCap)cls+=" has-pref";
     const clickable=!isBanned&&!isPicked&&(isMyTurn||canVote);
-    return`<div class="${cls}" style="--i:${i}"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
-      ${heroImg(h,68)}<div class="pref-badge">${prefCount}👍</div><div class="hl">${h}</div></div>`;
+    return`<div class="${cls}" style="--i:${i}" draggable="true" ondragstart="dragHero(event,'${esc(h)}')"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
+      ${heroImg(h,68)}<div class="pref-badge">${prefCount}&#x1F44D;</div><div class="hl">${h}</div></div>`;
   }).join("");
 
   // Confirm button
@@ -1822,6 +2060,37 @@ function renderStdDraft(){
   } else {
     statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (Turn ${step+1}/${totalSteps})`;
   }
+
+  // Team chat rendering (standard draft)
+  const tcEl=document.getElementById("tcMsgs");
+  const tcMsgs=S.teamChat||[];
+  if(S.myTeam>=0){
+    tcEl.innerHTML=tcMsgs.slice(-40).map(m=>`<div class="tc-msg"><span class="tc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("");
+    tcEl.scrollTop=tcEl.scrollHeight;
+    document.getElementById("stdTeamChat").classList.remove("hidden");
+  } else {
+    document.getElementById("stdTeamChat").classList.add("hidden");
+  }
+
+  // Spectator: show both team chats
+  if(isNeutral){
+    const specChat=document.getElementById("stdSpecChat");
+    if(specChat){
+      let ch="<div style='display:flex;gap:16px;flex-wrap:wrap'>";
+      [0,1].forEach(t=>{
+        const tMsgs=t===0?(S.teamChat0||[]):(S.teamChat1||[]);
+        ch+=`<div style="flex:1;min-width:200px"><div style="font-size:.6rem;font-weight:700;color:#555;letter-spacing:1px;margin-bottom:4px">${S.teamNames[t]} CHAT</div>`;
+        ch+=`<div class="tc-msgs">${tMsgs.slice(-20).map(m=>`<div class="tc-msg"><span class="tc-name">${m.from}:</span>${m.text.replace(/</g,'&lt;')}</div>`).join("")}</div>`;
+        ch+=`</div>`;
+      });
+      ch+=`</div>`;
+      specChat.innerHTML=ch;
+      specChat.classList.remove("hidden");
+    }
+  } else {
+    const specChat=document.getElementById("stdSpecChat");
+    if(specChat) specChat.classList.add("hidden");
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1841,7 +2110,8 @@ function renderComplete(){
       h+=`<div class="rcol t${t+1}"><h3>${S.teamNames[t]}</h3>`;
       h+=`<div class="rl">ROSTER</div>`;
       (std.picks[t]||[]).forEach((x,i)=>{
-        h+=`<div class="rh" style="animation-delay:${i*.1}s">${heroImg(x,40)} ${x}</div>`;
+        const assignedTo=(std.playerAssignments?.[t]||[])[i];
+        h+=`<div class="rh" style="animation-delay:${i*.1}s">${heroImg(x,40)} ${x}${assignedTo?'<span style="display:block;font-size:.7rem;color:#888;margin-top:2px">'+assignedTo+'</span>':''}</div>`;
       });
       if(std.bans[t].length>0){
         h+=`<div class="rl" style="margin-top:10px">BANNED</div>`;

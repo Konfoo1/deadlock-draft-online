@@ -102,6 +102,12 @@ function stateFor(lobby, sid) {
     globalBans: lobby.globalBans,
     duelPoolSize: lobby.duelPoolSize,
     specPrefs: lobby.specPrefs,
+    chat: lobby.chat || [],
+    coinStreaks: lobby.coinStreaks || {},
+    ghostPlayers: lobby.ghostPlayers || [[], []],
+    teamChat: myTeam >= 0 ? (lobby.teamChat?.[myTeam] || []) : [],
+    teamChat0: (role === "unassigned") ? (lobby.teamChat?.[0] || []) : undefined,
+    teamChat1: (role === "unassigned") ? (lobby.teamChat?.[1] || []) : undefined,
   };
 
   // ── PHASE DRAFT (Clone Wars) + DUEL MODE (same phases, different rules) ──
@@ -177,6 +183,7 @@ function stateFor(lobby, sid) {
       bans: [[...st.bans[0]], [...st.bans[1]]],
       picks: [[...st.picks[0]], [...st.picks[1]]],
       totalSteps: STD_TURNS.length,
+      playerAssignments: st.playerAssignments || [[], []],
     };
     if (st.step < STD_TURNS.length) {
       s.std.activeTurn = STD_TURNS[st.step];
@@ -357,6 +364,7 @@ function startStdDraft(lobby) {
     step: 0,
     bans: [[], []],
     picks: [[], []],
+    playerAssignments: [[], []],
   };
   lobby.specPrefs = [{}, {}];
   startTimer(lobby, () => stdAutoAction(lobby));
@@ -891,6 +899,13 @@ io.on("connection", (socket) => {
       // Duel mode fields
       duelPoolSize: 3, // configurable by host (2-6)
       globalBans: [], // heroes banned from entire event by host
+      // Lobby chat + coin flip
+      chat: [],
+      coinStreaks: {},
+      // Team chat (during draft)
+      teamChat: [[], []],
+      // Ghost players (absent player slots)
+      ghostPlayers: [[], []],
     };
     lobbies.set(code, lobby);
     myLobby = code;
@@ -1125,7 +1140,7 @@ io.on("connection", (socket) => {
   });
 
   // ── Standard Draft Action ──
-  socket.on("stdAction", ({ hero }) => {
+  socket.on("stdAction", ({ hero, assignedTo }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby || lobby.mode !== "standard" || lobby.phase !== "std_drafting" || !lobby.std) return;
@@ -1138,7 +1153,11 @@ io.on("connection", (socket) => {
     if (used.has(hero) || !HEROES.includes(hero)) return;
     clearTimer(lobby);
     if (turn.type === "ban") st.bans[turn.team].push(hero);
-    else st.picks[turn.team].push(hero);
+    else {
+      st.picks[turn.team].push(hero);
+      if (!st.playerAssignments) st.playerAssignments = [[], []];
+      st.playerAssignments[turn.team].push(assignedTo || null);
+    }
     stdAdvance(lobby);
   });
 
@@ -1486,6 +1505,118 @@ io.on("connection", (socket) => {
     }
 
     broadcastTourneyBracket(tourney);
+  });
+
+  // ── Lobby Chat ──
+  socket.on("lobbyChat", ({ text }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me) return;
+    const msg = (text || "").slice(0, 200).trim();
+    if (!msg) return;
+    let fromName = "Unknown";
+    if (me.role === "captain") fromName = lobby.captains[me.team]?.name || "Captain";
+    else if (me.role === "spectator") fromName = lobby.spectators[me.team][me.idx]?.name || "Player";
+    else if (me.role === "unassigned") fromName = lobby.unassigned[me.idx]?.name || "Spectator";
+    if (!lobby.chat) lobby.chat = [];
+    lobby.chat.push({ from: fromName, text: msg, ts: Date.now() });
+    if (lobby.chat.length > 100) lobby.chat = lobby.chat.slice(-100);
+    broadcast(lobby);
+  });
+
+  // ── Lobby Coin Flip ──
+  socket.on("lobbyCoinFlip", () => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me) return;
+    const isHeads = Math.random() < 0.5;
+    // Track current streak per socket on lobby object
+    if (!lobby._coinCurrent) lobby._coinCurrent = {};
+    if (!lobby.coinStreaks) lobby.coinStreaks = {};
+    if (isHeads) {
+      lobby._coinCurrent[socket.id] = (lobby._coinCurrent[socket.id] || 0) + 1;
+      const best = lobby.coinStreaks[socket.id] || 0;
+      if (lobby._coinCurrent[socket.id] > best) lobby.coinStreaks[socket.id] = lobby._coinCurrent[socket.id];
+    } else {
+      lobby._coinCurrent[socket.id] = 0;
+    }
+    const everyone = [
+      ...lobby.captains.filter(Boolean),
+      ...lobby.spectators[0], ...lobby.spectators[1],
+      ...lobby.unassigned,
+    ];
+    for (const p of everyone) {
+      if (p.id !== socket.id) {
+        io.to(p.id).emit("lobbyCoinFlipStarted", { flipper: socket.id });
+      }
+    }
+    socket.emit("lobbyCoinResult", {
+      heads: isHeads,
+      currentStreak: lobby._coinCurrent[socket.id] || 0,
+      bestStreak: lobby.coinStreaks[socket.id] || 0,
+    });
+    broadcast(lobby);
+  });
+
+  // ── Team Chat (during draft) ──
+  socket.on("teamChat", ({ text }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.team === undefined || me.team === null) return;
+    const msg = (text || "").slice(0, 200).trim();
+    if (!msg) return;
+    if (!lobby.teamChat) lobby.teamChat = [[], []];
+    lobby.teamChat[me.team].push({ from: me.role === "captain" ? "⭐ " + (lobby.captains[me.team]?.name || "Captain") : (me.role === "spectator" ? lobby.spectators[me.team][me.idx]?.name : "Unknown"), text: msg, ts: Date.now() });
+    if (lobby.teamChat[me.team].length > 100) lobby.teamChat[me.team] = lobby.teamChat[me.team].slice(-100);
+    broadcast(lobby);
+  });
+
+  // ── Ghost Players (absent player slots) ──
+  socket.on("addGhostPlayer", ({ team, name }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.role !== "captain" || me.team !== team) return;
+    const n = (name || "").trim().slice(0, 20);
+    if (!n) return;
+    if (!lobby.ghostPlayers) lobby.ghostPlayers = [[], []];
+    if (lobby.ghostPlayers[team].length >= 5) return;
+    lobby.ghostPlayers[team].push({ name: n, heroes: [] });
+    broadcast(lobby);
+  });
+
+  socket.on("removeGhostPlayer", ({ team, index }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.role !== "captain" || me.team !== team) return;
+    if (!lobby.ghostPlayers?.[team]) return;
+    lobby.ghostPlayers[team].splice(index, 1);
+    broadcast(lobby);
+  });
+
+  socket.on("ghostPick", ({ team, playerIndex, hero }) => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    const me = findPerson(lobby, socket.id);
+    if (!me || me.role !== "captain" || me.team !== team) return;
+    if (!lobby.ghostPlayers?.[team]?.[playerIndex]) return;
+    const gp = lobby.ghostPlayers[team][playerIndex];
+    if (gp.heroes.includes(hero)) {
+      gp.heroes = gp.heroes.filter(h => h !== hero);
+    } else {
+      gp.heroes.push(hero);
+    }
+    broadcast(lobby);
   });
 
   socket.on("disconnect", () => {
