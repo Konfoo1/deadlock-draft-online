@@ -39,15 +39,16 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 // ═══════════════════════════════════════════════════════════
-//  HEROES
+//  HEROES — fetched from Deadlock Assets API at startup
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Sorted roster of all playable Deadlock heroes.
- * Update this array when new heroes are added to the game.
- * @const {string[]}
+ * Sorted roster of all playable Deadlock heroes (display names).
+ * Populated at startup from the Deadlock Assets API; falls back to a
+ * hardcoded list if the API is unreachable.
+ * @type {string[]}
  */
-const HEROES = [
+let HEROES = [
   "Abrams","Apollo","Bebop","Billy","Calico","Celeste","Drifter","Doorman","Dynamo",
   "Graves","Grey Talon","Haze","Holliday","Infernus",
   "Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina",
@@ -55,6 +56,56 @@ const HEROES = [
   "Shiv","Sinclair","Silver","Venator","Victor","Vindicta","Viscous",
   "Vyper","Warden","Wraith","Yamato",
 ].sort();
+
+/**
+ * Mapping of hero display name → card image URL from the Deadlock Assets API.
+ * Used by clients to render hero portraits. Falls back to wiki URLs if empty.
+ * @type {Object<string, string>}
+ */
+let HERO_IMAGES = {};
+
+/**
+ * Fetch hero roster and image URLs from the Deadlock Assets API.
+ * Updates HEROES and HERO_IMAGES on success; logs warning on failure.
+ * Called at startup and can be refreshed periodically.
+ */
+async function fetchHeroData() {
+  try {
+    const res = await fetch("https://assets.deadlock-api.com/v2/heroes?only_active=true");
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const heroes = await res.json();
+    const names = [];
+    const images = {};
+    for (const hero of heroes) {
+      if (!hero.name || hero.disabled) continue;
+      names.push(hero.name);
+      // Prefer webp card image, fall back to png
+      const img = hero.images?.icon_hero_card_webp
+        || hero.images?.icon_hero_card
+        || null;
+      if (img) images[hero.name] = img;
+    }
+    if (names.length > 0) {
+      HEROES = names.sort();
+      HERO_IMAGES = images;
+      console.log(`[HeroData] Loaded ${HEROES.length} heroes from Deadlock API`);
+    }
+  } catch (err) {
+    console.warn(`[HeroData] Failed to fetch from API, using fallback list: ${err.message}`);
+  }
+}
+
+// Fetch hero data on startup, refresh every 6 hours
+fetchHeroData();
+setInterval(fetchHeroData, 6 * 60 * 60 * 1000);
+
+/**
+ * API endpoint: returns the current hero roster and image map.
+ * Clients can fetch this on load to stay in sync without hardcoding.
+ */
+app.get("/api/heroes", (req, res) => {
+  res.json({ heroes: HEROES, images: HERO_IMAGES });
+});
 
 // ═══════════════════════════════════════════════════════════
 //  STANDARD DRAFT TURN ORDER
@@ -253,6 +304,7 @@ function stateFor(lobby, sid) {
     ready: [...lobby.ready],
     heroes: HEROES.filter(h => !lobby.globalBans.includes(h)),
     allHeroes: HEROES,
+    heroImages: HERO_IMAGES,
     globalBans: lobby.globalBans,
     duelPoolSize: lobby.duelPoolSize,
     specPrefs: lobby.specPrefs,
@@ -931,6 +983,7 @@ function tourneyStateFor(tourney, sid) {
     coinStreaks: tourney.coinStreaks,
     myName: me?.name || null,
     allHeroes: HEROES,
+    heroImages: HERO_IMAGES,
   };
 }
 

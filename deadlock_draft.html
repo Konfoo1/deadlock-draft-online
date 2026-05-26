@@ -275,19 +275,40 @@ const HEROES=[
 ].sort();
 
 /**
+ * Hero image URL map — populated from Deadlock Assets API on load.
+ * Falls back to wiki URLs for any heroes not in the map.
+ * @type {Object<string, string>}
+ */
+let heroImageMap={};
+
+// Fetch hero image data from the Deadlock Assets API at page load.
+fetch("https://assets.deadlock-api.com/v2/heroes?only_active=true")
+  .then(r=>r.json())
+  .then(heroes=>{
+    for(const h of heroes){
+      if(h.name&&h.images){
+        heroImageMap[h.name]=h.images.icon_hero_card_webp||h.images.icon_hero_card||null;
+      }
+    }
+    // Re-render if draft hasn't started so fresh images are used
+    if(typeof seqR==='function')seqR();
+  })
+  .catch(()=>{/* Use wiki fallback URLs */});
+
+/**
  * Generate an HTML string for a hero's portrait image with a fallback.
  *
- * Loads the hero's card image from the Deadlock wiki. If the image fails
- * to load, a styled initials placeholder is shown instead.
+ * Uses Deadlock Assets API CDN URLs when available, falls back to the
+ * wiki URL pattern for heroes not in the map.
  *
  * @param {string} name - The hero's display name.
  * @param {number} [sz=28] - The width and height in pixels for the image.
  * @returns {string} An HTML string containing an `<img>` and fallback `<span>`.
  */
 function hi(name,sz=28){
-  const w=name.replace(/ /g,"_");
   const ini=name.split(/[\s&]+/).map(x=>x[0]).join("").slice(0,2);
-  return `<img src="https://deadlock.wiki/Special:FilePath/${w}_card.png" width="${sz}" height="${sz}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#222;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#888">${ini}</span>`;
+  const src=heroImageMap[name]||`https://deadlock.wiki/Special:FilePath/${name.replace(/ /g,"_")}_card.png`;
+  return `<img src="${src}" width="${sz}" height="${sz}" alt="${name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#222;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#888">${ini}</span>`;
 }
 
 /**

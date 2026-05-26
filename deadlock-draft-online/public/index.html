@@ -1240,10 +1240,33 @@ if(urlTourney&&!urlCode){
   };
 }
 
+/**
+ * Hero image URL map — populated from server state (Deadlock Assets API).
+ * @type {Object<string, string>}
+ */
+let heroImageMap={};
+
+/**
+ * Generate an HTML string for a hero portrait image with a fallback.
+ * Uses the Deadlock Assets API CDN URLs when available, falls back to the
+ * wiki URL pattern for any heroes not in the map.
+ * @param {string} name - The hero's display name.
+ * @param {number} [sz=28] - Width/height in pixels.
+ * @returns {string} HTML string with <img> and fallback <span>.
+ */
 function heroImg(name, sz=28) {
-  const w=name.replace(/ /g,"_");
   const ini=name.split(/[\s&]+/).map(x=>x[0]).join("").slice(0,2);
-  return `<img src="https://deadlock.wiki/Special:FilePath/${w}_card.png" width="${sz}" height="${sz}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#1a1a1a;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#666">${ini}</span>`;
+  const src=heroImageMap[name]||`https://deadlock.wiki/Special:FilePath/${name.replace(/ /g,"_")}_card.png`;
+  return `<img src="${src}" width="${sz}" height="${sz}" alt="${name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#1a1a1a;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#666">${ini}</span>`;
+}
+
+/**
+ * Get the image URL for a hero (for use in <img src="..."> directly).
+ * @param {string} name - Hero display name.
+ * @returns {string} URL string.
+ */
+function heroImgUrl(name) {
+  return heroImageMap[name]||`https://deadlock.wiki/Special:FilePath/${name.replace(/ /g,"_")}_card.png`;
 }
 function esc(s){return s.replace(/'/g,"\\'");}
 
@@ -1433,6 +1456,8 @@ function tickTimer(){
 // ═══════════════════════════════════════════
 socket.on("state",(state)=>{
   S=state;
+  // Sync hero image map from server (Deadlock Assets API CDN URLs)
+  if(S.heroImages&&Object.keys(S.heroImages).length>0) heroImageMap=S.heroImages;
   const p=S.phase;
   if(p==="waiting"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);renderLobby();showScreen("lobby");}
   else if(p==="phase1"||p==="phase2"||p==="phase3"){
@@ -2197,11 +2222,12 @@ function renderStdDraft(){
       const filled=!!hero;
       const teamCls=t===1?"t2s":"";
       if(filled){
-        const imgUrl=`https://deadlock.wiki/Special:FilePath/${hero.replace(/ /g,'_')}_card.png`;
+        const imgUrl=heroImgUrl(hero);
         const nameText=isEnemy?(assign?"???":""): (assign||"");
         const canReassign=isCap&&myTeam===t;
-        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}"${canReassign?` style="cursor:pointer" onclick="showReassign(${t},${i})" title="Click to reassign"`:` title="${hero}"`}>`;
-        bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}"></div>`;
+        const dragAttr=canReassign?` draggable="true" ondragstart="dragHero(event,'${esc(hero)}')"`:'';;
+        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}"${canReassign?` style="cursor:pointer" onclick="showReassign(${t},${i})" title="Drag or click to reassign"`:` title="${hero}"`}${dragAttr}>`;
+        bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}" draggable="false"></div>`;
         bannerHtml+=`<div class="sp-name${isEnemy&&assign?' hidden-name':''}">${nameText||hero}</div>`;
         bannerHtml+=`</div>`;
       } else {
@@ -2543,6 +2569,8 @@ socket.on("tourneyState",(state)=>{
   // If coin is animating, defer the state update so leaderboard doesn't spoil mid-flip
   if(coinAnimating){pendingTourneyState=state;return;}
   TS=state;
+  // Sync hero image map from tournament state
+  if(TS.heroImages&&Object.keys(TS.heroImages).length>0) heroImageMap=TS.heroImages;
 
   // Hide bracket countdown if we're being routed away from bracket view
   // (but keep it if we're still on bracket with a countdown running)
@@ -3123,8 +3151,13 @@ socket.on("tourneyDraftComplete",({matchId,slots})=>{
   // The tourneyState update will switch us to the voting screen
 });
 
-// Hero list for tournament setup (available before socket state)
-const HEROES_LIST=["Abrams","Apollo","Bebop","Billy","Calico","Celeste","Doorman","Drifter","Dynamo","Graves","Grey Talon","Haze","Holliday","Infernus","Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina","Mirage","Mo & Krill","Paige","Paradox","Pocket","Rem","Seven","Shiv","Silver","Sinclair","Venator","Victor","Vindicta","Viscous","Vyper","Warden","Wraith","Yamato"];
+// Hero list for tournament setup — fetched from server API, with inline fallback.
+let HEROES_LIST=["Abrams","Apollo","Bebop","Billy","Calico","Celeste","Doorman","Drifter","Dynamo","Graves","Grey Talon","Haze","Holliday","Infernus","Ivy","Kelvin","Lady Geist","Lash","McGinnis","Mina","Mirage","Mo & Krill","Paige","Paradox","Pocket","Rem","Seven","Shiv","Silver","Sinclair","Venator","Victor","Vindicta","Viscous","Vyper","Warden","Wraith","Yamato"];
+// Fetch fresh hero data from server (sourced from Deadlock Assets API)
+fetch("/api/heroes").then(r=>r.json()).then(data=>{
+  if(data.heroes&&data.heroes.length>0) HEROES_LIST=data.heroes;
+  if(data.images&&Object.keys(data.images).length>0) heroImageMap=data.images;
+}).catch(()=>{/* Use fallback list */});
 
 // ═══════════════════════════════════════════
 //  REACTIVE BACKGROUND
