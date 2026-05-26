@@ -1,17 +1,46 @@
 #!/usr/bin/env python3
-"""
-Deadlock Custom Draft Tool
-──────────────────────────
-Two teams take turns banning and picking heroes in a snake-draft format.
-Each team bans 3 heroes, then picks 3 heroes.
-The winning pick is chosen unanimously by the team (all 6 play that hero).
+"""Deadlock Custom Draft Tool — Standalone Desktop Application.
 
-Snake draft order:
-  Ban Phase:   A ban → B ban → A ban → B ban → A ban → B ban
-  Pick Phase:  A pick → B pick → A pick → B pick → A pick → B pick
+A Tkinter-based GUI application that facilitates hero drafting for Deadlock
+custom games. Two teams alternate banning and picking heroes in a structured
+snake-draft format. Each team bans 3 heroes and picks 3 heroes, then the
+winning pick is chosen unanimously by the team (all 6 players play that hero).
 
-Run:  python deadlock_draft.py
-Package as exe:  pip install pyinstaller && pyinstaller --onefile --windowed deadlock_draft.py
+Draft Order:
+    Ban Phase:  Team A ban -> Team B ban -> Team A ban -> Team B ban ->
+                Team A ban -> Team B ban
+    Pick Phase: Team A pick -> Team B pick -> Team A pick -> Team B pick ->
+                Team A pick -> Team B pick
+
+Usage:
+    Run directly::
+
+        python deadlock_draft.py
+
+    Package as a standalone executable::
+
+        pip install pyinstaller
+        pyinstaller --onefile --windowed deadlock_draft.py
+
+Attributes:
+    HEROES (list[str]): Sorted list of all available hero names. Update this
+        list to match the latest game patch.
+    BG (str): Hex color code for the main application background.
+    PANEL_BG (str): Hex color code for team panel backgrounds.
+    TEAM_A_COLOR (str): Primary hex color for Team A (red).
+    TEAM_B_COLOR (str): Primary hex color for Team B (teal).
+    TEAM_A_LIGHT (str): Light accent hex color for Team A.
+    TEAM_B_LIGHT (str): Light accent hex color for Team B.
+    BAN_COLOR (str): Hex color for banned hero indicators.
+    TEXT_COLOR (str): Hex color for standard UI text.
+    HOVER_COLOR (str): Hex color for button hover states.
+    DISABLED_FG (str): Hex color for disabled/placeholder text.
+    GOLD (str): Hex color for the draft prompt and completion text.
+    HERO_BTN_BG (str): Hex color for hero button backgrounds.
+    HERO_BTN_FG (str): Hex color for hero button text.
+    DRAFT_ORDER (list[tuple[int, str]]): Sequence of ``(team_index, action)``
+        tuples defining the draft turn order. ``team_index`` is 0 for Team A
+        and 1 for Team B; ``action`` is either ``"BAN"`` or ``"PICK"``.
 """
 
 import tkinter as tk
@@ -44,7 +73,7 @@ HERO_BTN_BG   = "#1f2b47"
 HERO_BTN_FG   = "#d0d0d0"
 
 # ─── Draft Sequence ─────────────────────────────────────────────────────────
-# (team_index, action)  — team_index: 0 = Team A, 1 = Team B
+# Each entry is (team_index, action) where team_index 0 = Team A, 1 = Team B.
 DRAFT_ORDER = [
     (0, "BAN"),  (1, "BAN"),
     (0, "BAN"),  (1, "BAN"),
@@ -56,7 +85,29 @@ DRAFT_ORDER = [
 
 
 class DraftApp(tk.Tk):
+    """Main application window for the Deadlock Draft Tool.
+
+    This class manages the complete draft lifecycle including the UI layout,
+    draft state machine, and user interactions. It extends ``tk.Tk`` to serve
+    as the root Tkinter window.
+
+    Attributes:
+        team_names (list[str]): Display names for each team, editable by users.
+        team_colors (list[str]): Primary color hex codes for each team.
+        team_lights (list[str]): Light accent color hex codes for each team.
+        bans (list[list[str]]): Banned heroes per team.
+            ``bans[0]`` contains Team A's bans, ``bans[1]`` contains Team B's.
+        picks (list[list[str]]): Picked heroes per team.
+            ``picks[0]`` contains Team A's picks, ``picks[1]`` contains Team B's.
+        step (int): Current position in the ``DRAFT_ORDER`` sequence.
+            Ranges from 0 to ``len(DRAFT_ORDER)``.
+        draft_done (bool): Whether the draft has completed all steps.
+        hero_buttons (dict[str, tk.Button]): Mapping of hero names to their
+            corresponding button widgets in the hero grid.
+    """
+
     def __init__(self):
+        """Initialize the DraftApp window, state, fonts, and UI components."""
         super().__init__()
         self.title("Deadlock Draft Tool")
         self.configure(bg=BG)
@@ -85,7 +136,16 @@ class DraftApp(tk.Tk):
     # ════════════════════════════════════════════════════════════════════════
     #  UI BUILDING
     # ════════════════════════════════════════════════════════════════════════
+
     def _build_ui(self):
+        """Construct the complete application UI layout.
+
+        Creates three main sections:
+            - **Top bar**: Draft phase prompt and subtitle.
+            - **Main area**: Three-column layout with Team A panel, hero
+              selection grid, and Team B panel.
+            - **Bottom bar**: Undo, Reset, and Randomize action buttons.
+        """
         # ── Top bar ─────────────────────────────────────────────────────────
         top = tk.Frame(self, bg=BG)
         top.pack(fill="x", padx=16, pady=(14, 4))
@@ -143,15 +203,27 @@ class DraftApp(tk.Tk):
         )
         self.randomize_btn.pack(side="right")
 
-    # ── Team Panel ──────────────────────────────────────────────────────────
     def _build_team_panel(self, parent, team_idx):
+        """Build a team's side panel displaying bans and picks.
+
+        Creates a fixed-width panel containing an editable team name field,
+        a bans section (3 slots), and a picks section (3 slots). Slot labels
+        are stored as instance attributes for later updates.
+
+        Args:
+            parent: The parent Tkinter widget to attach the panel to.
+            team_idx: Team index (0 for Team A, 1 for Team B).
+
+        Returns:
+            tk.Frame: The constructed team panel frame widget.
+        """
         color = self.team_colors[team_idx]
         panel = tk.Frame(parent, bg=PANEL_BG, width=200, highlightbackground=color,
                          highlightthickness=2, padx=10, pady=10)
         panel.pack_propagate(False)
         panel.configure(width=210)
 
-        # Name entry
+        # Name entry — allows live renaming of the team.
         name_frame = tk.Frame(panel, bg=PANEL_BG)
         name_frame.pack(fill="x", pady=(0, 6))
 
@@ -168,7 +240,7 @@ class DraftApp(tk.Tk):
         else:
             self.name_entry_b = name_entry
 
-        # Bans section
+        # Bans section — 3 label slots for banned heroes.
         tk.Label(panel, text="─── BANS ───", font=self.small_font,
                  fg=BAN_COLOR, bg=PANEL_BG).pack(pady=(8, 2))
         ban_frame = tk.Frame(panel, bg=PANEL_BG)
@@ -181,7 +253,7 @@ class DraftApp(tk.Tk):
             lbl.pack(fill="x", pady=1)
             ban_labels.append(lbl)
 
-        # Picks section
+        # Picks section — 3 label slots for picked heroes.
         tk.Label(panel, text="─── PICKS ───", font=self.small_font,
                  fg=self.team_lights[team_idx], bg=PANEL_BG).pack(pady=(14, 2))
         pick_frame = tk.Frame(panel, bg=PANEL_BG)
@@ -194,7 +266,7 @@ class DraftApp(tk.Tk):
             lbl.pack(fill="x", pady=1)
             pick_labels.append(lbl)
 
-        # Store references
+        # Store label references for dynamic updates during the draft.
         if team_idx == 0:
             self.ban_labels_a  = ban_labels
             self.pick_labels_a = pick_labels
@@ -204,8 +276,19 @@ class DraftApp(tk.Tk):
 
         return panel
 
-    # ── Hero Grid ───────────────────────────────────────────────────────────
     def _build_hero_grid(self, parent):
+        """Build the scrollable hero selection grid.
+
+        Creates a canvas-based scrollable grid of hero buttons arranged in
+        4 columns. Each button triggers ``_on_hero_click`` when pressed.
+        Mouse wheel scrolling is supported.
+
+        Args:
+            parent: The parent Tkinter widget to attach the grid to.
+
+        Returns:
+            tk.Frame: The outer frame containing the canvas and scrollbar.
+        """
         outer = tk.Frame(parent, bg=BG)
 
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
@@ -221,7 +304,7 @@ class DraftApp(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Mouse-wheel scroll
+        # Mouse-wheel scroll binding for the entire canvas.
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
@@ -247,13 +330,27 @@ class DraftApp(tk.Tk):
     # ════════════════════════════════════════════════════════════════════════
     #  DRAFT LOGIC
     # ════════════════════════════════════════════════════════════════════════
+
     def _current_action(self):
+        """Get the current draft step's team and action type.
+
+        Returns:
+            tuple[int | None, str | None]: A ``(team_index, action)`` tuple
+                where ``team_index`` is 0 or 1 and ``action`` is ``"BAN"``
+                or ``"PICK"``. Returns ``(None, None)`` if the draft is
+                complete (all steps exhausted).
+        """
         if self.step >= len(DRAFT_ORDER):
             return None, None
         return DRAFT_ORDER[self.step]
 
     def _used_heroes(self):
-        """All heroes that are banned or picked."""
+        """Collect all heroes that have been banned or picked by either team.
+
+        Returns:
+            set[str]: Set of hero names that are no longer available for
+                selection in the draft.
+        """
         used = set()
         for t in range(2):
             used.update(self.bans[t])
@@ -261,6 +358,15 @@ class DraftApp(tk.Tk):
         return used
 
     def _on_hero_click(self, hero):
+        """Handle a hero button click during the draft.
+
+        Validates the click against the current draft state. If valid,
+        records the hero as a ban or pick for the active team and advances
+        the draft to the next step.
+
+        Args:
+            hero: The name of the hero that was clicked.
+        """
         if self.draft_done:
             return
         team_idx, action = self._current_action()
@@ -278,6 +384,11 @@ class DraftApp(tk.Tk):
         self._refresh_all()
 
     def _undo(self):
+        """Revert the most recent draft action.
+
+        Decrements the step counter and removes the last ban or pick from
+        the corresponding team. Has no effect if the draft is at step 0.
+        """
         if self.step == 0:
             return
         self.step -= 1
@@ -290,6 +401,10 @@ class DraftApp(tk.Tk):
         self._refresh_all()
 
     def _reset(self):
+        """Reset the entire draft to its initial state.
+
+        Clears all bans, picks, and resets the step counter to 0.
+        """
         self.step = 0
         self.draft_done = False
         self.bans  = [[], []]
@@ -297,7 +412,12 @@ class DraftApp(tk.Tk):
         self._refresh_all()
 
     def _randomize(self):
-        """Fill remaining draft steps with random heroes."""
+        """Fill all remaining draft steps with randomly selected heroes.
+
+        Shuffles the pool of available (un-banned, un-picked) heroes and
+        assigns them sequentially to the remaining draft steps, respecting
+        the ban/pick action type for each step.
+        """
         available = [h for h in HEROES if h not in self._used_heroes()]
         random.shuffle(available)
         while self.step < len(DRAFT_ORDER) and available:
@@ -311,6 +431,15 @@ class DraftApp(tk.Tk):
         self._refresh_all()
 
     def _rename_team(self, event, team_idx):
+        """Handle a team name change from the name entry field.
+
+        Updates the internal team name and refreshes the prompt display.
+
+        Args:
+            event: The Tkinter ``KeyRelease`` event (unused but required
+                by the binding signature).
+            team_idx: Index of the team being renamed (0 or 1).
+        """
         entry = self.name_entry_a if team_idx == 0 else self.name_entry_b
         self.team_names[team_idx] = entry.get() or f"Team {team_idx + 1}"
         self._update_prompt()
@@ -318,18 +447,30 @@ class DraftApp(tk.Tk):
     # ════════════════════════════════════════════════════════════════════════
     #  REFRESH / RENDER
     # ════════════════════════════════════════════════════════════════════════
+
     def _refresh_all(self):
+        """Refresh all UI elements to reflect the current draft state.
+
+        Updates the prompt text, team panels, hero button states, and the
+        undo button's enabled/disabled status.
+        """
         self._update_prompt()
         self._update_panels()
         self._update_hero_buttons()
         self.undo_btn.configure(state="normal" if self.step > 0 else "disabled")
 
     def _update_prompt(self):
+        """Update the top-bar prompt and subtitle text.
+
+        Displays the current team's name and action (e.g., "Team Amber — BAN #2")
+        during the draft, or a completion message with a summary of picks when
+        the draft is finished.
+        """
         team_idx, action = self._current_action()
         if team_idx is None:
             self.draft_done = True
             self.prompt_label.configure(text="✦  DRAFT COMPLETE  ✦", fg=GOLD)
-            # Build summary
+            # Build a summary of each team's picks for the subtitle.
             summary_parts = []
             for t in range(2):
                 picks_str = ", ".join(self.picks[t]) if self.picks[t] else "None"
@@ -359,6 +500,12 @@ class DraftApp(tk.Tk):
             self.sub_label.configure(text="Select a hero as a pick option for your team.")
 
     def _update_panels(self):
+        """Refresh both team panels' ban and pick slot labels.
+
+        Iterates over each team's ban and pick labels and updates their
+        text and color to reflect the current draft state. Empty slots
+        display a placeholder dash.
+        """
         for t, (ban_labels, pick_labels) in enumerate([
             (self.ban_labels_a, self.pick_labels_a),
             (self.ban_labels_b, self.pick_labels_b),
@@ -375,6 +522,13 @@ class DraftApp(tk.Tk):
                     lbl.configure(text="—", fg=DISABLED_FG)
 
     def _update_hero_buttons(self):
+        """Update the visual state of all hero buttons in the grid.
+
+        Each button is styled based on its hero's draft status:
+            - **Banned**: Dark red background, disabled, sunken relief.
+            - **Picked**: Team-colored background, disabled, raised relief.
+            - **Available**: Default styling, enabled, flat relief.
+        """
         used = self._used_heroes()
         banned = set()
         for t in range(2):
@@ -384,7 +538,7 @@ class DraftApp(tk.Tk):
             if hero in banned:
                 btn.configure(bg="#2a1111", fg="#773333", state="disabled", relief="sunken")
             elif hero in used:
-                # picked
+                # Hero has been picked — color the button with the picking team's color.
                 team_idx = 0 if hero in self.picks[0] else 1
                 btn.configure(
                     bg=self.team_colors[team_idx], fg="white",

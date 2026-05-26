@@ -5,18 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Deadlock Draft Tool</title>
 <style>
+/**
+ * Deadlock Draft Tool — Standalone Single-Page Application
+ *
+ * A self-contained HTML/CSS/JS draft tool for Deadlock custom games.
+ * Supports three draft modes:
+ *   1. Statlocker (Sequential) — Classic alternating pick/ban.
+ *   2. Phases (Simultaneous)   — Secret picks with overlap bans.
+ *   3. Bans First (Simultaneous) — Ban phase before pick phase.
+ *
+ * No server or build tools required. Open directly in a browser.
+ *
+ * CSS Architecture:
+ *   - CSS custom properties (variables) in :root for theming.
+ *   - BEM-lite naming: section prefixes (e.g., .mode-card, .hero-card).
+ *   - Responsive flex-based layout.
+ */
+
+/* ── Reset & Base ────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0f1a;color:#eaeaea;min-height:100vh;overflow-x:hidden}
+
+/* ── Theme Variables ─────────────────────────── */
 :root{
   --t1:#e94560;--t1l:#ff6b81;--t1bg:rgba(233,69,96,.12);
   --t2:#0f9b8e;--t2l:#2ed8c3;--t2bg:rgba(15,155,142,.12);
   --ban:#cc4444;--gold:#f5c518;--panel:#141428;--card:#1a1a32;
   --surface:#10101e;--hover:#252545;--dim:#555;
 }
+
+/* ── Utility Classes ─────────────────────────── */
 .hidden{display:none!important}
 button{cursor:pointer;font-family:inherit}
 
-/* ── MODE SELECT ──────────────────────────────────── */
+/* ── MODE SELECT ──────────────────────────────── */
 #modeSelect{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px}
 #modeSelect h1{font-size:2.4rem;color:var(--gold);margin-bottom:8px;text-align:center}
 #modeSelect .subtitle{color:#888;margin-bottom:40px;font-size:1rem;text-align:center}
@@ -31,7 +53,7 @@ button{cursor:pointer;font-family:inherit}
 .mode-card .tag{display:inline-block;font-size:.65rem;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:4px;margin-bottom:10px;background:#1a1a32;color:#888;border:1px solid #333}
 .mode-card .order{margin-top:14px;font-size:.72rem;color:#666;line-height:1.7;font-family:monospace}
 
-/* ── SHARED LAYOUT ────────────────────────────────── */
+/* ── SHARED LAYOUT ────────────────────────────── */
 .app{display:flex;flex-direction:column;height:100vh}
 .top-bar{text-align:center;padding:14px 16px 10px;background:linear-gradient(180deg,#16162e,#0f0f1a);border-bottom:1px solid #222;position:relative}
 .prompt{font-size:1.4rem;font-weight:700;color:var(--gold)}
@@ -43,7 +65,7 @@ button{cursor:pointer;font-family:inherit}
 .dot.ban{border-color:var(--ban)}.dot.t1{border-color:var(--t1)}.dot.t2{border-color:var(--t2)}
 .main{display:flex;flex:1;overflow:hidden}
 
-/* ── TEAM PANELS ──────────────────────────────────── */
+/* ── TEAM PANELS ──────────────────────────────── */
 .team-panel{width:220px;min-width:200px;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
 .team-panel.left{border-right:2px solid var(--t1)}
 .team-panel.right{border-left:2px solid var(--t2)}
@@ -58,7 +80,7 @@ button{cursor:pointer;font-family:inherit}
 .slot.ban-slot .sn{color:var(--ban);text-decoration:line-through}
 .slot.pick-slot.t1 .sn{color:var(--t1l)}.slot.pick-slot.t2 .sn{color:var(--t2l)}
 
-/* ── HERO GRID ────────────────────────────────────── */
+/* ── HERO GRID ────────────────────────────────── */
 .hero-grid{flex:1;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
 .hero-card{
   width:105px;background:var(--card);border:2px solid #2a2a44;border-radius:8px;cursor:pointer;
@@ -78,7 +100,7 @@ button{cursor:pointer;font-family:inherit}
 .hero-card.sel{border-color:var(--gold);background:#2a2a10;box-shadow:0 0 12px rgba(245,197,24,.2)}
 .hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--gold);font-size:1rem;font-weight:700}
 
-/* ── BOTTOM BAR ───────────────────────────────────── */
+/* ── BOTTOM BAR ───────────────────────────────── */
 .bottom-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid #222}
 .btn{padding:8px 18px;border:none;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;color:#eee}
 .btn:hover{filter:brightness(1.2)}.btn:disabled{opacity:.35;cursor:default;filter:none}
@@ -87,7 +109,7 @@ button{cursor:pointer;font-family:inherit}
 .btn-back{background:#333;position:absolute;top:14px;left:16px;font-size:.8rem;padding:6px 14px;border-radius:6px;border:none;color:#ccc;cursor:pointer;z-index:10}
 .btn-back:hover{background:#444}
 
-/* ── FULLSCREEN OVERLAYS ──────────────────────────── */
+/* ── FULLSCREEN OVERLAYS ──────────────────────── */
 .fs{position:fixed;inset:0;background:#0f0f1a;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;overflow-y:auto}
 .fs h1{font-size:2rem;margin-bottom:12px}
 .fs p{color:#aaa;font-size:1rem;max-width:560px;line-height:1.6;margin-bottom:24px}
@@ -95,7 +117,7 @@ button{cursor:pointer;font-family:inherit}
 .fs .bb:hover{filter:brightness(1.15);transform:scale(1.03)}
 .bb.t1b{background:var(--t1)}.bb.t2b{background:var(--t2)}.bb.gb{background:#886611}
 
-/* ── REVEAL CARDS ─────────────────────────────────── */
+/* ── REVEAL CARDS ─────────────────────────────── */
 .rcols{display:flex;gap:50px;margin:20px 0 30px;justify-content:center;flex-wrap:wrap}
 .rcol{text-align:center;min-width:200px}
 .rcol h2{font-size:1.2rem;margin-bottom:12px}
@@ -106,12 +128,14 @@ button{cursor:pointer;font-family:inherit}
 .rh.ov img{filter:grayscale(1) brightness(.4)}
 .rh.fp{font-size:1.1rem}.rh.fp img{width:48px;height:48px;box-shadow:0 0 12px var(--gold)}
 
+/* ── Scrollbar ────────────────────────────────── */
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
 </style>
 </head>
 <body>
 
 <!-- ═══════ MODE SELECT ═══════ -->
+<!-- Landing screen where users choose one of three draft formats. -->
 <div id="modeSelect">
   <h1>⚡ Deadlock Draft</h1>
   <p class="subtitle">Choose a draft format to begin.</p>
@@ -137,7 +161,8 @@ button{cursor:pointer;font-family:inherit}
   </div>
 </div>
 
-<!-- ═══════ SEQUENTIAL DRAFT (Type 1) ═══════ -->
+<!-- ═══════ SEQUENTIAL DRAFT (Statlocker Mode) ═══════ -->
+<!-- Full-screen draft UI for the sequential (alternating turns) mode. -->
 <div id="seqScreen" class="app hidden">
   <div class="top-bar">
     <button class="btn-back" onclick="backToMenu()">← Modes</button>
@@ -160,6 +185,7 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <!-- ═══════ SIMULTANEOUS ACTION SCREEN ═══════ -->
+<!-- Hero selection UI for simultaneous (secret pick/ban) phases. -->
 <div id="simScreen" class="app hidden">
   <div class="top-bar">
     <button class="btn-back" onclick="backToMenu()">← Modes</button>
@@ -179,6 +205,7 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <!-- ═══════ HANDOFF SCREEN ═══════ -->
+<!-- Transition screen between teams during simultaneous phases. -->
 <div id="handoff" class="fs hidden">
   <h1 id="hoTitle"></h1>
   <p id="hoDesc"></p>
@@ -186,6 +213,7 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <!-- ═══════ REVEAL SCREEN ═══════ -->
+<!-- Shows results after each simultaneous phase completes. -->
 <div id="reveal" class="fs hidden">
   <h1 id="rvTitle" style="color:var(--gold)"></h1>
   <p id="rvDesc"></p>
@@ -194,6 +222,7 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <!-- ═══════ COMPLETE SCREEN ═══════ -->
+<!-- Final results screen showing each team's picks. -->
 <div id="complete" class="fs hidden">
   <h1 style="color:var(--gold)">✦ DRAFT COMPLETE ✦</h1>
   <p>Each team plays as their chosen hero — a full squad of 6!</p>
@@ -202,9 +231,40 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <script>
+/**
+ * @fileoverview Deadlock Draft Tool — Client-Side Application Logic.
+ *
+ * This script implements three draft modes for Deadlock custom games:
+ *
+ * 1. **Statlocker (Sequential)**: Teams alternate picking and banning heroes
+ *    in a predefined order. Each action is taken one at a time with both
+ *    teams visible.
+ *
+ * 2. **Phases (Simultaneous)**: A three-phase draft where both teams act
+ *    secretly. Phase 1: pick 6 heroes (overlapping picks are auto-banned).
+ *    Phase 2: ban 4 of the opponent's remaining heroes. Phase 3: choose
+ *    a final champion from the remaining pool.
+ *
+ * 3. **Bans First (Simultaneous)**: Similar to Phases but starts with a
+ *    ban round. Phase 1: ban 3 heroes. Phase 2: pick 5 heroes (overlaps
+ *    banned). Phase 3: ban 2 opponent picks. Phase 4: final pick.
+ *
+ * All three modes share a common hero roster, helper functions, and screen
+ * management system. The simultaneous modes use a "handoff" screen to
+ * pass control between teams on the same device.
+ *
+ * @author Joe Huber
+ */
+
 // ═══════════════════════════════════════════════════════
 //  HEROES & HELPERS
 // ═══════════════════════════════════════════════════════
+
+/**
+ * Sorted roster of all playable Deadlock heroes.
+ * Update this array when new heroes are added to the game.
+ * @const {string[]}
+ */
 const HEROES=[
   "Abrams","Apollo","Bebop","Billy","Calico","Celeste","Drifter","Doorman","Dynamo",
   "Graves","Grey Talon","Haze","Holliday","Infernus",
@@ -214,52 +274,159 @@ const HEROES=[
   "Vyper","Warden","Wraith","Yamato"
 ].sort();
 
+/**
+ * Generate an HTML string for a hero's portrait image with a fallback.
+ *
+ * Loads the hero's card image from the Deadlock wiki. If the image fails
+ * to load, a styled initials placeholder is shown instead.
+ *
+ * @param {string} name - The hero's display name.
+ * @param {number} [sz=28] - The width and height in pixels for the image.
+ * @returns {string} An HTML string containing an `<img>` and fallback `<span>`.
+ */
 function hi(name,sz=28){
   const w=name.replace(/ /g,"_");
   const ini=name.split(/[\s&]+/).map(x=>x[0]).join("").slice(0,2);
   return `<img src="https://deadlock.wiki/Special:FilePath/${w}_card.png" width="${sz}" height="${sz}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:${sz}px;height:${sz}px;background:#222;border-radius:4px;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:#888">${ini}</span>`;
 }
+
+/**
+ * Escape single quotes in a string for safe use in inline HTML attributes.
+ * @param {string} s - The string to escape.
+ * @returns {string} The escaped string.
+ */
 function esc(s){return s.replace(/'/g,"\\'");}
+
+/**
+ * Shuffle an array in place using the Fisher-Yates algorithm.
+ * @param {Array} a - The array to shuffle.
+ * @returns {Array} The same array, now shuffled.
+ */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 // ═══════════════════════════════════════════════════════
-//  GLOBAL STATE
+//  GLOBAL STATE & SCREEN MANAGEMENT
 // ═══════════════════════════════════════════════════════
+
+/**
+ * Currently active draft mode. One of: 'statlocker', 'phases', 'bansFirst', or null.
+ * @type {?string}
+ */
 let mode=null;
+
+/**
+ * Display names for Team 1 and Team 2.
+ * @type {string[]}
+ */
 let teamNames=["Team Amber","Team Jade"];
+
+/**
+ * IDs of all application screens for visibility toggling.
+ * @const {string[]}
+ */
 const screens=["modeSelect","seqScreen","simScreen","handoff","reveal","complete"];
+
+/**
+ * Show a single screen by ID, hiding all others.
+ * @param {string} id - The DOM element ID of the screen to display.
+ */
 function show(id){screens.forEach(s=>document.getElementById(s).classList.toggle("hidden",s!==id));}
+
+/**
+ * Return to the mode selection menu and reset the active mode.
+ */
 function backToMenu(){mode=null;show("modeSelect");}
+
+/**
+ * Initialize and start a draft in the specified mode.
+ * @param {string} m - The draft mode: 'statlocker', 'phases', or 'bansFirst'.
+ */
 function startDraft(m){mode=m; if(m==="statlocker"){seqInit();show("seqScreen");}else{simInit();simStartPhase();}}
 
 // ═══════════════════════════════════════════════════════
 //  TYPE 1: STATLOCKER SEQUENTIAL DRAFT
 // ═══════════════════════════════════════════════════════
+
+/**
+ * Turn order for the Statlocker (sequential) draft mode.
+ *
+ * Each entry defines which team acts and whether it's a pick or ban:
+ *   - `t`: Team index (0 = Team 1, 1 = Team 2).
+ *   - `a`: Action type ('PICK' or 'BAN').
+ *
+ * Order: 1P → 2P → 1B → 2B → 2P → 1P → 2B → 1B → 1B → 2B → 1P → 2P
+ *
+ * @const {Array<{t: number, a: string}>}
+ */
 const SORD=[
   {t:0,a:"PICK"},{t:1,a:"PICK"},{t:0,a:"BAN"},{t:1,a:"BAN"},
   {t:1,a:"PICK"},{t:0,a:"PICK"},{t:1,a:"BAN"},{t:0,a:"BAN"},
   {t:0,a:"BAN"},{t:1,a:"BAN"},{t:0,a:"PICK"},{t:1,a:"PICK"},
 ];
+
+/**
+ * State object for the sequential draft mode.
+ *
+ * @typedef {Object} SeqState
+ * @property {number} s - Current step index in SORD (0-based).
+ * @property {Array<string[]>} b - Banned heroes per team: `b[0]` = Team 1 bans.
+ * @property {Array<string[]>} p - Picked heroes per team: `p[0]` = Team 1 picks.
+ */
+
+/** @type {SeqState} */
 let sq={s:0,b:[[],[]],p:[[],[]]};
 
+/**
+ * Initialize (or reset) the sequential draft state and re-render the UI.
+ */
 function seqInit(){sq={s:0,b:[[],[]],p:[[],[]]};seqR();}
+
+/**
+ * Get all heroes that have been used (banned or picked) in the sequential draft.
+ * @returns {Set<string>} Set of hero names already in play.
+ */
 function sqUsed(){return new Set([...sq.b[0],...sq.b[1],...sq.p[0],...sq.p[1]]);}
 
+/**
+ * Process a hero selection in the sequential draft.
+ *
+ * Records the hero as a ban or pick for the current team, advances the step,
+ * and triggers draft completion if all steps are done.
+ *
+ * @param {string} h - The name of the selected hero.
+ */
 function seqPick(h){
   if(sq.s>=SORD.length||sqUsed().has(h))return;
   const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].push(h);sq.s++;seqR();
   if(sq.s>=SORD.length)seqComplete();
 }
+
+/**
+ * Undo the last action in the sequential draft.
+ */
 function seqUndo(){
   if(!sq.s)return;sq.s--;const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].pop();seqR();
 }
+
+/** Reset the sequential draft to its initial state. */
 function seqReset(){seqInit();}
+
+/**
+ * Fill all remaining sequential draft steps with random hero selections.
+ * Automatically completes the draft if all steps are filled.
+ */
 function seqRandomize(){
   const av=HEROES.filter(h=>!sqUsed().has(h));shuffle(av);let i=0;
   while(sq.s<SORD.length&&i<av.length){const{t,a}=SORD[sq.s];(a==="BAN"?sq.b:sq.p)[t].push(av[i++]);sq.s++;}
   seqR();if(sq.s>=SORD.length)seqComplete();
 }
 
+/**
+ * Re-render the entire sequential draft UI.
+ *
+ * Updates the prompt text, phase dots, team panels (bans/picks), hero grid
+ * card states, and action button enabled/disabled states.
+ */
 function seqR(){
   const pr=document.getElementById("seqPrompt"),sub=document.getElementById("seqSub");
   if(sq.s>=SORD.length){pr.innerHTML="✦ DRAFT COMPLETE ✦";pr.style.color="var(--gold)";sub.textContent="Click a team's pick to discuss your final choice.";}
@@ -280,6 +447,9 @@ function seqR(){
   document.getElementById("seqRandBtn").disabled=sq.s>=SORD.length;
 }
 
+/**
+ * Show the draft completion screen with a summary of all picks and bans.
+ */
 function seqComplete(){
   show("complete");
   let h="";
@@ -296,6 +466,20 @@ function seqComplete(){
 // ═══════════════════════════════════════════════════════
 //  TYPES 2 & 3: SIMULTANEOUS PHASE ENGINE
 // ═══════════════════════════════════════════════════════
+
+/**
+ * Phase definitions for both simultaneous draft modes.
+ *
+ * Each mode is an array of phase objects that define the draft's progression.
+ * Phase actions determine what heroes are available and how selections are
+ * processed:
+ *   - `simPick`: Pick from the full available pool (overlaps get banned).
+ *   - `simBan`: Ban heroes from the global pool.
+ *   - `oppBan`: Ban heroes from the opponent's pool.
+ *   - `finalPick`: Choose one hero from your own remaining pool.
+ *
+ * @const {Object<string, Array<{label: string, desc: string, action: string, count?: number, banOverlaps?: boolean}>>}
+ */
 const SPHASES={
   phases:[
     {label:"Phase 1 — Pick 6 Heroes",desc:"Secretly pick 6 potential heroes. If both teams pick the same hero, it gets BANNED!",action:"simPick",count:6,banOverlaps:true},
@@ -310,14 +494,53 @@ const SPHASES={
   ],
 };
 
+/**
+ * State object for the simultaneous draft engine.
+ *
+ * @typedef {Object} SimState
+ * @property {number} pi - Current phase index into the active mode's phase array.
+ * @property {number} turn - Which team is currently acting (0 or 1).
+ * @property {Array<string[]>} pend - Pending selections per team for the current phase.
+ * @property {?Set<string>} bans - Set of globally banned hero names.
+ * @property {?Array<Set<string>>} pools - Each team's remaining hero pool.
+ * @property {?Array<?string>} finals - Each team's final champion choice.
+ * @property {?Set<string>} sel - Currently selected (toggled) heroes during action.
+ */
+
+/** @type {SimState} */
 let sm={pi:0,turn:0,pend:[[],[]],bans:null,pools:null,finals:null,sel:null};
 
+/**
+ * Initialize (or reset) the simultaneous draft engine state.
+ */
 function simInit(){
   sm={pi:0,turn:0,pend:[[],[]],bans:new Set(),pools:[new Set(),new Set()],finals:[null,null],sel:new Set()};
 }
+
+/**
+ * Get the phase definitions array for the currently active draft mode.
+ * @returns {Array<Object>} Array of phase definition objects.
+ */
 function cPhases(){return SPHASES[mode];}
+
+/**
+ * Get the current phase definition object.
+ * @returns {Object} The active phase's configuration.
+ */
 function cPhase(){return cPhases()[sm.pi];}
 
+/**
+ * Determine which heroes are selectable for a given team in the current phase.
+ *
+ * The available heroes depend on the phase action type:
+ *   - `simPick`: All heroes not yet banned or in either team's pool.
+ *   - `simBan`: All heroes not yet banned.
+ *   - `oppBan`: Heroes in the opponent's pool.
+ *   - `finalPick`: Heroes in the acting team's own pool.
+ *
+ * @param {number} ti - The acting team's index (0 or 1).
+ * @returns {string[]} Array of selectable hero names.
+ */
 function simHeroes(ti){
   const p=cPhase();
   switch(p.action){
@@ -328,6 +551,13 @@ function simHeroes(ti){
     case"finalPick":return[...sm.pools[ti]];
   }
 }
+
+/**
+ * Get the number of heroes a team must select in the current phase.
+ *
+ * @param {number} ti - The acting team's index (0 or 1).
+ * @returns {number} The required selection count.
+ */
 function simCount(ti){
   const p=cPhase();
   switch(p.action){
@@ -339,11 +569,24 @@ function simCount(ti){
   }
 }
 
+/**
+ * Begin a new phase by resetting pending selections and showing the handoff
+ * screen for Team 1.
+ */
 function simStartPhase(){
   sm.turn=0;sm.pend=[[],[]];sm.sel=new Set();
   simHandoff(0);
 }
 
+/**
+ * Display the handoff (transition) screen for a specific team.
+ *
+ * This screen prompts the designated team to take control before their
+ * secret selection phase begins. Used to prevent the opposing team from
+ * seeing selections on a shared device.
+ *
+ * @param {number} ti - The team index (0 or 1) that should take control.
+ */
 function simHandoff(ti){
   show("handoff");
   const p=cPhase(),c=ti?'var(--t2)':'var(--t1)';
@@ -355,8 +598,21 @@ function simHandoff(ti){
   sm.turn=ti;
 }
 
+/**
+ * Handle the "Ready" button click on the handoff screen.
+ * Transitions to the hero selection action screen.
+ */
 function hoReady(){simShowAction(sm.turn);}
 
+/**
+ * Display the hero selection action screen for a team's current phase.
+ *
+ * Configures the prompt, phase dots, side panels, and hero grid based on
+ * the current phase action and team context. The "Lock In" button is
+ * enabled only when the correct number of heroes are selected.
+ *
+ * @param {number} ti - The acting team's index (0 or 1).
+ */
 function simShowAction(ti){
   show("simScreen");
   sm.sel=new Set();
@@ -367,18 +623,17 @@ function simShowAction(ti){
   document.getElementById("simPrompt").innerHTML=`<span style="color:${c}">${teamNames[ti]}</span> — ${al}`;
   document.getElementById("simSub").textContent=`${p.desc} (Select ${need})`;
 
-  // Phase dots
+  // Phase progress dots
   document.getElementById("simDots").innerHTML=cPhases().map((ph,i)=>{
     let cls="dot";if(i<sm.pi)cls+=" done";if(i===sm.pi)cls+=" active";
     cls+=ph.action.includes("Ban")||ph.action==="simBan"?" ban":" t1";
     return`<div class="${cls}">${i+1}</div>`;
   }).join("");
 
-  // Side panels — show what's visible (hide the other team's secrets)
+  // Side panels — show each team's known pool and champion (if revealed)
   [0,1].forEach(t=>{
     const el=document.getElementById(t?"simPB":"simPA");
     let h=`<input class="team-name-input ${t?'t2c':'t1c'}" value="${teamNames[t]}" oninput="teamNames[${t}]=this.value">`;
-    // Only show pool for the acting team (or both if already revealed)
     if(sm.pools[t].size>0){
       h+=`<div class="section-label">${teamNames[t].toUpperCase()} POOL</div>`;
       [...sm.pools[t]].forEach(x=>{h+=`<div class="slot pick-slot t${t+1}">${hi(x)} <span class="sn">${x}</span></div>`;});
@@ -390,7 +645,7 @@ function simShowAction(ti){
     el.innerHTML=h;
   });
 
-  // Hero grid
+  // Hero selection grid
   document.getElementById("simGrid").innerHTML=heroes.map(h=>{
     return`<div class="hero-card" data-hero="${esc(h)}" onclick="simToggle('${esc(h)}',${ti})">${hi(h,68)}<div class="hl">${h}</div></div>`;
   }).join("");
@@ -398,11 +653,21 @@ function simShowAction(ti){
   simUpdLock(need);
 }
 
+/**
+ * Toggle a hero's selection state during a simultaneous phase.
+ *
+ * Adds the hero to the selection set if not already selected (up to the
+ * required count), or removes it if already selected. Updates card visuals
+ * and the Lock In button state.
+ *
+ * @param {string} hero - The hero name to toggle.
+ * @param {number} ti - The acting team's index (0 or 1).
+ */
 function simToggle(hero,ti){
   const need=simCount(ti);
   if(sm.sel.has(hero))sm.sel.delete(hero);
   else{if(sm.sel.size>=need)return;sm.sel.add(hero);}
-  // Update visuals
+  // Visually mark selected cards
   document.querySelectorAll("#simGrid .hero-card").forEach(card=>{
     const h=card.getAttribute("data-hero");
     card.classList.toggle("sel",sm.sel.has(h));
@@ -410,18 +675,41 @@ function simToggle(hero,ti){
   simUpdLock(need);
 }
 
+/**
+ * Update the Lock In button text and enabled state based on selection count.
+ * @param {number} need - The required number of hero selections.
+ */
 function simUpdLock(need){
   const b=document.getElementById("lockBtn");
   b.textContent=`🔒 Lock In (${sm.sel.size}/${need})`;
   b.disabled=sm.sel.size!==need;
 }
 
+/**
+ * Lock in the current team's selections and advance the phase.
+ *
+ * Stores the selections in the pending array. If Team 1 just locked in,
+ * hands off to Team 2. If Team 2 just locked in, processes both teams'
+ * selections together.
+ */
 function simLockIn(){
   sm.pend[sm.turn]=[...sm.sel];sm.sel=new Set();
   if(sm.turn===0){simHandoff(1);}
   else{simProcess();}
 }
 
+/**
+ * Process both teams' locked-in selections for the current phase.
+ *
+ * Applies the phase action logic:
+ *   - `simPick`: Adds picks to pools; overlapping picks are banned if configured.
+ *   - `simBan`: Adds selections to the global ban set.
+ *   - `selfBan`: Removes selections from the acting team's own pool.
+ *   - `oppBan`: Removes selections from the opponent's pool.
+ *   - `finalPick`: Sets each team's final champion.
+ *
+ * After processing, shows the reveal screen with results.
+ */
 function simProcess(){
   const p=cPhase();let overlaps=[];
   switch(p.action){
@@ -452,6 +740,16 @@ function simProcess(){
   simReveal(p,overlaps);
 }
 
+/**
+ * Display the reveal screen showing the results of the just-completed phase.
+ *
+ * Shows each team's selections, any overlapping picks that were banned,
+ * and remaining hero pools. For the final pick phase, displays champion
+ * cards with special styling.
+ *
+ * @param {Object} phase - The phase definition object that just completed.
+ * @param {string[]} overlaps - Array of hero names that overlapped (both teams picked).
+ */
 function simReveal(phase,overlaps){
   show("reveal");
   const isFinal=phase.action==="finalPick";
@@ -471,14 +769,13 @@ function simReveal(phase,overlaps){
       const rest=[...sm.pools[t]].filter(r=>r!==x);
       if(rest.length){h+=`<div style="margin-top:12px;font-size:.7rem;color:#555">Remaining pool:</div>`;rest.forEach(r=>{h+=`<div class="rh" style="opacity:.5">${hi(r,30)} ${r}</div>`;});}
     } else {
-      // Show what this team selected
       const label={simPick:"Picked",simBan:"Banned",selfBan:"Removed",oppBan:"Banned from opponent"}[phase.action];
       h+=`<div style="font-size:.7rem;color:#666;margin-bottom:6px">${label}:</div>`;
       sm.pend[t].forEach(x=>{
         const isOv=overlaps.includes(x);
         h+=`<div class="rh${isOv?' ov':''}">${hi(x,36)} ${x}${isOv?' (overlap!)':''}</div>`;
       });
-      // Show remaining pool after this phase
+      // Show remaining pool after pick/ban phases
       if(phase.action==="selfBan"||phase.action==="oppBan"||phase.action==="simPick"){
         if(sm.pools[t].size>0){
           h+=`<div style="margin-top:10px;font-size:.7rem;color:#666">Remaining pool (${sm.pools[t].size}):</div>`;
@@ -490,11 +787,16 @@ function simReveal(phase,overlaps){
   });
   document.getElementById("rvCols").innerHTML=h;
 
+  // Configure the continue/finish button
   const btn=document.getElementById("rvBtn");
   if(isFinal){btn.textContent="New Draft";btn.onclick=backToMenu;}
   else{btn.textContent="Continue to Next Phase →";btn.onclick=rvNext;}
 }
 
+/**
+ * Advance to the next phase after viewing reveal results.
+ * Returns to the mode menu if all phases are complete.
+ */
 function rvNext(){
   sm.pi++;sm.pend=[[],[]];
   if(sm.pi>=cPhases().length){backToMenu();return;}

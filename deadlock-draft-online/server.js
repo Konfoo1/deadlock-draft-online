@@ -1,3 +1,33 @@
+/**
+ * @fileoverview Deadlock Draft Tool — Multiplayer Server.
+ *
+ * A real-time multiplayer hero draft server for Deadlock custom games, built
+ * with Express and Socket.IO. Supports three game modes:
+ *
+ * - **Phase Draft ("Clone Wars")**: Simultaneous secret picks with overlap
+ *   banning, followed by targeted bans and a final champion selection.
+ * - **Standard Draft**: Classic alternating pick/ban turns with a snake draft
+ *   order, base timers, and reserve time banks.
+ * - **Duel Mode**: A streamlined 1v1 variant of the phase draft with
+ *   configurable pool sizes and no overlap banning.
+ *
+ * Additionally supports a full **Tournament System** with double-elimination
+ * brackets, ready checks, automatic match creation, voting/dispute resolution,
+ * and a reveal sequence for completed matches.
+ *
+ * Architecture Overview:
+ *   - Express serves static files from `./public`.
+ *   - Socket.IO handles all real-time lobby/tournament communication.
+ *   - Lobbies and tournaments are stored in-memory Maps (no persistence).
+ *   - Each client receives a filtered state object via {@link stateFor} or
+ *     {@link tourneyBracketStateFor} to prevent information leaks.
+ *
+ * @module server
+ * @requires express
+ * @requires http
+ * @requires socket.io
+ */
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -11,6 +41,12 @@ app.use(express.static("public"));
 // ═══════════════════════════════════════════════════════════
 //  HEROES
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Sorted roster of all playable Deadlock heroes.
+ * Update this array when new heroes are added to the game.
+ * @const {string[]}
+ */
 const HEROES = [
   "Abrams","Apollo","Bebop","Billy","Calico","Celeste","Drifter","Doorman","Dynamo",
   "Graves","Grey Talon","Haze","Holliday","Infernus",
@@ -21,9 +57,17 @@ const HEROES = [
 ].sort();
 
 // ═══════════════════════════════════════════════════════════
-//  STANDARD DRAFT TURN ORDER — Snake draft, 4 bans + 12 picks = 16 turns
-//  BAN BAN | PICK×6 | BAN BAN | PICK×6
+//  STANDARD DRAFT TURN ORDER
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Turn sequence for the Standard draft mode.
+ *
+ * A 16-turn snake draft: BAN BAN | PICK x6 | BAN BAN | PICK x6.
+ * Each entry specifies the action type and which team acts.
+ *
+ * @const {Array<{type: string, team: number}>}
+ */
 const STD_TURNS = [
   // Ban Phase 1
   {type:"ban",team:0},{type:"ban",team:1},
@@ -40,8 +84,80 @@ const STD_TURNS = [
 // ═══════════════════════════════════════════════════════════
 //  LOBBIES
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * In-memory store of all active draft lobbies, keyed by lobby code.
+ * @type {Map<string, LobbyState>}
+ */
 const lobbies = new Map();
 
+/**
+ * @typedef {Object} LobbyState
+ * @property {string} code - Unique 4-character alphanumeric lobby code.
+ * @property {string} hostId - Socket ID of the lobby creator/host.
+ * @property {string} mode - Draft mode: 'phase', 'standard', or 'duel'.
+ * @property {number} timerDuration - Phase timer duration in seconds.
+ * @property {string} phase - Current lobby phase (e.g., 'waiting', 'phase1',
+ *   'phase2', 'std_drafting', 'complete').
+ * @property {string[]} teamNames - Display names for [Team 0, Team 1].
+ * @property {Array<?{id: string, name: string}>} captains - Captain info
+ *   per team slot; null if unfilled.
+ * @property {boolean[]} ready - Ready status for each captain.
+ * @property {Array<Array<{id: string, name: string}>>} spectators - Spectators
+ *   per team.
+ * @property {Array<{id: string, name: string}>} unassigned - Players not yet
+ *   assigned to a team.
+ * @property {Array<string[]>} picks - Heroes picked per team during phase drafts.
+ * @property {Array<string[]>} pools - Remaining hero pools per team after
+ *   overlap/ban processing.
+ * @property {Array<string[]>} origPicks - Original (pre-ban) picks per team.
+ * @property {Set<string>} bans - Set of all globally banned hero names.
+ * @property {string[]} overlaps - Heroes that both teams picked (auto-banned).
+ * @property {Array<string[]>} phase2Bans - Phase 2 ban selections per team.
+ * @property {Array<string[]>} phase2Banned - Finalized phase 2 bans per team.
+ * @property {Array<?string>} phase3Choice - Final champion choice per team.
+ * @property {Array<?string>} champions - Confirmed champions per team.
+ * @property {boolean[]} locked - Whether each team has locked in their current
+ *   phase selections.
+ * @property {Array<Object<string, number>>} specPrefs - Spectator hero
+ *   preference votes per team.
+ * @property {?number} timerRef - Active setTimeout reference for the phase timer.
+ * @property {?number} timerEnd - Unix timestamp when the current timer expires.
+ * @property {?StdDraftState} std - Standard draft state (null unless mode is
+ *   'standard').
+ * @property {number} duelPoolSize - Hero pool size for duel mode (2-6).
+ * @property {string[]} globalBans - Heroes banned from the entire lobby by host.
+ * @property {Array<{from: string, text: string, ts: number}>} chat - Lobby-wide
+ *   chat message history.
+ * @property {Object<string, number>} coinStreaks - Best coin flip streak per
+ *   socket ID.
+ * @property {Array<Array<{from: string, text: string, ts: number}>>} teamChat -
+ *   Per-team private chat messages.
+ * @property {Array<Array<{name: string, heroes: string[]}>>} ghostPlayers -
+ *   Absent player placeholder slots per team.
+ */
+
+/**
+ * @typedef {Object} StdDraftState
+ * @property {number} step - Current step index into STD_TURNS.
+ * @property {Array<string[]>} bans - Banned heroes per team.
+ * @property {Array<string[]>} picks - Picked heroes per team.
+ * @property {Array<Array<?string>>} playerAssignments - Player name assigned
+ *   to each pick, per team. Null entries indicate unassigned picks.
+ * @property {number} baseTime - Base timer duration per turn in seconds.
+ * @property {number[]} reserve - Remaining reserve time per team in seconds.
+ * @property {number} turnStart - Unix timestamp of when the current turn began.
+ * @property {boolean} inReserve - Whether the active turn has entered reserve time.
+ */
+
+/**
+ * Generate a unique 4-character alphanumeric lobby code.
+ *
+ * Uses a character set that excludes ambiguous characters (I, O, 0, 1).
+ * Recursively generates a new code if a collision is detected.
+ *
+ * @returns {string} A unique lobby code (e.g., 'AB3K').
+ */
 function genCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -49,11 +165,32 @@ function genCode() {
   return lobbies.has(code) ? genCode() : code;
 }
 
+/**
+ * Calculate the number of bans allowed against a hero pool.
+ *
+ * Returns ``poolSize - 2`` (minimum 0), ensuring at least 2 heroes remain
+ * in the pool after banning.
+ *
+ * @param {number} poolSize - The number of heroes in the target pool.
+ * @returns {number} The number of bans allowed.
+ */
 function banCount(poolSize) { return Math.max(0, poolSize - 2); }
 
 // ═══════════════════════════════════════════════════════════
 //  FIND PLAYER IN LOBBY
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Locate a player within a lobby by their socket ID.
+ *
+ * Searches captains, spectators, and unassigned players in order.
+ *
+ * @param {LobbyState} lobby - The lobby to search.
+ * @param {string} sid - The socket ID to find.
+ * @returns {?{role: string, team?: number, idx?: number}} Player descriptor
+ *   with their role ('captain', 'spectator', or 'unassigned'), team index,
+ *   and array index where applicable. Returns null if not found.
+ */
 function findPerson(lobby, sid) {
   for (let t = 0; t < 2; t++) {
     if (lobby.captains[t]?.id === sid) return { role: "captain", team: t };
@@ -70,13 +207,28 @@ function findPerson(lobby, sid) {
 // ═══════════════════════════════════════════════════════════
 //  CLIENT STATE (filtered per role)
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Build a role-filtered state snapshot for a specific client.
+ *
+ * Each player receives only the information they should see based on their
+ * role (captain, spectator, or unassigned) and team assignment. This prevents
+ * information leaks (e.g., seeing the opponent's secret picks during Phase 1).
+ *
+ * For Standard draft mode, enemy player assignments are hidden until the
+ * draft is complete.
+ *
+ * @param {LobbyState} lobby - The lobby to generate state for.
+ * @param {string} sid - The socket ID of the requesting client.
+ * @returns {Object} A sanitized state object safe to send to the client.
+ */
 function stateFor(lobby, sid) {
   const me = findPerson(lobby, sid);
   const role = me?.role || "unknown";
   const myTeam = (role === "captain" || role === "spectator") ? me.team : -1;
   const oppTeam = myTeam === 0 ? 1 : 0;
 
-  // For duel mode, use actual captain names instead of "Player 1" / "Player 2"
+  // In duel mode, use actual captain names as team names.
   let teamNames = lobby.teamNames;
   if (lobby.mode === "duel") {
     teamNames = [
@@ -112,10 +264,11 @@ function stateFor(lobby, sid) {
     teamChat1: (role === "unassigned") ? (lobby.teamChat?.[1] || []) : undefined,
   };
 
-  // ── PHASE DRAFT (Clone Wars) + DUEL MODE (same phases, different rules) ──
+  // ── PHASE DRAFT (Clone Wars) + DUEL MODE ──
   if (lobby.mode === "phase" || lobby.mode === "duel") {
     s.bans = [...lobby.bans];
 
+    // Phase 1: Secret hero picking — only show your own team's picks.
     if (lobby.phase === "phase1") {
       if (role === "captain") {
         s.myPicks = lobby.picks[myTeam] || [];
@@ -126,12 +279,14 @@ function stateFor(lobby, sid) {
         s.myLocked = lobby.locked[myTeam];
         s.oppLocked = lobby.locked[oppTeam];
       } else {
+        // Unassigned viewers can see lock status but not picks.
         s.myPicks = [];
         s.myLocked = false; s.oppLocked = false;
         s.locked0 = lobby.locked[0]; s.locked1 = lobby.locked[1];
       }
     }
 
+    // Phases after Phase 1 reveal: pools, overlaps, and original picks visible.
     if (["phase1_reveal","phase2","phase2_reveal","phase3","complete"].includes(lobby.phase)) {
       if (myTeam >= 0) {
         s.myPool = [...(lobby.pools[myTeam] || [])];
@@ -145,6 +300,7 @@ function stateFor(lobby, sid) {
       s.allPicks = [[...(lobby.origPicks[0] || [])], [...(lobby.origPicks[1] || [])]];
     }
 
+    // Phase 2: Ban opponent's heroes — show ban targets and lock state.
     if (lobby.phase === "phase2") {
       if (role === "captain" && myTeam >= 0) {
         s.banTarget = banCount(lobby.pools[oppTeam]?.length || 0);
@@ -154,10 +310,12 @@ function stateFor(lobby, sid) {
       }
     }
 
+    // Phase 2 reveal onward: show which heroes were banned.
     if (["phase2_reveal","phase3","complete"].includes(lobby.phase)) {
       s.phase2Banned = lobby.phase2Banned || [[], []];
     }
 
+    // Phase 3: Final champion selection.
     if (lobby.phase === "phase3") {
       if (role === "captain" && myTeam >= 0) {
         s.myChoice = lobby.phase3Choice[myTeam];
@@ -167,6 +325,7 @@ function stateFor(lobby, sid) {
       }
     }
 
+    // Complete: reveal champions to everyone.
     if (lobby.phase === "complete") {
       s.champions = lobby.champions || [null, null];
       if (role === "unassigned") {
@@ -179,11 +338,10 @@ function stateFor(lobby, sid) {
   // ── STANDARD DRAFT ──
   if (lobby.mode === "standard" && lobby.std) {
     const st = lobby.std;
-    // Hide enemy player assignments during draft — show all on complete
+    // Hide enemy player assignments during draft; reveal all on completion.
     const draftComplete = st.step >= STD_TURNS.length;
     let assignments;
     if (draftComplete || myTeam < 0) {
-      // Complete or spectator: show all assignments
       assignments = [st.playerAssignments?.[0] || [], st.playerAssignments?.[1] || []];
     } else {
       const myAssignments = st.playerAssignments?.[myTeam] || [];
@@ -208,14 +366,19 @@ function stateFor(lobby, sid) {
     }
   }
 
-  // Filler players (pad to 6 per team)
+  // Filler players (pad to 6 per team for display)
   s.fillerPlayers = lobby.fillerPlayers || [[], []];
-  // Player preferences — resolve socket IDs to player names
+
+  // Resolve per-player hero preferences — map socket IDs to player names.
+  /**
+   * Resolve player preferences for a team, converting socket IDs to names.
+   * @param {number} teamIdx - The team index to resolve preferences for.
+   * @returns {Object<string, string[]>} Map of player name to preferred heroes.
+   */
   function resolvePrefs(teamIdx) {
     const raw = lobby.playerPrefs?.[teamIdx] || {};
     const resolved = {};
     for (const [sid, heroes] of Object.entries(raw)) {
-      // Find this socket's name
       let name = null;
       if (lobby.captains[teamIdx]?.id === sid) name = lobby.captains[teamIdx].name;
       else {
@@ -236,6 +399,14 @@ function stateFor(lobby, sid) {
   return s;
 }
 
+/**
+ * Broadcast the current lobby state to all connected players.
+ *
+ * Each player receives a personalized state object via {@link stateFor}
+ * that is filtered to their role and team.
+ *
+ * @param {LobbyState} lobby - The lobby to broadcast.
+ */
 function broadcast(lobby) {
   const everyone = [
     ...lobby.captains.filter(Boolean),
@@ -251,6 +422,16 @@ function broadcast(lobby) {
 // ═══════════════════════════════════════════════════════════
 //  TIMER
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Start a countdown timer for a lobby phase.
+ *
+ * Clears any existing timer, sets the expiration timestamp, and schedules
+ * the callback to fire when time runs out.
+ *
+ * @param {LobbyState} lobby - The lobby to start the timer for.
+ * @param {Function} onExpire - Callback invoked when the timer expires.
+ */
 function startTimer(lobby, onExpire) {
   clearTimer(lobby);
   lobby.timerEnd = Date.now() + lobby.timerDuration * 1000;
@@ -258,6 +439,11 @@ function startTimer(lobby, onExpire) {
     lobby.timerRef = null; lobby.timerEnd = null; onExpire();
   }, lobby.timerDuration * 1000);
 }
+
+/**
+ * Cancel any active timer for a lobby and reset timer state.
+ * @param {LobbyState} lobby - The lobby whose timer to clear.
+ */
 function clearTimer(lobby) {
   if (lobby.timerRef) { clearTimeout(lobby.timerRef); lobby.timerRef = null; }
   lobby.timerEnd = null;
@@ -266,6 +452,15 @@ function clearTimer(lobby) {
 // ═══════════════════════════════════════════════════════════
 //  PHASE DRAFT LOGIC (Clone Wars)
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Initialize and start Phase 1 of a phase/duel draft.
+ *
+ * Resets all draft state (picks, pools, bans, etc.), starts the phase timer,
+ * and broadcasts the updated state to all clients.
+ *
+ * @param {LobbyState} lobby - The lobby to start Phase 1 in.
+ */
 function startPhase1(lobby) {
   lobby.phase = "phase1";
   lobby.picks = [[], []]; lobby.pools = [[], []]; lobby.origPicks = [[], []];
@@ -278,15 +473,26 @@ function startPhase1(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Finalize Phase 1 by processing picks, detecting overlaps, and building pools.
+ *
+ * If a team didn't select enough heroes (timer expired), random heroes are
+ * added to fill their pool. In standard phase mode, overlapping picks between
+ * teams are banned. In duel mode, overlaps are noted but not banned.
+ *
+ * Transitions the lobby to the 'phase1_reveal' phase.
+ *
+ * @param {LobbyState} lobby - The lobby to finalize Phase 1 for.
+ */
 function finishPhase1(lobby) {
   clearTimer(lobby);
   const isDuel = lobby.mode === "duel";
   const poolSize = isDuel ? lobby.duelPoolSize : 6;
   const availableHeroes = HEROES.filter(h => !lobby.globalBans.includes(h));
 
+  // Fill incomplete picks with random heroes.
   for (let t = 0; t < 2; t++) {
     const have = new Set(lobby.picks[t]);
-    // For duel mode, allow overlaps — don't exclude opponent's picks from random fill
     const allPicked = isDuel ? new Set(lobby.picks[t]) : new Set([...lobby.picks[0], ...lobby.picks[1]]);
     while (have.size < poolSize) {
       const avail = availableHeroes.filter(h => !have.has(h) && (isDuel || !allPicked.has(h)));
@@ -297,14 +503,13 @@ function finishPhase1(lobby) {
     lobby.picks[t] = [...have]; lobby.origPicks[t] = [...lobby.picks[t]];
   }
 
+  // Detect and handle overlapping picks.
   if (isDuel) {
-    // Duel mode: overlaps are noted but NOT banned
     const set0 = new Set(lobby.picks[0]);
     lobby.overlaps = lobby.picks[1].filter(h => set0.has(h));
-    // No bans from overlaps — pools = full picks
+    // Duel mode: overlaps noted but NOT banned.
     for (let t = 0; t < 2; t++) lobby.pools[t] = [...lobby.picks[t]];
   } else {
-    // Clone Wars: overlaps get banned
     const set0 = new Set(lobby.picks[0]);
     lobby.overlaps = lobby.picks[1].filter(h => set0.has(h));
     for (const h of lobby.overlaps) lobby.bans.add(h);
@@ -316,6 +521,15 @@ function finishPhase1(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Start Phase 2 (ban opponent's heroes).
+ *
+ * If both teams already have 2 or fewer heroes in their pools, skips directly
+ * to Phase 3. Otherwise, initializes ban state, auto-locks teams that have
+ * no bans to make, starts the timer, and broadcasts.
+ *
+ * @param {LobbyState} lobby - The lobby to start Phase 2 in.
+ */
 function startPhase2(lobby) {
   if (lobby.pools[0].length <= 2 && lobby.pools[1].length <= 2) {
     lobby.phase2Banned = [[], []]; startPhase3(lobby); return;
@@ -328,9 +542,18 @@ function startPhase2(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Finalize Phase 2 by applying bans to opponent pools.
+ *
+ * Fills any incomplete ban selections with random choices from the opponent's
+ * pool. Removes banned heroes from pools and transitions to 'phase2_reveal'.
+ *
+ * @param {LobbyState} lobby - The lobby to finalize Phase 2 for.
+ */
 function finishPhase2(lobby) {
   clearTimer(lobby);
   const availableHeroes = HEROES.filter(h => !lobby.globalBans.includes(h));
+  // Fill incomplete bans with random selections.
   for (let t = 0; t < 2; t++) {
     const oppT = 1 - t;
     const need = banCount(lobby.pools[oppT].length);
@@ -340,6 +563,7 @@ function finishPhase2(lobby) {
       while (lobby.phase2Bans[t].length < need && shuffled.length) lobby.phase2Bans[t].push(shuffled.pop());
     }
   }
+  // Apply bans to opponent pools.
   for (let t = 0; t < 2; t++) {
     const oppT = 1 - t;
     lobby.phase2Banned[t] = [...lobby.phase2Bans[t]];
@@ -353,6 +577,15 @@ function finishPhase2(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Start Phase 3 (final champion selection).
+ *
+ * Auto-selects and locks the champion for any team with only 1 hero remaining
+ * in their pool. If both teams are auto-resolved, immediately completes the
+ * draft. Otherwise, starts the timer for manual selection.
+ *
+ * @param {LobbyState} lobby - The lobby to start Phase 3 in.
+ */
 function startPhase3(lobby) {
   lobby.phase = "phase3"; lobby.phase3Choice = [null, null]; lobby.locked = [false, false];
   lobby.specPrefs = [{}, {}];
@@ -369,6 +602,13 @@ function startPhase3(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Finalize Phase 3 by resolving any unchosen champions with random picks.
+ *
+ * Sets the lobby to 'complete' and triggers tournament callbacks if applicable.
+ *
+ * @param {LobbyState} lobby - The lobby to finalize Phase 3 for.
+ */
 function finishPhase3(lobby) {
   clearTimer(lobby);
   const availableHeroes = new Set(HEROES.filter(h => !lobby.globalBans.includes(h)));
@@ -385,6 +625,14 @@ function finishPhase3(lobby) {
   if (lobby.tourneyMatch) onTourneyDraftComplete(lobby);
 }
 
+/**
+ * Check if both teams have locked in and auto-advance the phase if so.
+ *
+ * Called after any lock-in action to detect when both teams are ready
+ * to proceed, triggering the appropriate finish function.
+ *
+ * @param {LobbyState} lobby - The lobby to check.
+ */
 function checkBothLocked(lobby) {
   if (lobby.locked[0] && lobby.locked[1]) {
     if (lobby.phase === "phase1") finishPhase1(lobby);
@@ -396,11 +644,27 @@ function checkBothLocked(lobby) {
 // ═══════════════════════════════════════════════════════════
 //  STANDARD DRAFT LOGIC
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Collect all heroes used (banned or picked) in a standard draft.
+ *
+ * @param {LobbyState} lobby - The lobby with standard draft state.
+ * @returns {Set<string>} Set of hero names already in play.
+ */
 function stdAllUsed(lobby) {
   const st = lobby.std;
   return new Set([...st.bans[0], ...st.bans[1], ...st.picks[0], ...st.picks[1]]);
 }
 
+/**
+ * Initialize and start a standard (alternating turns) draft.
+ *
+ * Sets up the draft state with ban/pick arrays, player assignments,
+ * timer configuration, filler players (to pad teams to 6), and
+ * per-player preference lists.
+ *
+ * @param {LobbyState} lobby - The lobby to start the standard draft in.
+ */
 function startStdDraft(lobby) {
   lobby.phase = "std_drafting";
   const baseTime = 30;
@@ -417,7 +681,7 @@ function startStdDraft(lobby) {
   };
   lobby.specPrefs = [{}, {}];
 
-  // Generate filler players to pad each team to 6
+  // Generate filler players to pad each team to 6 members.
   lobby.fillerPlayers = [[], []];
   for (let t = 0; t < 2; t++) {
     let realCount = 0;
@@ -430,16 +694,23 @@ function startStdDraft(lobby) {
     }
   }
 
-  // Initialize per-player preference lists (hero wish lists)
-  // Key: socket.id or ghost player name, Value: array of hero names
+  // Initialize per-player hero preference lists (wish lists).
   lobby.playerPrefs = [{}, {}];
 
-  // Start 30s base timer for first turn
+  // Start 30-second base timer for the first turn.
   lobby.timerEnd = Date.now() + baseTime * 1000;
   lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), baseTime * 1000);
   broadcast(lobby);
 }
 
+/**
+ * Handle expiration of the base timer for a standard draft turn.
+ *
+ * If the active team has reserve time remaining, transitions to reserve time.
+ * Otherwise, performs an automatic random action.
+ *
+ * @param {LobbyState} lobby - The lobby whose base timer expired.
+ */
 function stdBaseExpired(lobby) {
   const st = lobby.std;
   if (!st || st.step >= STD_TURNS.length) return;
@@ -449,6 +720,7 @@ function stdBaseExpired(lobby) {
     stdAutoAction(lobby);
     return;
   }
+  // Transition to reserve time.
   st.inReserve = true;
   st.turnStart = Date.now();
   lobby.timerEnd = Date.now() + st.reserve[team] * 1000;
@@ -460,6 +732,14 @@ function stdBaseExpired(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Perform an automatic random action when the timer expires with no input.
+ *
+ * Randomly selects an available hero for the current turn (ban or pick)
+ * and assigns picks to a random unassigned team member.
+ *
+ * @param {LobbyState} lobby - The lobby to auto-act for.
+ */
 function stdAutoAction(lobby) {
   clearTimer(lobby);
   const st = lobby.std;
@@ -474,7 +754,7 @@ function stdAutoAction(lobby) {
   } else {
     st.picks[turn.team].push(hero);
     if (!st.playerAssignments) st.playerAssignments = [[], []];
-    // Auto-assign to a random unassigned player
+    // Auto-assign the pick to a random unassigned team member.
     const assigned = new Set(st.playerAssignments[turn.team].filter(Boolean));
     const teamPlayers = [];
     const cap = lobby.captains[turn.team];
@@ -493,9 +773,17 @@ function stdAutoAction(lobby) {
   stdAdvance(lobby);
 }
 
+/**
+ * Advance to the next turn in the standard draft.
+ *
+ * Deducts reserve time if the current turn used it, increments the step,
+ * and starts a new base timer. Finishes the draft if all steps are complete.
+ *
+ * @param {LobbyState} lobby - The lobby to advance.
+ */
 function stdAdvance(lobby) {
   const st = lobby.std;
-  // Deduct reserve if we were in reserve
+  // Deduct elapsed reserve time if applicable.
   if (st.inReserve && st.turnStart) {
     const turn = STD_TURNS[st.step];
     const elapsed = (Date.now() - st.turnStart) / 1000;
@@ -507,7 +795,7 @@ function stdAdvance(lobby) {
     stdFinish(lobby); return;
   }
   lobby.specPrefs = [{}, {}];
-  // Start new turn with base time
+  // Start new turn with base timer.
   st.turnStart = Date.now();
   clearTimeout(lobby.timerRef);
   lobby.timerEnd = Date.now() + st.baseTime * 1000;
@@ -515,10 +803,15 @@ function stdAdvance(lobby) {
   broadcast(lobby);
 }
 
+/**
+ * Complete the standard draft and transition to the 'complete' phase.
+ *
+ * @param {LobbyState} lobby - The lobby to finish.
+ */
 function stdFinish(lobby) {
   clearTimer(lobby);
   lobby.phase = "complete";
-  lobby.champions = [null, null]; // standard draft doesn't have a single champion
+  lobby.champions = [null, null]; // Standard draft has no single champion.
   broadcast(lobby);
   if (lobby.tourneyMatch) onTourneyDraftComplete(lobby);
 }
@@ -526,8 +819,71 @@ function stdFinish(lobby) {
 // ═══════════════════════════════════════════════════════════
 //  TOURNAMENTS
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * In-memory store of all active tournaments, keyed by tournament code.
+ * @type {Map<string, TourneyState>}
+ */
 const tournaments = new Map();
 
+/**
+ * @typedef {Object} TourneyState
+ * @property {string} code - Unique tournament code (e.g., 'TAB3').
+ * @property {string} hostId - Socket ID of the tournament creator.
+ * @property {string} name - Display name of the tournament.
+ * @property {string} format - Bracket format: 'double_elim' or 'round_robin'.
+ * @property {string} draftMode - Draft mode used for matches: 'phase',
+ *   'standard', or 'duel'.
+ * @property {number} bestOf - Best-of series count per match (1-5).
+ * @property {number} maxPlayers - Maximum number of players allowed.
+ * @property {string[]} globalBans - Heroes banned from all tournament matches.
+ * @property {number} timerDuration - Timer duration for each draft phase.
+ * @property {number} duelPoolSize - Pool size for duel mode drafts (2-6).
+ * @property {string} phase - Tournament phase: 'lobby', 'bracket', 'reveal',
+ *   or 'complete'.
+ * @property {boolean} hostPlaying - Whether the host participates as a player.
+ * @property {Array<{id: string, name: string, isPlayer: boolean}>} players -
+ *   All connected tournament participants.
+ * @property {Array<{from: ?string, text: string, ts: number}>} chat -
+ *   Tournament chat history. `from` is null for system messages.
+ * @property {Object<string, number>} coinStreaks - Best coin flip streak per ID.
+ * @property {?BracketState} bracket - Generated bracket data (null in lobby).
+ * @property {string[]} eliminated - Names of eliminated players.
+ * @property {number[]} revealQueue - Match IDs queued for reveal animation.
+ * @property {number} revealIndex - Current position in the reveal queue.
+ */
+
+/**
+ * @typedef {Object} BracketState
+ * @property {MatchState[]} matches - All matches in the bracket.
+ * @property {Array<number[]>} wbRounds - Match IDs per winners bracket round.
+ * @property {Array<number[]>} lbRounds - Match IDs per losers bracket round.
+ * @property {number} grandFinalId - Match ID of the grand final.
+ */
+
+/**
+ * @typedef {Object} MatchState
+ * @property {number} id - Unique match ID within the bracket.
+ * @property {string} bracket - Bracket position: 'winners', 'losers', or
+ *   'grand_final'.
+ * @property {number} round - Round number within the bracket section.
+ * @property {Array<?string>} slots - Player names in each slot (null = empty/BYE).
+ * @property {?string} winner - Name of the match winner (null if incomplete).
+ * @property {?string} loser - Name of the match loser (null if incomplete).
+ * @property {string} status - Match status: 'pending', 'preview', 'ready_check',
+ *   'drafting', 'voting', 'dispute', or 'complete'.
+ * @property {boolean[]} readyState - Ready check status per player slot.
+ * @property {Array<?string>} votes - Winner vote per player slot.
+ * @property {?string} draftCode - Lobby code for this match's draft.
+ * @property {number[]} score - Series score per player slot.
+ * @property {Array<{heroes: Array<?string>, winner: ?string}>} rounds -
+ *   Per-round results with hero picks and round winner.
+ */
+
+/**
+ * Generate a unique tournament code (prefixed with 'T').
+ * @returns {string} A unique tournament code (e.g., 'TAB3').
+ */
 function genTourneyCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "T";
@@ -535,10 +891,25 @@ function genTourneyCode() {
   return tournaments.has(code) ? genTourneyCode() : code;
 }
 
+/**
+ * Find a player in a tournament by their socket ID.
+ *
+ * @param {TourneyState} tourney - The tournament to search.
+ * @param {string} sid - The socket ID to find.
+ * @returns {?{id: string, name: string, isPlayer: boolean}} The player
+ *   object, or null if not found.
+ */
 function findTourneyPlayer(tourney, sid) {
   return tourney.players.find(p => p.id === sid) || null;
 }
 
+/**
+ * Build a lobby-phase tournament state snapshot for a specific client.
+ *
+ * @param {TourneyState} tourney - The tournament to generate state for.
+ * @param {string} sid - The requesting client's socket ID.
+ * @returns {Object} Sanitized tournament state for the client.
+ */
 function tourneyStateFor(tourney, sid) {
   const me = findTourneyPlayer(tourney, sid);
   return {
@@ -552,59 +923,78 @@ function tourneyStateFor(tourney, sid) {
     globalBans: tourney.globalBans,
     timerDuration: tourney.timerDuration,
     duelPoolSize: tourney.duelPoolSize,
-    phase: tourney.phase, // "lobby" or later "bracket"
+    phase: tourney.phase,
     isHost: sid === tourney.hostId,
     hostPlaying: tourney.hostPlaying,
     players: tourney.players.map(p => ({ id: p.id, name: p.name, isPlayer: p.isPlayer !== false })),
-    chat: tourney.chat.slice(-50), // last 50 messages
-    coinStreaks: tourney.coinStreaks, // { id: bestStreak }
+    chat: tourney.chat.slice(-50),
+    coinStreaks: tourney.coinStreaks,
     myName: me?.name || null,
     allHeroes: HEROES,
   };
 }
 
+/**
+ * Broadcast lobby-phase tournament state to all connected players.
+ * @param {TourneyState} tourney - The tournament to broadcast.
+ */
 function broadcastTourney(tourney) {
   for (const p of tourney.players) {
     io.to(p.id).emit("tourneyState", tourneyStateFor(tourney, p.id));
   }
 }
 
+/**
+ * Broadcast bracket-phase tournament state to all connected players.
+ * @param {TourneyState} tourney - The tournament to broadcast.
+ */
 function broadcastTourneyBracket(tourney) {
   for (const p of tourney.players) {
     io.to(p.id).emit("tourneyState", tourneyBracketStateFor(tourney, p.id));
   }
 }
 
+/**
+ * Resolve a tournament match with a declared winner.
+ *
+ * Records the winner, marks the match as complete, and eliminates the loser
+ * if they were already in the losers bracket or grand final. Checks whether
+ * all active matches in the current wave are complete and triggers the reveal
+ * sequence if so.
+ *
+ * @param {TourneyState} tourney - The tournament containing the match.
+ * @param {MatchState} match - The match to resolve.
+ * @param {string} winnerName - The name of the winning player.
+ */
 function resolveMatch(tourney, match, winnerName) {
   const loserName = match.slots[0] === winnerName ? match.slots[1] : match.slots[0];
   match.winner = winnerName;
   match.loser = loserName;
   match.status = "complete";
 
-  // Mark the latest round's winner (for per-round hero display)
+  // Record the winner for the latest round (for hero display).
   if (match.rounds && match.rounds.length > 0) {
     const lastRound = match.rounds[match.rounds.length - 1];
     if (!lastRound.winner) lastRound.winner = winnerName;
   }
 
-  // If loser was already in losers bracket, they're eliminated
+  // Losers bracket or grand final losses result in elimination.
   if (match.bracket === "losers" || match.bracket === "grand_final") {
     if (loserName && !tourney.eliminated.includes(loserName)) {
       tourney.eliminated.push(loserName);
     }
   }
 
-  // Check if all active matches in this wave are complete
+  // Check if all active (non-pending, non-complete) matches are done.
   const activeMatches = tourney.bracket.matches.filter(m =>
     m.status !== "complete" && m.status !== "pending"
   );
 
   if (activeMatches.length === 0) {
-    // All matches in wave done — start reveal sequence
+    // All matches in the current wave are done — start reveal sequence.
     const justCompleted = tourney.bracket.matches.filter(m =>
       m.status === "complete" && m.winner && !tourney._revealed?.has(m.id)
     );
-    // Track which matches have been revealed
     if (!tourney._revealed) tourney._revealed = new Set();
     const newlyCompleted = justCompleted.filter(m => !tourney._revealed.has(m.id));
 
@@ -614,7 +1004,7 @@ function resolveMatch(tourney, match, winnerName) {
       tourney.phase = "reveal";
       for (const m of newlyCompleted) tourney._revealed.add(m.id);
     } else {
-      // Nothing new to reveal, advance
+      // Nothing new to reveal — advance the bracket.
       propagateBracket(tourney);
       activateWave(tourney);
       if (isTourneyComplete(tourney)) tourney.phase = "complete";
@@ -622,7 +1012,14 @@ function resolveMatch(tourney, match, winnerName) {
   }
 }
 
-// Hook: called when a tournament-linked draft completes
+/**
+ * Callback invoked when a tournament-linked draft lobby completes.
+ *
+ * Records the draft result (champion heroes) as a round in the match and
+ * transitions the match to a voting phase where players declare the winner.
+ *
+ * @param {LobbyState} lobby - The completed draft lobby.
+ */
 function onTourneyDraftComplete(lobby) {
   const tm = lobby.tourneyMatch;
   if (!tm) return;
@@ -631,18 +1028,18 @@ function onTourneyDraftComplete(lobby) {
   const match = tourney.bracket.matches.find(m => m.id === tm.matchId);
   if (!match) return;
 
-  // Record round result (hero picks for this draft)
+  // Record round result with hero selections.
   if (!match.rounds) match.rounds = [];
   match.rounds.push({
     heroes: [lobby.champions[0] || null, lobby.champions[1] || null],
-    winner: null, // filled in when vote/dispute resolves
+    winner: null,
   });
 
-  // Move match to voting phase
+  // Transition match to voting phase.
   match.status = "voting";
   match.votes = [null, null];
 
-  // Notify players
+  // Notify match participants.
   for (const p of tourney.players) {
     if (p.name === match.slots[0] || p.name === match.slots[1]) {
       io.to(p.id).emit("tourneyDraftComplete", {
@@ -658,24 +1055,39 @@ function onTourneyDraftComplete(lobby) {
 // ═══════════════════════════════════════════════════════════
 //  DOUBLE ELIMINATION BRACKET
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Round up to the next power of 2.
+ * @param {number} n - The input value.
+ * @returns {number} The smallest power of 2 >= n.
+ */
 function nextPow2(n) { let p = 1; while (p < n) p <<= 1; return p; }
 
+/**
+ * Generate a complete double-elimination bracket for a set of players.
+ *
+ * Creates winners bracket rounds, losers bracket rounds (with drop-down
+ * rounds that receive losers from the winners bracket), and a grand final.
+ * Players are shuffled and padded with BYE slots to the next power of 2.
+ *
+ * @param {string[]} playerNames - Names of all participating players.
+ * @returns {BracketState} The generated bracket with all matches, round
+ *   groupings, and the grand final match ID.
+ */
 function generateDoubleElimBracket(playerNames) {
   const n = playerNames.length;
-  const size = nextPow2(n); // pad to power of 2
-  const wRounds = Math.log2(size); // number of winners bracket rounds
-  const lRounds = 2 * (wRounds - 1); // losers bracket rounds
+  const size = nextPow2(n);
+  const wRounds = Math.log2(size);
+  const lRounds = 2 * (wRounds - 1);
 
-  // Shuffle players
+  // Shuffle players and pad with BYE (null) entries.
   const shuffled = [...playerNames].sort(() => Math.random() - 0.5);
-  // Pad with BYE
   while (shuffled.length < size) shuffled.push(null);
 
   const matches = [];
   let matchId = 0;
 
-  // ── Winners Bracket ──
-  // Round 1 matches
+  // ── Winners Bracket Round 1 ──
   const wbRounds = [];
   const r1 = [];
   for (let i = 0; i < size / 2; i++) {
@@ -683,17 +1095,17 @@ function generateDoubleElimBracket(playerNames) {
       id: matchId++,
       bracket: "winners",
       round: 0,
-      slots: [shuffled[i * 2], shuffled[i * 2 + 1]], // player names or null (BYE)
+      slots: [shuffled[i * 2], shuffled[i * 2 + 1]],
       winner: null,
       loser: null,
-      status: "pending", // pending | ready_check | drafting | voting | dispute | complete
+      status: "pending",
       readyState: [false, false],
-      votes: [null, null], // who each player voted as winner
+      votes: [null, null],
       draftCode: null,
       score: [0, 0],
-      rounds: [], // per-round results: [{heroes:[h0,h1], winner:name}, ...]
+      rounds: [],
     };
-    // Auto-resolve BYE matches
+    // Auto-resolve BYE matches.
     if (m.slots[0] === null && m.slots[1] === null) {
       m.status = "complete"; m.winner = null; m.loser = null;
     } else if (m.slots[1] === null) {
@@ -706,7 +1118,7 @@ function generateDoubleElimBracket(playerNames) {
   }
   wbRounds.push(r1);
 
-  // Subsequent WB rounds
+  // ── Subsequent Winners Bracket Rounds ──
   for (let r = 1; r < wRounds; r++) {
     const prevRound = wbRounds[r - 1];
     const thisRound = [];
@@ -716,7 +1128,7 @@ function generateDoubleElimBracket(playerNames) {
         bracket: "winners",
         round: r,
         slots: [null, null],
-        feeders: [prevRound[i], prevRound[i + 1]], // match IDs that feed into this
+        feeders: [prevRound[i], prevRound[i + 1]],
         winner: null, loser: null,
         status: "pending",
         readyState: [false, false],
@@ -733,18 +1145,18 @@ function generateDoubleElimBracket(playerNames) {
   // ── Losers Bracket ──
   const lbRounds = [];
   for (let lr = 0; lr < lRounds; lr++) {
-    const isDropDown = lr % 2 === 0; // even rounds receive losers from WB
+    const isDropDown = lr % 2 === 0;
     const thisRound = [];
     if (lr === 0) {
-      // First LB round: losers from WB round 1 face each other
-      const wbLosers = wbRounds[0]; // match IDs from WB R1
+      // First LB round: losers from WB Round 1 face each other.
+      const wbLosers = wbRounds[0];
       for (let i = 0; i < wbLosers.length; i += 2) {
         const m = {
           id: matchId++,
           bracket: "losers",
           round: lr,
           slots: [null, null],
-          feedersLoser: [wbLosers[i], wbLosers[i + 1]], // losers from these WB matches
+          feedersLoser: [wbLosers[i], wbLosers[i + 1]],
           winner: null, loser: null,
           status: "pending",
           readyState: [false, false],
@@ -756,8 +1168,8 @@ function generateDoubleElimBracket(playerNames) {
         thisRound.push(m.id);
       }
     } else if (isDropDown) {
-      // Drop-down round: losers from WB feed in against LB survivors
-      const wbRound = Math.floor(lr / 2) + 1; // which WB round's losers drop
+      // Drop-down round: WB losers enter against LB survivors.
+      const wbRound = Math.floor(lr / 2) + 1;
       const wbRoundMatches = wbRounds[wbRound] || [];
       const prevLbRound = lbRounds[lr - 1];
       const count = Math.max(wbRoundMatches.length, (prevLbRound || []).length);
@@ -767,8 +1179,8 @@ function generateDoubleElimBracket(playerNames) {
           bracket: "losers",
           round: lr,
           slots: [null, null],
-          feederWinner: prevLbRound ? prevLbRound[i] : null, // LB survivor (slot 0)
-          feederLoser: wbRoundMatches[i] !== undefined ? wbRoundMatches[i] : null, // WB loser drops in (slot 1)
+          feederWinner: prevLbRound ? prevLbRound[i] : null,
+          feederLoser: wbRoundMatches[i] !== undefined ? wbRoundMatches[i] : null,
           winner: null, loser: null,
           status: "pending",
           readyState: [false, false],
@@ -780,7 +1192,7 @@ function generateDoubleElimBracket(playerNames) {
         thisRound.push(m.id);
       }
     } else {
-      // Reduction round: LB survivors face each other
+      // Reduction round: LB survivors face each other.
       const prevLbRound = lbRounds[lr - 1];
       for (let i = 0; i < prevLbRound.length; i += 2) {
         const m = {
@@ -831,18 +1243,25 @@ function generateDoubleElimBracket(playerNames) {
   };
 }
 
-// Propagate winners/losers through bracket after a match completes
+/**
+ * Propagate winners and losers through the bracket after matches complete.
+ *
+ * Iterates through all pending matches and fills in slots based on their
+ * feeder match results. Handles winners bracket feeders, losers bracket
+ * drop-downs, and grand final feeders.
+ *
+ * @param {TourneyState} tourney - The tournament whose bracket to propagate.
+ */
 function propagateBracket(tourney) {
   const matches = tourney.bracket.matches;
   const byId = {};
   for (const m of matches) byId[m.id] = m;
 
   for (const m of matches) {
-    if (m.status === "complete") continue; // skip completed matches
-    // Skip matches where BOTH slots are already filled
+    if (m.status === "complete") continue;
     if (m.slots[0] !== null && m.slots[1] !== null) continue;
 
-    // Winners bracket: fed by previous winners
+    // Winners bracket: fed by previous winners.
     if (m.feeders) {
       const f0 = byId[m.feeders[0]];
       const f1 = byId[m.feeders[1]];
@@ -850,7 +1269,7 @@ function propagateBracket(tourney) {
       if (f1 && f1.status === "complete" && f1.winner) m.slots[1] = f1.winner;
     }
 
-    // Losers bracket first round: fed by losers from WB
+    // Losers bracket first round: fed by WB losers.
     if (m.feedersLoser) {
       const f0 = byId[m.feedersLoser[0]];
       const f1 = byId[m.feedersLoser[1]];
@@ -858,7 +1277,7 @@ function propagateBracket(tourney) {
       if (f1 && f1.status === "complete" && f1.loser) m.slots[1] = f1.loser;
     }
 
-    // Losers bracket drop-down: LB winner + WB loser
+    // Losers bracket drop-down: LB winner + WB loser.
     if (m.feederWinner !== undefined && m.feederWinner !== null) {
       const fw = byId[m.feederWinner];
       if (fw && fw.status === "complete" && fw.winner) m.slots[0] = fw.winner;
@@ -868,7 +1287,7 @@ function propagateBracket(tourney) {
       if (fl && fl.status === "complete" && fl.loser) m.slots[1] = fl.loser;
     }
 
-    // Grand final: WB winner + LB winner
+    // Grand final: WB winner + LB winner.
     if (m.feederWB !== undefined) {
       const fw = byId[m.feederWB];
       if (fw && fw.status === "complete" && fw.winner) m.slots[0] = fw.winner;
@@ -877,20 +1296,31 @@ function propagateBracket(tourney) {
       const fl = byId[m.feederLB];
       if (fl && fl.status === "complete" && fl.winner) m.slots[1] = fl.winner;
     }
-
-    // Auto-resolve if one slot is filled and the other is a BYE (null feeder)
-    // A BYE only applies to WB R1, which is handled at generation time
   }
 }
 
-// Get all matches in the current active wave (both slots filled, not yet started)
+/**
+ * Get all matches ready to begin (both slots filled, status 'pending').
+ *
+ * @param {TourneyState} tourney - The tournament to query.
+ * @returns {MatchState[]} Array of matches ready to activate.
+ */
 function getActiveWaveMatches(tourney) {
   return tourney.bracket.matches.filter(m =>
     m.slots[0] !== null && m.slots[1] !== null && m.status === "pending"
   );
 }
 
-// Start a wave: show bracket preview first, then ready check after 7s
+/**
+ * Activate the next wave of matches in the tournament bracket.
+ *
+ * Propagates the bracket, finds ready matches, sets them to 'preview' status,
+ * and after a 7-second delay transitions them to 'ready_check' for player
+ * confirmation.
+ *
+ * @param {TourneyState} tourney - The tournament to activate matches for.
+ * @returns {MatchState[]} The activated matches.
+ */
 function activateWave(tourney) {
   propagateBracket(tourney);
   const wave = getActiveWaveMatches(tourney);
@@ -900,6 +1330,7 @@ function activateWave(tourney) {
   }
   if (wave.length > 0) {
     broadcastTourneyBracket(tourney);
+    // After 7 seconds, transition from preview to ready check.
     setTimeout(() => {
       let changed = false;
       for (const m of wave) {
@@ -914,13 +1345,24 @@ function activateWave(tourney) {
   return wave;
 }
 
-// Check if the tournament is complete
+/**
+ * Check whether the tournament is complete (grand final resolved).
+ *
+ * @param {TourneyState} tourney - The tournament to check.
+ * @returns {boolean} True if the grand final match is complete.
+ */
 function isTourneyComplete(tourney) {
   const gf = tourney.bracket.matches.find(m => m.id === tourney.bracket.grandFinalId);
   return gf && gf.status === "complete";
 }
 
-// Find which match a player name is in (current active match)
+/**
+ * Find a player's current active match in the tournament bracket.
+ *
+ * @param {TourneyState} tourney - The tournament to search.
+ * @param {string} playerName - The player name to look for.
+ * @returns {?MatchState} The active match, or null if no active match found.
+ */
 function findPlayerMatch(tourney, playerName) {
   return tourney.bracket.matches.find(m =>
     (m.slots[0] === playerName || m.slots[1] === playerName) &&
@@ -928,26 +1370,46 @@ function findPlayerMatch(tourney, playerName) {
   );
 }
 
-// Find player slot index in a match (0 or 1)
+/**
+ * Get a player's slot index (0 or 1) within a match.
+ *
+ * @param {MatchState} match - The match to check.
+ * @param {string} playerName - The player name to locate.
+ * @returns {number} Slot index (0 or 1), or -1 if not found.
+ */
 function playerSlotInMatch(match, playerName) {
   if (match.slots[0] === playerName) return 0;
   if (match.slots[1] === playerName) return 1;
   return -1;
 }
 
-// Get completed matches for reveal sequence
+/**
+ * Get the list of match IDs queued for the reveal animation.
+ *
+ * @param {TourneyState} tourney - The tournament to query.
+ * @returns {number[]} Array of match IDs in the reveal queue.
+ */
 function getCompletedWaveMatches(tourney) {
   if (!tourney.revealQueue) return [];
   return tourney.revealQueue;
 }
 
-// Extended tourneyStateFor with bracket data
+/**
+ * Build a bracket-phase tournament state snapshot for a specific client.
+ *
+ * Extends the base {@link tourneyStateFor} with bracket data, the client's
+ * current match info, reveal queue state, and elimination list.
+ *
+ * @param {TourneyState} tourney - The tournament to generate state for.
+ * @param {string} sid - The requesting client's socket ID.
+ * @returns {Object} Sanitized tournament+bracket state for the client.
+ */
 function tourneyBracketStateFor(tourney, sid) {
   const base = tourneyStateFor(tourney, sid);
   const me = findTourneyPlayer(tourney, sid);
   const myName = me?.name || null;
 
-  // Find my current match
+  // Find this player's current active match.
   let myMatch = null;
   if (myName && tourney.bracket) {
     myMatch = findPlayerMatch(tourney, myName);
@@ -979,7 +1441,7 @@ function tourneyBracketStateFor(tourney, sid) {
 
   base.revealQueue = tourney.revealQueue || [];
   base.revealIndex = tourney.revealIndex || 0;
-  base.tourneyPhase = tourney.phase; // "lobby", "bracket", "reveal", "complete"
+  base.tourneyPhase = tourney.phase;
   base.eliminated = tourney.eliminated || [];
 
   return base;
@@ -988,16 +1450,30 @@ function tourneyBracketStateFor(tourney, sid) {
 // ═══════════════════════════════════════════════════════════
 //  SOCKET HANDLERS
 // ═══════════════════════════════════════════════════════════
+
 io.on("connection", (socket) => {
+  /** @type {?string} Lobby code this socket is connected to. */
   let myLobby = null;
+  /** @type {?string} Tournament code this socket is connected to. */
   let myTourney = null;
 
+  // ── Lobby Creation ──
+
+  /**
+   * @event createLobby
+   * @description Create a new draft lobby. The creator becomes the host.
+   * @param {Object} data
+   * @param {string} data.name - Display name for the creating player.
+   * @param {number} [data.timerDuration=120] - Phase timer in seconds.
+   * @param {string} [data.mode='phase'] - Draft mode: 'phase', 'standard',
+   *   or 'duel'.
+   */
   socket.on("createLobby", ({ name, timerDuration, mode }) => {
     const code = genCode();
     const isDuel = mode === "duel";
     const lobby = {
       code, hostId: socket.id,
-      mode: mode || "phase", // "phase", "standard", or "duel"
+      mode: mode || "phase",
       timerDuration: timerDuration || 120,
       phase: "waiting",
       teamNames: isDuel ? [name || "Player 1", "Player 2"] : ["Hidden King", "Archmother"],
@@ -1005,7 +1481,6 @@ io.on("connection", (socket) => {
       ready: [false, false],
       spectators: [[], []],
       unassigned: isDuel ? [] : [{ id: socket.id, name }],
-      // Phase draft fields (shared by phase + duel)
       picks: [[], []], pools: [[], []], origPicks: [[], []],
       bans: new Set(), overlaps: [],
       phase2Bans: [[], []], phase2Banned: [[], []],
@@ -1013,17 +1488,12 @@ io.on("connection", (socket) => {
       locked: [false, false],
       specPrefs: [{}, {}],
       timerRef: null, timerEnd: null,
-      // Standard draft fields (initialized on start)
       std: null,
-      // Duel mode fields
-      duelPoolSize: 3, // configurable by host (2-6)
-      globalBans: [], // heroes banned from entire event by host
-      // Lobby chat + coin flip
+      duelPoolSize: 3,
+      globalBans: [],
       chat: [],
       coinStreaks: {},
-      // Team chat (during draft)
       teamChat: [[], []],
-      // Ghost players (absent player slots)
       ghostPlayers: [[], []],
     };
     lobbies.set(code, lobby);
@@ -1033,6 +1503,12 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /**
+   * @event queryLobby
+   * @description Query a lobby's basic info before joining.
+   * @param {Object} data
+   * @param {string} data.code - The lobby code to query.
+   */
   socket.on("queryLobby", ({ code }) => {
     const c = code.toUpperCase();
     const lobby = lobbies.get(c);
@@ -1047,13 +1523,89 @@ io.on("connection", (socket) => {
     });
   });
 
+  // ── Reconnection ──
+
+  /**
+   * @event rejoinLobby
+   * @description Rejoin an existing lobby after a disconnect.
+   * @param {Object} data
+   * @param {string} data.code - The lobby code.
+   * @param {string} data.name - The player's display name.
+   * @param {string} [data.role] - Previous role ('captain', 'spectator').
+   * @param {number} [data.team] - Previous team index (0 or 1).
+   */
+  socket.on("rejoinLobby", ({ code, name, role, team }) => {
+    if (!code || !name) return;
+    const c = code.toUpperCase();
+    const lobby = lobbies.get(c);
+    if (!lobby) return socket.emit("err", "Lobby no longer exists.");
+
+    // Attempt to find and update the player's old socket ID.
+    let found = false;
+    for (let t = 0; t < 2; t++) {
+      if (lobby.captains[t] && lobby.captains[t].name === name) {
+        lobby.captains[t].id = socket.id;
+        found = true; break;
+      }
+      const spIdx = lobby.spectators[t].findIndex(s => s.name === name);
+      if (spIdx >= 0) {
+        lobby.spectators[t][spIdx].id = socket.id;
+        found = true; break;
+      }
+    }
+    if (!found) {
+      const uaIdx = lobby.unassigned.findIndex(u => u.name === name);
+      if (uaIdx >= 0) {
+        lobby.unassigned[uaIdx].id = socket.id;
+        found = true;
+      }
+    }
+
+    // If player not found (cleaned up on disconnect), try to re-add them.
+    if (!found) {
+      if (lobby.phase === "waiting") {
+        if (role === "captain" && (team === 0 || team === 1) && !lobby.captains[team]) {
+          lobby.captains[team] = { id: socket.id, name };
+        } else {
+          lobby.unassigned.push({ id: socket.id, name });
+        }
+      }
+      // During active drafts, disconnected players can observe but not participate.
+    }
+
+    // Note: Player preference socket ID migration is not implemented.
+    for (let t = 0; t < 2; t++) {
+      const prefs = lobby.playerPrefs?.[t];
+      if (prefs) {
+        for (const [oldSid, heroes] of Object.entries(prefs)) {
+          // TODO: Map old socket IDs to new ones for preference migration.
+        }
+      }
+    }
+
+    myLobby = c;
+    socket.join(c);
+    const me = findPerson(lobby, socket.id);
+    socket.emit("joined", { code: c, role: me ? me.role : "spectator" });
+    broadcast(lobby);
+  });
+
+  // ── Join as Captain ──
+
+  /**
+   * @event joinAsCaptain
+   * @description Join a lobby as a team captain.
+   * @param {Object} data
+   * @param {string} data.code - The lobby code.
+   * @param {string} data.name - Display name.
+   * @param {number} [data.team] - Preferred team (0 or 1).
+   */
   socket.on("joinAsCaptain", ({ code, name, team }) => {
     const c = code.toUpperCase();
     const lobby = lobbies.get(c);
     if (!lobby) return socket.emit("err", "Lobby not found.");
     if (lobby.phase !== "waiting") return socket.emit("err", "Draft already in progress.");
     if (findPerson(lobby, socket.id)) { broadcast(lobby); return; }
-    // If team preference provided, try that slot first
     if (team === 0 || team === 1) {
       if (!lobby.captains[team]) {
         lobby.captains[team] = { id: socket.id, name };
@@ -1063,7 +1615,6 @@ io.on("connection", (socket) => {
         return socket.emit("err", "Both captain slots are filled.");
       }
     } else {
-      // No preference — fill first available
       if (!lobby.captains[1]) {
         lobby.captains[1] = { id: socket.id, name };
       } else if (!lobby.captains[0]) {
@@ -1077,12 +1628,22 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // ── Join as Spectator ──
+
+  /**
+   * @event joinAsSpectator
+   * @description Join a lobby as a team member/spectator.
+   * @param {Object} data
+   * @param {string} data.code - The lobby code.
+   * @param {string} data.name - Display name.
+   * @param {number} [data.team] - Preferred team (0 or 1).
+   */
   socket.on("joinAsSpectator", ({ code, name, team }) => {
     const c = code.toUpperCase();
     const lobby = lobbies.get(c);
     if (!lobby) return socket.emit("err", "Lobby not found.");
     if (findPerson(lobby, socket.id)) { broadcast(lobby); return; }
-    // In duel mode, auto-assign as captain if a slot is open
+    // In duel mode, auto-promote to captain if a slot is open.
     if (lobby.mode === "duel" && lobby.phase === "waiting") {
       if (!lobby.captains[1]) {
         lobby.captains[1] = { id: socket.id, name };
@@ -1096,7 +1657,6 @@ io.on("connection", (socket) => {
         broadcast(lobby); return;
       }
     }
-    // If team specified (0 or 1), join that team directly; otherwise unassigned
     if (typeof team === "number" && (team === 0 || team === 1) && lobby.phase === "waiting") {
       lobby.spectators[team].push({ id: socket.id, name });
       myLobby = c; socket.join(c);
@@ -1109,6 +1669,9 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // ── Team Management ──
+
+  /** @event joinTeam - Move yourself to a different team or unassigned. */
   socket.on("joinTeam", ({ team }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1136,14 +1699,13 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
-  // Host can move any player between teams/spectator
+  /** @event hostMovePlayer - Host moves a player between teams. */
   socket.on("hostMovePlayer", ({ playerId, toTeam }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby || lobby.phase !== "waiting" || socket.id !== lobby.hostId) return;
     const target = findPerson(lobby, playerId);
-    if (!target || playerId === lobby.hostId) return; // can't move yourself or non-existent
-    // Remove from current position
+    if (!target || playerId === lobby.hostId) return;
     let playerName = "Player";
     if (target.role === "unassigned") {
       playerName = lobby.unassigned[target.idx]?.name || "Player";
@@ -1156,7 +1718,6 @@ io.on("connection", (socket) => {
       lobby.captains[target.team] = null;
       lobby.ready[target.team] = false;
     } else return;
-    // Place in new position
     if (toTeam === -1) {
       lobby.unassigned.push({ id: playerId, name: playerName });
     } else {
@@ -1166,6 +1727,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event hostToggleCaptain - Host toggles themselves as captain for a team. */
   socket.on("hostToggleCaptain", ({ team }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1193,6 +1755,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event promoteToCaptain - Host promotes a player to captain. */
   socket.on("promoteToCaptain", ({ playerId, team }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1210,6 +1773,9 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // ── Ready / Settings ──
+
+  /** @event toggleReady - Captain toggles their ready state. */
   socket.on("toggleReady", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1220,6 +1786,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event updateTimer - Host updates the phase timer duration. */
   socket.on("updateTimer", ({ duration }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1228,6 +1795,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event updatePoolSize - Host updates the duel mode pool size. */
   socket.on("updatePoolSize", ({ size }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1236,15 +1804,18 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event updateGlobalBans - Host updates the global hero ban list. */
   socket.on("updateGlobalBans", ({ heroes }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby || socket.id !== lobby.hostId || lobby.phase !== "waiting") return;
-    // Validate heroes — only allow real hero names
     lobby.globalBans = [...new Set(heroes)].filter(h => HEROES.includes(h));
     broadcast(lobby);
   });
 
+  // ── Draft Start ──
+
+  /** @event startDraft - Host starts the draft (requires 2 ready captains). */
   socket.on("startDraft", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1252,10 +1823,12 @@ io.on("connection", (socket) => {
     if (!lobby.captains[0] || !lobby.captains[1]) return socket.emit("err", "Need 2 captains.");
     if (!lobby.ready[0] || !lobby.ready[1]) return socket.emit("err", "Both captains must be ready.");
     if (lobby.mode === "standard") startStdDraft(lobby);
-    else startPhase1(lobby); // works for both "phase" and "duel"
+    else startPhase1(lobby);
   });
 
   // ── Phase Draft Actions ──
+
+  /** @event lockPicks - Captain locks in their Phase 1 hero picks. */
   socket.on("lockPicks", ({ heroes }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1269,6 +1842,7 @@ io.on("connection", (socket) => {
     broadcast(lobby); checkBothLocked(lobby);
   });
 
+  /** @event lockBans - Captain locks in their Phase 2 opponent bans. */
   socket.on("lockBans", ({ heroes }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1284,6 +1858,7 @@ io.on("connection", (socket) => {
     broadcast(lobby); checkBothLocked(lobby);
   });
 
+  /** @event lockFinal - Captain locks in their Phase 3 final champion. */
   socket.on("lockFinal", ({ hero }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1296,6 +1871,14 @@ io.on("connection", (socket) => {
   });
 
   // ── Standard Draft Action ──
+
+  /**
+   * @event stdAction
+   * @description Captain makes a pick or ban in the standard draft.
+   * @param {Object} data
+   * @param {string} data.hero - The hero to pick or ban.
+   * @param {string} [data.assignedTo] - Player name to assign the pick to.
+   */
   socket.on("stdAction", ({ hero, assignedTo }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1304,7 +1887,7 @@ io.on("connection", (socket) => {
     if (st.step >= STD_TURNS.length) return;
     const turn = STD_TURNS[st.step];
     const t = lobby.captains[0]?.id === socket.id ? 0 : lobby.captains[1]?.id === socket.id ? 1 : -1;
-    if (t !== turn.team) return; // not your turn
+    if (t !== turn.team) return;
     const used = stdAllUsed(lobby);
     if (used.has(hero) || !HEROES.includes(hero)) return;
     clearTimer(lobby);
@@ -1317,6 +1900,7 @@ io.on("connection", (socket) => {
     stdAdvance(lobby);
   });
 
+  /** @event reassignPick - Captain reassigns a hero pick to a different player. */
   socket.on("reassignPick", ({ team, pickIndex, assignedTo }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1330,6 +1914,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event specPref - Spectator toggles a hero preference vote. */
   socket.on("specPref", ({ hero, on }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1342,11 +1927,11 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event advancePhase - Host (or captain in duel) advances to next phase. */
   socket.on("advancePhase", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby) return;
-    // In duel mode, either captain can advance (no spectators to manage)
     const isDuel = lobby.mode === "duel";
     const isCaptain = lobby.captains[0]?.id === socket.id || lobby.captains[1]?.id === socket.id;
     if (!isDuel && socket.id !== lobby.hostId) return;
@@ -1355,11 +1940,11 @@ io.on("connection", (socket) => {
     else if (lobby.phase === "phase2_reveal") startPhase3(lobby);
   });
 
+  /** @event resetDraft - Host (or captain in duel) resets the draft to waiting. */
   socket.on("resetDraft", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby) return;
-    // In duel mode, either captain can reset
     const isDuel = lobby.mode === "duel";
     const isCaptain = lobby.captains[0]?.id === socket.id || lobby.captains[1]?.id === socket.id;
     if (!isDuel && socket.id !== lobby.hostId) return;
@@ -1370,15 +1955,20 @@ io.on("connection", (socket) => {
   });
 
   // ── Tournament Handlers ──
+
+  /**
+   * @event createTourney
+   * @description Create a new tournament lobby.
+   */
   socket.on("createTourney", ({ name, hostName, format, draftMode, bestOf, maxPlayers, globalBans, timerDuration, duelPoolSize, hostPlaying }) => {
     const code = genTourneyCode();
-    const isPlaying = hostPlaying !== false; // default true
+    const isPlaying = hostPlaying !== false;
     const tourney = {
       code,
       hostId: socket.id,
       name: name || "Tournament",
-      format: format || "double_elim", // "double_elim" or "round_robin"
-      draftMode: draftMode || "duel", // "phase", "standard", or "duel"
+      format: format || "double_elim",
+      draftMode: draftMode || "duel",
       bestOf: Math.min(5, Math.max(1, bestOf || 1)),
       maxPlayers: Math.min(32, Math.max(2, maxPlayers || 8)),
       globalBans: [...new Set(globalBans || [])].filter(h => HEROES.includes(h)),
@@ -1388,7 +1978,7 @@ io.on("connection", (socket) => {
       hostPlaying: isPlaying,
       players: isPlaying ? [{ id: socket.id, name: hostName || "Host", isPlayer: true }] : [{ id: socket.id, name: hostName || "Host", isPlayer: false }],
       chat: [],
-      coinStreaks: {}, // playerId -> best streak
+      coinStreaks: {},
     };
     tournaments.set(code, tourney);
     myTourney = code;
@@ -1397,6 +1987,7 @@ io.on("connection", (socket) => {
     broadcastTourney(tourney);
   });
 
+  /** @event joinTourney - Join an existing tournament lobby. */
   socket.on("joinTourney", ({ code, name }) => {
     const c = code.toUpperCase();
     const tourney = tournaments.get(c);
@@ -1408,11 +1999,11 @@ io.on("connection", (socket) => {
     myTourney = c;
     socket.join("t_" + c);
     socket.emit("tourneyJoined", { code: c });
-    // System message
     tourney.chat.push({ from: null, text: `${name || "Player"} joined the tournament`, ts: Date.now() });
     broadcastTourney(tourney);
   });
 
+  /** @event tourneyChat - Send a chat message in the tournament lobby. */
   socket.on("tourneyChat", ({ text }) => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
@@ -1426,6 +2017,7 @@ io.on("connection", (socket) => {
     broadcastTourney(tourney);
   });
 
+  /** @event coinFlip - Flip a coin in the tournament lobby (streak tracked). */
   socket.on("coinFlip", () => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
@@ -1433,7 +2025,6 @@ io.on("connection", (socket) => {
     const me = findTourneyPlayer(tourney, socket.id);
     if (!me) return;
     const isHeads = Math.random() < 0.5;
-    // Track streak per player
     if (!me._coinCurrent) me._coinCurrent = 0;
     if (isHeads) {
       me._coinCurrent++;
@@ -1442,23 +2033,21 @@ io.on("connection", (socket) => {
     } else {
       me._coinCurrent = 0;
     }
-    // Notify everyone else that a flip is happening so they defer leaderboard updates
+    // Notify others that a flip is happening (for UI deferred updates).
     for (const p of tourney.players) {
       if (p.id !== socket.id) {
         io.to(p.id).emit("coinFlipStarted", { flipper: me.name });
       }
     }
-
-    // Send result to the flipper with their current streak
     socket.emit("coinResult", {
       heads: isHeads,
       currentStreak: me._coinCurrent,
       bestStreak: tourney.coinStreaks[socket.id] || 0,
     });
-    // Broadcast updated leaderboard to everyone
     broadcastTourney(tourney);
   });
 
+  /** @event updateTourney - Host updates tournament settings. */
   socket.on("updateTourney", ({ field, value }) => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
@@ -1479,6 +2068,7 @@ io.on("connection", (socket) => {
     broadcastTourney(tourney);
   });
 
+  /** @event queryTourney - Query basic tournament info before joining. */
   socket.on("queryTourney", ({ code }) => {
     const c = code.toUpperCase();
     const tourney = tournaments.get(c);
@@ -1493,44 +2083,38 @@ io.on("connection", (socket) => {
   });
 
   // ── Bracket Handlers ──
+
+  /** @event startTournament - Host starts the tournament and generates bracket. */
   socket.on("startTournament", () => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
     if (!tourney || socket.id !== tourney.hostId || tourney.phase !== "lobby") return;
-
-    // Get participating player names
     const playerNames = tourney.players.filter(p => p.isPlayer).map(p => p.name);
     if (playerNames.length < 2) return socket.emit("err", "Need at least 2 players.");
-
-    // Generate bracket
     tourney.bracket = generateDoubleElimBracket(playerNames);
     tourney.eliminated = [];
     tourney.revealQueue = [];
     tourney.revealIndex = 0;
     tourney.phase = "bracket";
-
-    // Propagate BYE winners and activate first wave (activateWave broadcasts internally)
     propagateBracket(tourney);
     activateWave(tourney);
   });
 
+  /** @event tourneyReadyUp - Player confirms readiness for their match. */
   socket.on("tourneyReadyUp", () => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
     if (!tourney || tourney.phase !== "bracket") return;
     const me = findTourneyPlayer(tourney, socket.id);
     if (!me || !me.isPlayer) return;
-
     const match = findPlayerMatch(tourney, me.name);
     if (!match || match.status !== "ready_check") return;
-
     const slot = playerSlotInMatch(match, me.name);
     if (slot === -1) return;
     match.readyState[slot] = true;
 
-    // Check if both ready
+    // If both players are ready, create a draft lobby for the match.
     if (match.readyState[0] && match.readyState[1]) {
-      // Create a draft lobby for this match
       const draftCode = genCode();
       const draftMode = tourney.draftMode;
       const lobby = {
@@ -1558,11 +2142,9 @@ io.on("connection", (socket) => {
       lobbies.set(draftCode, lobby);
       match.draftCode = draftCode;
       match.status = "drafting";
-
-      // Broadcast bracket first so clients have updated state for the countdown preview
       broadcastTourneyBracket(tourney);
 
-      // Then notify players to join the draft (client shows bracket for 7s first)
+      // Notify match participants to join the draft lobby.
       for (const p of tourney.players) {
         if (p.name === match.slots[0] || p.name === match.slots[1]) {
           io.to(p.id).emit("tourneyDraftStart", {
@@ -1578,6 +2160,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  /** @event joinTourneyDraft - Player joins their tournament match's draft lobby. */
   socket.on("joinTourneyDraft", ({ draftCode, slot }) => {
     const lobby = lobbies.get(draftCode);
     if (!lobby || !lobby.tourneyMatch) return;
@@ -1586,85 +2169,70 @@ io.on("connection", (socket) => {
     if (!tourney) return;
     const me = findTourneyPlayer(tourney, socket.id);
     if (!me) return;
-
-    // Assign player as captain in the draft
     const t = slot === 0 ? 0 : 1;
-    if (lobby.captains[t]) return; // already filled
+    if (lobby.captains[t]) return;
     lobby.captains[t] = { id: socket.id, name: me.name };
-    lobby.ready[t] = true; // auto-ready in tournament
+    lobby.ready[t] = true;
     myLobby = draftCode;
     socket.join(draftCode);
-
-    // If both captains joined, auto-start
+    // Auto-start draft when both captains have joined.
     if (lobby.captains[0] && lobby.captains[1]) {
       if (lobby.mode === "standard") startStdDraft(lobby);
       else startPhase1(lobby);
     }
-
     broadcast(lobby);
   });
 
+  /** @event tourneyVoteWinner - Player votes on who won their match. */
   socket.on("tourneyVoteWinner", ({ matchId, winner }) => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
     if (!tourney || tourney.phase !== "bracket") return;
     const me = findTourneyPlayer(tourney, socket.id);
     if (!me || !me.isPlayer) return;
-
     const match = tourney.bracket.matches.find(m => m.id === matchId);
     if (!match || match.status !== "voting") return;
     if (!match.slots.includes(winner)) return;
-
     const slot = playerSlotInMatch(match, me.name);
     if (slot === -1) return;
     match.votes[slot] = winner;
-
-    // Check if both voted
     if (match.votes[0] !== null && match.votes[1] !== null) {
       if (match.votes[0] === match.votes[1]) {
-        // Agreement — resolve match
         resolveMatch(tourney, match, match.votes[0]);
       } else {
-        // Dispute — host decides
         match.status = "dispute";
       }
     }
-
     broadcastTourneyBracket(tourney);
   });
 
+  /** @event tourneyHostDecide - Host resolves a disputed match result. */
   socket.on("tourneyHostDecide", ({ matchId, winner }) => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
     if (!tourney || socket.id !== tourney.hostId) return;
-
     const match = tourney.bracket.matches.find(m => m.id === matchId);
     if (!match || match.status !== "dispute") return;
     if (!match.slots.includes(winner)) return;
-
     resolveMatch(tourney, match, winner);
     broadcastTourneyBracket(tourney);
   });
 
+  /** @event advanceReveal - Host advances the bracket reveal sequence. */
   socket.on("advanceReveal", () => {
     if (!myTourney) return;
     const tourney = tournaments.get(myTourney);
     if (!tourney || socket.id !== tourney.hostId || tourney.phase !== "reveal") return;
-
     tourney.revealIndex++;
     if (tourney.revealIndex >= tourney.revealQueue.length) {
-      // All revealed — propagate and start next wave
       tourney.phase = "bracket";
       tourney.revealQueue = [];
       tourney.revealIndex = 0;
-
       propagateBracket(tourney);
       const wave = activateWave(tourney);
-
       if (isTourneyComplete(tourney)) {
         tourney.phase = "complete";
       } else if (wave.length === 0) {
-        // No new matches — might need another propagation cycle
         propagateBracket(tourney);
         const wave2 = activateWave(tourney);
         if (wave2.length === 0 && isTourneyComplete(tourney)) {
@@ -1672,11 +2240,12 @@ io.on("connection", (socket) => {
         }
       }
     }
-
     broadcastTourneyBracket(tourney);
   });
 
   // ── Lobby Chat ──
+
+  /** @event lobbyChat - Send a chat message in the draft lobby. */
   socket.on("lobbyChat", ({ text }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1696,6 +2265,8 @@ io.on("connection", (socket) => {
   });
 
   // ── Lobby Coin Flip ──
+
+  /** @event lobbyCoinFlip - Flip a coin in the draft lobby (streak tracked). */
   socket.on("lobbyCoinFlip", () => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1703,7 +2274,6 @@ io.on("connection", (socket) => {
     const me = findPerson(lobby, socket.id);
     if (!me) return;
     const isHeads = Math.random() < 0.5;
-    // Track current streak per socket on lobby object
     if (!lobby._coinCurrent) lobby._coinCurrent = {};
     if (!lobby.coinStreaks) lobby.coinStreaks = {};
     if (isHeads) {
@@ -1732,6 +2302,8 @@ io.on("connection", (socket) => {
   });
 
   // ── Team Chat (during draft) ──
+
+  /** @event teamChat - Send a message visible only to your own team. */
   socket.on("teamChat", ({ text }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1747,6 +2319,8 @@ io.on("connection", (socket) => {
   });
 
   // ── Ghost Players (absent player slots) ──
+
+  /** @event addGhostPlayer - Captain adds a placeholder for an absent player. */
   socket.on("addGhostPlayer", ({ team, name }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1761,6 +2335,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event removeGhostPlayer - Captain removes a ghost player slot. */
   socket.on("removeGhostPlayer", ({ team, index }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1772,6 +2347,7 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  /** @event ghostPick - Captain toggles a hero preference for a ghost player. */
   socket.on("ghostPick", ({ team, playerIndex, hero }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1788,7 +2364,9 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
-  // ── Rename Filler Player ──
+  // ── Filler Players ──
+
+  /** @event renameFiller - Captain renames an auto-generated filler player. */
   socket.on("renameFiller", ({ team, index, name }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1800,7 +2378,7 @@ io.on("connection", (socket) => {
     if (!n) return;
     const oldName = lobby.fillerPlayers[team][index].name;
     lobby.fillerPlayers[team][index].name = n;
-    // Update playerAssignments if the old name was assigned to a pick
+    // Update player assignments referencing the old name.
     if (lobby.std && lobby.std.playerAssignments && lobby.std.playerAssignments[team]) {
       lobby.std.playerAssignments[team] = lobby.std.playerAssignments[team].map(a => a === oldName ? n : a);
     }
@@ -1808,6 +2386,8 @@ io.on("connection", (socket) => {
   });
 
   // ── Player Preferences (hero wish list) ──
+
+  /** @event playerPref - Team member toggles a hero on their preference list. */
   socket.on("playerPref", ({ hero, on }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
@@ -1816,8 +2396,6 @@ io.on("connection", (socket) => {
     if (!me) return;
     const myTeam = (me.role === "captain" || me.role === "spectator") ? me.team : -1;
     if (myTeam < 0) return;
-    // Only non-captain players who haven't been assigned yet can set prefs
-    // Actually captains might want to mark preferences too — allow all team members
     const prefs = lobby.playerPrefs[myTeam];
     const key = socket.id;
     if (!prefs[key]) prefs[key] = [];
@@ -1829,8 +2407,10 @@ io.on("connection", (socket) => {
     broadcast(lobby);
   });
 
+  // ── Disconnect ──
+
   socket.on("disconnect", () => {
-    // Tournament disconnect
+    // Handle tournament disconnection.
     if (myTourney) {
       const tourney = tournaments.get(myTourney);
       if (tourney && tourney.phase === "lobby") {
@@ -1845,25 +2425,34 @@ io.on("connection", (socket) => {
       }
     }
 
+    // Handle lobby disconnection.
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby) return;
     if (lobby.phase === "waiting") {
+      // Remove the player from all roles.
       for (let t = 0; t < 2; t++) {
         if (lobby.captains[t]?.id === socket.id) { lobby.captains[t] = null; lobby.ready[t] = false; }
         lobby.spectators[t] = lobby.spectators[t].filter(s => s.id !== socket.id);
       }
       lobby.unassigned = lobby.unassigned.filter(u => u.id !== socket.id);
       const all = [...lobby.captains.filter(Boolean), ...lobby.spectators[0], ...lobby.spectators[1], ...lobby.unassigned];
+      // Delete empty lobbies.
       if (all.length === 0) { clearTimer(lobby); lobbies.delete(myLobby); return; }
+      // Transfer host if the host disconnected.
       if (socket.id === lobby.hostId) {
         const nh = lobby.captains[0] || lobby.captains[1] || all[0];
         if (nh) lobby.hostId = nh.id;
       }
       broadcast(lobby);
     }
+    // During active drafts, players remain in the lobby (can rejoin).
   });
 });
 
+// ═══════════════════════════════════════════════════════════
+//  SERVER STARTUP
+// ═══════════════════════════════════════════════════════════
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Deadlock Draft server on port ${PORT}`));
+server.listen(PORT, () => console.log(`Deadlock Draft server listening on port ${PORT}`));

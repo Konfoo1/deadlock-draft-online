@@ -241,9 +241,14 @@ input,select{font-family:inherit}
 
 /* ── STANDARD DRAFT LAYOUT (redesigned) ── */
 .std-draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
-.std-top-bar{background:#12122a;padding:6px 16px;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:#666}
-.std-top-bar .std-phase-tag{color:#ffcc00;font-weight:700;letter-spacing:.5px}
-.std-banner{background:#16163a;padding:10px 12px 8px;text-align:center}
+.std-top-bar{background:#12122a;padding:6px 16px;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:#666;transition:background .4s}
+.std-top-bar .std-phase-tag{color:var(--phase-accent);font-weight:700;letter-spacing:.5px;transition:color .4s}
+.std-banner{background:#16163a;padding:10px 12px 8px;text-align:center;transition:background .4s}
+/* Ban phase: tint top bar, banner, and bottom bar red */
+body.phase-ban .std-top-bar{background:#1a1012}
+body.phase-ban .std-banner{background:#1e1218}
+body.phase-ban .std-bottom{background:#161012;border-top-color:#3a2025}
+body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 .std-banner-row{display:flex;align-items:center;gap:5px;justify-content:center;margin-bottom:6px;flex-wrap:wrap}
 .std-pick-slot{width:72px;height:88px;border-radius:6px;background:#222250;border:2px solid #333366;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:border-color .3s}
 .std-pick-slot.filled{border-color:var(--t1m)}
@@ -263,7 +268,7 @@ input,select{font-family:inherit}
 .std-tc.pick.t1c{background:rgba(232,122,32,.06);color:var(--t1l);border:1px solid rgba(232,122,32,.15)}
 .std-tc.pick.t2c{background:rgba(74,138,223,.04);color:var(--t2m);border:1px solid rgba(74,138,223,.12)}
 .std-tc.done{opacity:.3}
-.std-tc.active{border:2px solid #ffcc00;opacity:1;transform:scale(1.15)}
+.std-tc.active{border:2px solid var(--phase-accent);opacity:1;transform:scale(1.15);transition:border-color .4s}
 .std-tc.future{opacity:.55}
 .std-tc-sep{width:1px;height:14px;background:#333355;margin:0 2px}
 /* Main area */
@@ -293,8 +298,8 @@ input,select{font-family:inherit}
 .std-pref-chip{font-size:.55rem;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.15);border-radius:3px;padding:1px 4px;color:#44ddaa;display:inline-flex;align-items:center;gap:2px}
 .std-pref-chip img{width:16px;height:16px;border-radius:2px;object-fit:cover}
 /* Panel timer (above team label) */
-.std-panel-timer{text-align:center;padding:8px;margin-bottom:6px;border-radius:6px;background:rgba(255,204,0,.06);border:2px solid rgba(255,204,0,.25);animation:pulse 1s infinite alternate}
-.std-panel-timer-val{font-size:1.8rem;font-weight:900;color:#ffcc00;font-family:monospace}
+.std-panel-timer{text-align:center;padding:8px;margin-bottom:6px;border-radius:6px;background:color-mix(in srgb,var(--phase-accent) 6%,transparent);border:2px solid color-mix(in srgb,var(--phase-accent) 25%,transparent);animation:pulse 1s infinite alternate;transition:background .4s,border-color .4s}
+.std-panel-timer-val{font-size:1.8rem;font-weight:900;color:var(--phase-accent);font-family:monospace;transition:color .4s}
 .std-panel-timer-val.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
 .std-panel-timer-val.reserve{color:var(--ban)}
 .std-panel-timer-label{font-size:.55rem;font-weight:700;letter-spacing:1px;color:#888}
@@ -326,9 +331,9 @@ input,select{font-family:inherit}
 .std-chat-input:focus{border-color:var(--accent)}
 .std-chat-send{padding:4px 12px;border:none;border-radius:4px;background:var(--accent-dim);color:#fff;font-size:.75rem;font-weight:700;cursor:pointer}
 /* Bottom bar */
-.std-bottom{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--panel);border-top:1px solid var(--border);gap:12px}
+.std-bottom{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--panel);border-top:1px solid var(--border);gap:12px;transition:background .4s,border-top-color .4s}
 .std-status{font-size:.82rem;color:#777;flex:1}.std-status .hi{color:var(--phase-accent);font-weight:700}
-.std-timer-display{font-size:1.4rem;font-weight:700;color:#ffcc00;font-family:monospace;min-width:44px;text-align:center}
+.std-timer-display{font-size:1.4rem;font-weight:700;color:var(--phase-accent);font-family:monospace;min-width:44px;text-align:center;transition:color .4s}
 .std-timer-display.urgent{color:var(--ban);animation:pulse .5s infinite alternate}
 .std-timer-display.reserve{color:var(--ban)}
 .std-bottom .btn-main{padding:10px 24px;background:var(--phase-accent-dim)}
@@ -812,7 +817,7 @@ input,select{font-family:inherit}
       </div>
       <div style="font-size:.7rem;color:#555">Each player picks this many heroes (bans = pool - 2)</div>
     </div>
-    <!-- Global ban UI (duel/tournament) -->
+    <!-- Global ban UI (all modes — host only) -->
     <div id="globalBanWrap" class="hidden" style="margin:12px 0">
       <div style="font-size:.75rem;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:8px">GLOBAL HERO BANS</div>
       <div style="font-size:.7rem;color:#555;margin-bottom:8px">Click heroes to ban them from this entire event</div>
@@ -1125,7 +1130,7 @@ input,select{font-family:inherit}
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
+const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 50 });
 let S = null;
 let selected = new Set();
 let specPrefs = new Set(); // spectator's highlighted heroes
@@ -1134,6 +1139,34 @@ let lastDraftPhase = null; // track phase for animation
 let lastStdStep = -1; // track std draft step for animation
 let chosenMode = null; // selected game mode
 let stdSelected = null; // captain's pending hero selection in standard draft
+
+// ── Reconnection state ──
+let myLobbyCode = null;  // lobby code we joined
+let myPlayerName = null;  // name we joined with
+let myJoinRole = null;    // "captain" or "spectator"
+let myJoinTeam = null;    // team index if relevant
+
+socket.on("connect", () => {
+  // If we had a lobby, rejoin it
+  if (myLobbyCode && myPlayerName) {
+    socket.emit("rejoinLobby", { code: myLobbyCode, name: myPlayerName, role: myJoinRole, team: myJoinTeam });
+  }
+  // Hide any disconnect banner
+  const dcBanner = document.getElementById("disconnectBanner");
+  if (dcBanner) dcBanner.classList.add("hidden");
+});
+socket.on("disconnect", () => {
+  // Show a subtle disconnect indicator
+  let dcBanner = document.getElementById("disconnectBanner");
+  if (!dcBanner) {
+    dcBanner = document.createElement("div");
+    dcBanner.id = "disconnectBanner";
+    dcBanner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#cc4444;color:#fff;text-align:center;padding:6px;font-size:.8rem;font-weight:700";
+    dcBanner.textContent = "Disconnected — reconnecting...";
+    document.body.appendChild(dcBanner);
+  }
+  dcBanner.classList.remove("hidden");
+});
 
 // URL params
 const params = new URLSearchParams(window.location.search);
@@ -1273,6 +1306,7 @@ function createLobby(){
 function selectMode(mode){
   chosenMode=mode;
   const name=document.getElementById("nameInput").value.trim();
+  myPlayerName=name; myJoinRole="captain"; myJoinTeam=null;
   socket.emit("createLobby",{name,timerDuration:120,mode});
 }
 function joinManual(){
@@ -1280,24 +1314,28 @@ function joinManual(){
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   const c=document.getElementById("codeInput").value.trim();
   if(!c){document.getElementById("homeErr").textContent="Enter a lobby code.";return;}
+  myPlayerName=name; myLobbyCode=c.toUpperCase(); myJoinRole="spectator"; myJoinTeam=null;
   socket.emit("joinAsSpectator",{code:c,name});
 }
 function joinViaLink(){
   const name=document.getElementById("nameInput").value.trim();
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
+  myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="spectator"; myJoinTeam=null;
   socket.emit("joinAsSpectator",{code:urlCode,name});
 }
 function joinViaLinkPlayerTeam(team){
   const name=document.getElementById("nameInput").value.trim();
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
+  myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="spectator"; myJoinTeam=team;
   socket.emit("joinAsSpectator",{code:urlCode,name,team});
 }
 function joinViaLinkTeam(team){
   const name=document.getElementById("nameInput").value.trim();
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
+  myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="captain"; myJoinTeam=team;
   socket.emit("joinAsCaptain",{code:urlCode,name,team});
 }
 
@@ -1410,7 +1448,7 @@ socket.on("state",(state)=>{
 });
 
 socket.on("lobbyCreated",({code})=>history.replaceState(null,"","?lobby="+code));
-socket.on("joined",({code,role})=>history.replaceState(null,"","?lobby="+code+(role?"&role="+role:"")));
+socket.on("joined",({code,role})=>{myLobbyCode=code;history.replaceState(null,"","?lobby="+code+(role?"&role="+role:""));});
 socket.on("err",(msg)=>{
   if(document.getElementById("home").classList.contains("active"))document.getElementById("homeErr").textContent=msg;
   else document.getElementById("lobbyErr").textContent=msg;
@@ -1538,10 +1576,12 @@ function renderLobby(){
   // Duel mode config
   const isDuel=S.mode==="duel";
   document.getElementById("duelPoolSizeWrap").classList.toggle("hidden",!isDuel||!isHost);
-  document.getElementById("globalBanWrap").classList.toggle("hidden",!isDuel||!isHost);
+  document.getElementById("globalBanWrap").classList.toggle("hidden",!isHost);
   if(isDuel&&isHost){
     document.getElementById("poolSizeSlider").value=S.duelPoolSize;
     document.getElementById("poolSizeLabel").textContent=S.duelPoolSize;
+  }
+  if(isHost){
     // Sync local global bans from server state
     localGlobalBans=new Set(S.globalBans||[]);
     const allH=S.allHeroes||[];
@@ -1639,7 +1679,6 @@ function dropHeroOnPlayer(ev,playerName,team){
   ev.preventDefault();
   const hero=ev.dataTransfer.getData("text/plain");
   if(!hero||!S||!S.std)return;
-  // Captain shadow-picks: if the hero is already picked for this team, reassign it to this player
   const std=S.std;
   const picks=std.picks[team]||[];
   const idx=picks.indexOf(hero);
@@ -1647,12 +1686,17 @@ function dropHeroOnPlayer(ev,playerName,team){
     // Hero already picked — reassign to this player
     socket.emit("reassignPick",{team,pickIndex:idx,assignedTo:playerName});
   }
-  // If it's the captain's turn to pick and hero is the selected one, auto-confirm + assign
+  // If it's the captain's turn to pick, confirm pick + immediately assign
   else if(S.role==="captain"&&S.myTeam===team&&std.activeTurn&&std.activeTurn.team===team&&std.activeTurn.type==="pick"){
     const allUsed=new Set([...std.bans[0],...std.bans[1],...picks,...(std.picks[1-team]||[])]);
     if(!allUsed.has(hero)){
+      const pickIndex=picks.length;
       socket.emit("stdAction",{hero,assignedTo:playerName});
       stdSelected=null;
+      // Dismiss any pending assign popup since drag-drop already assigned
+      pendingAssign=null;
+      const area=document.getElementById("stdAssignArea");
+      if(area){area.innerHTML="";area.classList.add("hidden");}
     }
   }
 }
@@ -1673,45 +1717,42 @@ function sendTeamChat(mode){
 }
 
 // ═══════════════════════════════════════════
-//  PLAYER ASSIGNMENT (inline)
+//  PLAYER ASSIGNMENT (non-blocking post-pick popup)
 // ═══════════════════════════════════════════
-let pendingPickHero=null;
-function showInlineAssign(hero){
-  pendingPickHero=hero;
-  const myTeam=S.myTeam;
+let pendingAssign=null; // {hero, team, pickIndex}
+function showPostPickAssign(hero,team,pickIndex){
+  pendingAssign={hero,team,pickIndex};
   const std=S.std;
   const players=[];
-  const cap=S.captains[myTeam];
+  const cap=S.captains[team];
   if(cap)players.push(cap.name);
-  (S.spectators[myTeam]||[]).forEach(s=>players.push(s.name));
-  const ghosts=(S.ghostPlayers||[[],[]])[myTeam]||[];
+  (S.spectators[team]||[]).forEach(s=>players.push(s.name));
+  const ghosts=(S.ghostPlayers||[[],[]])[team]||[];
   ghosts.forEach(gp=>players.push(gp.name));
-  const fillers=(S.fillerPlayers||[[],[]])[myTeam]||[];
+  const fillers=(S.fillerPlayers||[[],[]])[team]||[];
   fillers.forEach(fp=>players.push(fp.name));
-  const assigned=new Set((std.playerAssignments?.[myTeam]||[]).filter(Boolean));
+  const assigned=new Set((std.playerAssignments?.[team]||[]).filter(Boolean));
   const area=document.getElementById("stdAssignArea");
-  let h='<span class="std-assign-label">Who plays '+hero+'?</span>';
+  let h='<span class="std-assign-label">Assign '+hero+' to:</span>';
   players.forEach(p=>{
     const taken=assigned.has(p);
-    h+='<button class="std-assign-btn'+(taken?' taken':'')+'" '+(taken?'disabled style="opacity:.3;cursor:default"':'')+' onclick="confirmInlineAssign(\''+esc(p)+'\')">'+p+'</button>';
+    h+='<button class="std-assign-btn'+(taken?' taken':'')+'" '+(taken?'disabled style="opacity:.3;cursor:default"':'')+' onclick="confirmPostAssign(\''+esc(p)+'\')">'+p+'</button>';
   });
-  h+='<button class="std-assign-btn" style="border-style:dashed;color:#666" onclick="confirmInlineAssign(null)">Skip</button>';
-  h+='<button class="std-assign-btn" style="color:var(--ban);border-color:rgba(204,68,68,.3)" onclick="cancelInlineAssign()">Cancel</button>';
+  h+='<button class="std-assign-btn" style="color:#666;border-style:dashed" onclick="dismissPostAssign()">Decide later</button>';
   area.innerHTML=h;
   area.classList.remove("hidden");
-  document.getElementById("stdConfirmBtn").style.display="none";
 }
-function confirmInlineAssign(player){
-  if(!pendingPickHero)return;
-  socket.emit("stdAction",{hero:pendingPickHero,assignedTo:player});
-  stdSelected=null;
-  pendingPickHero=null;
-}
-function cancelInlineAssign(){
-  pendingPickHero=null;
+function confirmPostAssign(player){
+  if(!pendingAssign)return;
+  socket.emit("reassignPick",{team:pendingAssign.team,pickIndex:pendingAssign.pickIndex,assignedTo:player});
+  pendingAssign=null;
   const area=document.getElementById("stdAssignArea");
   if(area){area.innerHTML="";area.classList.add("hidden");}
-  renderStdDraft();
+}
+function dismissPostAssign(){
+  pendingAssign=null;
+  const area=document.getElementById("stdAssignArea");
+  if(area){area.innerHTML="";area.classList.add("hidden");}
 }
 
 // ═══════════════════════════════════════════
@@ -2101,8 +2142,14 @@ function stdConfirm(){
     stdSelected=null;
     return;
   }
-  // Pick — show inline player selector
-  showInlineAssign(stdSelected);
+  // Pick — immediately confirm the pick, then show optional assignment popup
+  const pickedHero=stdSelected;
+  const team=S.myTeam;
+  const pickIndex=(std.picks[team]||[]).length; // index this pick will occupy
+  socket.emit("stdAction",{hero:pickedHero,assignedTo:null});
+  stdSelected=null;
+  // Show non-blocking assignment popup
+  showPostPickAssign(pickedHero,team,pickIndex);
 }
 
 // ═══════════════════════════════════════════
@@ -2311,7 +2358,7 @@ function renderStdDraft(){
 
   // ── Confirm button ──
   const confirmBtn=document.getElementById("stdConfirmBtn");
-  if(isMyTurn&&!pendingPickHero){
+  if(isMyTurn){
     confirmBtn.style.display="inline-block";
     const actionLabel=activeTurn.type==="ban"?"Ban":"Pick";
     if(stdSelected){
@@ -2327,9 +2374,7 @@ function renderStdDraft(){
 
   // ── Status bar ──
   const statusEl=document.getElementById("stdStatus");
-  if(pendingPickHero){
-    // Assignment flow active — status managed by showInlineAssign
-  } else if(isComplete){
+  if(isComplete){
     statusEl.innerHTML=`<span class="hi">Draft complete!</span>`;
   } else if(isMyTurn&&stdSelected){
     statusEl.innerHTML=`<span class="hi">${stdSelected}</span> selected — click Confirm to lock in`;
@@ -2343,8 +2388,8 @@ function renderStdDraft(){
     statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (${step+1}/${totalSteps})`;
   }
 
-  // Hide assign area if no pending pick
-  if(!pendingPickHero){
+  // Hide assign area if no pending assignment
+  if(!pendingAssign&&!reassignIndex){
     const area=document.getElementById("stdAssignArea");
     if(area){area.innerHTML="";area.classList.add("hidden");}
   }
