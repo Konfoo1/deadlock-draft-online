@@ -174,6 +174,9 @@ const lobbies = new Map();
  *   preference votes per team.
  * @property {?number} timerRef - Active setTimeout reference for the phase timer.
  * @property {?number} timerEnd - Unix timestamp when the current timer expires.
+ * @property {boolean} paused - Whether the draft is currently paused by the host.
+ * @property {?number} pausedTimeRemaining - Seconds remaining on the timer when paused.
+ * @property {?Function} pausedOnExpire - Callback to invoke when the timer resumes and expires.
  * @property {?StdDraftState} std - Standard draft state (null unless mode is
  *   'standard').
  * @property {number} duelPoolSize - Hero pool size for duel mode (2-6).
@@ -294,6 +297,7 @@ function stateFor(lobby, sid) {
     phase: lobby.phase,
     timerDuration: lobby.timerDuration,
     timerEnd: lobby.timerEnd,
+    paused: lobby.paused || false,
     teamNames,
     myTeam,
     role,
@@ -486,9 +490,14 @@ function broadcast(lobby) {
  */
 function startTimer(lobby, onExpire) {
   clearTimer(lobby);
+  lobby.pausedOnExpire = onExpire;
+  lobby.paused = false;
+  lobby.pausedTimeRemaining = null;
   lobby.timerEnd = Date.now() + lobby.timerDuration * 1000;
   lobby.timerRef = setTimeout(() => {
-    lobby.timerRef = null; lobby.timerEnd = null; onExpire();
+    lobby.timerRef = null; lobby.timerEnd = null;
+    lobby.pausedOnExpire = null;
+    onExpire();
   }, lobby.timerDuration * 1000);
 }
 
@@ -499,6 +508,43 @@ function startTimer(lobby, onExpire) {
 function clearTimer(lobby) {
   if (lobby.timerRef) { clearTimeout(lobby.timerRef); lobby.timerRef = null; }
   lobby.timerEnd = null;
+  lobby.paused = false;
+  lobby.pausedTimeRemaining = null;
+  lobby.pausedOnExpire = null;
+}
+
+/**
+ * Pause the draft timer. Stores remaining time so it can be resumed.
+ * Works for both phase draft and standard draft timers.
+ * @param {LobbyState} lobby - The lobby to pause.
+ */
+function pauseDraft(lobby) {
+  if (lobby.paused || !lobby.timerEnd) return;
+  const remaining = Math.max(0, (lobby.timerEnd - Date.now()) / 1000);
+  if (lobby.timerRef) { clearTimeout(lobby.timerRef); lobby.timerRef = null; }
+  lobby.timerEnd = null;
+  lobby.paused = true;
+  lobby.pausedTimeRemaining = remaining;
+  broadcast(lobby);
+}
+
+/**
+ * Resume a paused draft timer with the remaining time.
+ * @param {LobbyState} lobby - The lobby to resume.
+ */
+function resumeDraft(lobby) {
+  if (!lobby.paused || lobby.pausedTimeRemaining == null) return;
+  const remaining = lobby.pausedTimeRemaining;
+  const onExpire = lobby.pausedOnExpire;
+  lobby.paused = false;
+  lobby.pausedTimeRemaining = null;
+  lobby.timerEnd = Date.now() + remaining * 1000;
+  lobby.timerRef = setTimeout(() => {
+    lobby.timerRef = null; lobby.timerEnd = null;
+    lobby.pausedOnExpire = null;
+    if (onExpire) onExpire();
+  }, remaining * 1000);
+  broadcast(lobby);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -750,6 +796,9 @@ function startStdDraft(lobby) {
   lobby.playerPrefs = [{}, {}];
 
   // Start 30-second base timer for the first turn.
+  lobby.paused = false;
+  lobby.pausedTimeRemaining = null;
+  lobby.pausedOnExpire = () => stdBaseExpired(lobby);
   lobby.timerEnd = Date.now() + baseTime * 1000;
   lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), baseTime * 1000);
   broadcast(lobby);
@@ -777,10 +826,9 @@ function stdBaseExpired(lobby) {
   st.turnStart = Date.now();
   lobby.timerEnd = Date.now() + st.reserve[team] * 1000;
   clearTimeout(lobby.timerRef);
-  lobby.timerRef = setTimeout(() => {
-    st.reserve[team] = 0;
-    stdAutoAction(lobby);
-  }, st.reserve[team] * 1000);
+  const reserveExpire = () => { st.reserve[team] = 0; stdAutoAction(lobby); };
+  lobby.pausedOnExpire = reserveExpire;
+  lobby.timerRef = setTimeout(reserveExpire, st.reserve[team] * 1000);
   broadcast(lobby);
 }
 
@@ -850,6 +898,9 @@ function stdAdvance(lobby) {
   // Start new turn with base timer.
   st.turnStart = Date.now();
   clearTimeout(lobby.timerRef);
+  lobby.paused = false;
+  lobby.pausedTimeRemaining = null;
+  lobby.pausedOnExpire = () => stdBaseExpired(lobby);
   lobby.timerEnd = Date.now() + st.baseTime * 1000;
   lobby.timerRef = setTimeout(() => stdBaseExpired(lobby), st.baseTime * 1000);
   broadcast(lobby);
@@ -1541,6 +1592,7 @@ io.on("connection", (socket) => {
       locked: [false, false],
       specPrefs: [{}, {}],
       timerRef: null, timerEnd: null,
+      paused: false, pausedTimeRemaining: null, pausedOnExpire: null,
       std: null,
       duelPoolSize: 3,
       globalBans: [],
@@ -1864,6 +1916,26 @@ io.on("connection", (socket) => {
     if (!lobby || socket.id !== lobby.hostId || lobby.phase !== "waiting") return;
     lobby.globalBans = [...new Set(heroes)].filter(h => HEROES.includes(h));
     broadcast(lobby);
+  });
+
+  // ── Pause / Resume ──
+
+  /** @event pauseDraft - Host pauses the active draft timer. */
+  socket.on("pauseDraft", () => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || socket.id !== lobby.hostId) return;
+    if (lobby.phase === "waiting" || lobby.phase === "complete") return;
+    pauseDraft(lobby);
+  });
+
+  /** @event resumeDraft - Host resumes a paused draft timer. */
+  socket.on("resumeDraft", () => {
+    if (!myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby || socket.id !== lobby.hostId) return;
+    if (!lobby.paused) return;
+    resumeDraft(lobby);
   });
 
   // ── Draft Start ──
