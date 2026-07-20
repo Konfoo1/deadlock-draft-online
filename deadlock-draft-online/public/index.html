@@ -798,7 +798,6 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
         <div class="std-timer-display" id="stdTimerDisplay">30</div>
         <button class="pause-btn hidden" id="stdPauseBtn" onclick="togglePause()">PAUSE</button>
       </div>
-      <div class="std-assign-area hidden" id="stdAssignArea"></div>
       <button class="btn-main orange" id="stdConfirmBtn" onclick="stdConfirm()" style="display:none" disabled>Confirm</button>
     </div>
   </div>
@@ -1816,31 +1815,7 @@ function dropOnGhost(ev,team,playerIndex){
   const hero=ev.dataTransfer.getData("text/plain");
   if(hero)socket.emit("ghostPick",{team,playerIndex,hero});
 }
-function dropHeroOnPlayer(ev,playerName,team){
-  ev.preventDefault();
-  const hero=ev.dataTransfer.getData("text/plain");
-  if(!hero||!S||!S.std)return;
-  const std=S.std;
-  const picks=std.picks[team]||[];
-  const idx=picks.indexOf(hero);
-  if(idx>=0){
-    // Hero already picked — reassign to this player
-    socket.emit("reassignPick",{team,pickIndex:idx,assignedTo:playerName});
-  }
-  // If it's the captain's turn to pick, confirm pick + immediately assign
-  else if(S.role==="captain"&&S.myTeam===team&&std.activeTurn&&std.activeTurn.team===team&&std.activeTurn.type==="pick"){
-    const allUsed=new Set([...std.bans[0],...std.bans[1],...picks,...(std.picks[1-team]||[])]);
-    if(!allUsed.has(hero)){
-      const pickIndex=picks.length;
-      socket.emit("stdAction",{hero,assignedTo:playerName});
-      stdSelected=null;
-      // Dismiss any pending assign popup since drag-drop already assigned
-      pendingAssign=null;
-      const area=document.getElementById("stdAssignArea");
-      if(area){area.innerHTML="";area.classList.add("hidden");}
-    }
-  }
-}
+// Player assignment removed from draft — handled in post-draft hero_select phase.
 
 // ═══════════════════════════════════════════
 //  TEAM CHAT
@@ -1857,44 +1832,7 @@ function sendTeamChat(mode){
   inp.value="";
 }
 
-// ═══════════════════════════════════════════
-//  PLAYER ASSIGNMENT (non-blocking post-pick popup)
-// ═══════════════════════════════════════════
-let pendingAssign=null; // {hero, team, pickIndex}
-function showPostPickAssign(hero,team,pickIndex){
-  pendingAssign={hero,team,pickIndex};
-  const std=S.std;
-  const players=[];
-  const cap=S.captains[team];
-  if(cap)players.push(cap.name);
-  (S.spectators[team]||[]).forEach(s=>players.push(s.name));
-  const ghosts=(S.ghostPlayers||[[],[]])[team]||[];
-  ghosts.forEach(gp=>players.push(gp.name));
-  const fillers=(S.fillerPlayers||[[],[]])[team]||[];
-  fillers.forEach(fp=>players.push(fp.name));
-  const assigned=new Set((std.playerAssignments?.[team]||[]).filter(Boolean));
-  const area=document.getElementById("stdAssignArea");
-  let h='<span class="std-assign-label">Assign '+hero+' to:</span>';
-  players.forEach(p=>{
-    const taken=assigned.has(p);
-    h+='<button class="std-assign-btn'+(taken?' taken':'')+'" '+(taken?'disabled style="opacity:.3;cursor:default"':'')+' onclick="confirmPostAssign(\''+esc(p)+'\')">'+p+'</button>';
-  });
-  h+='<button class="std-assign-btn" style="color:#666;border-style:dashed" onclick="dismissPostAssign()">Decide later</button>';
-  area.innerHTML=h;
-  area.classList.remove("hidden");
-}
-function confirmPostAssign(player){
-  if(!pendingAssign)return;
-  socket.emit("reassignPick",{team:pendingAssign.team,pickIndex:pendingAssign.pickIndex,assignedTo:player});
-  pendingAssign=null;
-  const area=document.getElementById("stdAssignArea");
-  if(area){area.innerHTML="";area.classList.add("hidden");}
-}
-function dismissPostAssign(){
-  pendingAssign=null;
-  const area=document.getElementById("stdAssignArea");
-  if(area){area.innerHTML="";area.classList.add("hidden");}
-}
+// Player assignment removed from draft — handled in post-draft hero_select phase.
 
 // ═══════════════════════════════════════════
 //  REASSIGN PICKS
@@ -1904,39 +1842,7 @@ function renameFiller(team,index){
   if(name&&name.trim())socket.emit("renameFiller",{team,index,name:name.trim()});
 }
 
-let reassignIndex=null;
-function showReassign(team,pickIndex){
-  reassignIndex={team,pickIndex};
-  const std=S.std;
-  const hero=std.picks[team][pickIndex];
-  if(!hero)return;
-  const area=document.getElementById("stdAssignArea");
-  const players=[];
-  const cap=S.captains[team];
-  if(cap)players.push(cap.name);
-  (S.spectators[team]||[]).forEach(s=>players.push(s.name));
-  const ghosts=(S.ghostPlayers||[[],[]])[team]||[];
-  ghosts.forEach(gp=>players.push(gp.name));
-  const fillers=(S.fillerPlayers||[[],[]])[team]||[];
-  fillers.forEach(fp=>players.push(fp.name));
-  const assigned=new Set((std.playerAssignments?.[team]||[]).filter((v,idx)=>v&&idx!==pickIndex));
-  let h=`<span class="std-assign-label">Reassign ${hero}:</span>`;
-  players.forEach(p=>{
-    const taken=assigned.has(p);
-    h+=`<button class="std-assign-btn${taken?' taken':''}" ${taken?'disabled style="opacity:.3;cursor:default"':''} onclick="doReassign('${esc(p)}')">${p}</button>`;
-  });
-  h+=`<button class="std-assign-btn" style="border-style:dashed;color:#666" onclick="doReassign(null)">Unassigned</button>`;
-  h+=`<button class="std-assign-btn" style="color:var(--ban);border-color:rgba(204,68,68,.3)" onclick="reassignIndex=null;document.getElementById('stdAssignArea').classList.add('hidden');document.getElementById('stdAssignArea').innerHTML=''">Cancel</button>`;
-  area.innerHTML=h;
-  area.classList.remove("hidden");
-}
-function doReassign(player){
-  if(!reassignIndex)return;
-  socket.emit("reassignPick",{team:reassignIndex.team,pickIndex:reassignIndex.pickIndex,assignedTo:player});
-  reassignIndex=null;
-  const area=document.getElementById("stdAssignArea");
-  if(area){area.innerHTML="";area.classList.add("hidden");}
-}
+// Reassignment removed — handled in post-draft hero_select phase.
 
 // ═══════════════════════════════════════════
 //  RENDER: DRAFT
@@ -2281,21 +2187,8 @@ function stdClickHero(hero){
 }
 function stdConfirm(){
   if(!S||!S.std||!stdSelected)return;
-  const std=S.std;
-  const activeTurn=std.activeTurn;
-  if(activeTurn&&activeTurn.type==="ban"){
-    socket.emit("stdAction",{hero:stdSelected});
-    stdSelected=null;
-    return;
-  }
-  // Pick — immediately confirm the pick, then show optional assignment popup
-  const pickedHero=stdSelected;
-  const team=S.myTeam;
-  const pickIndex=(std.picks[team]||[]).length; // index this pick will occupy
-  socket.emit("stdAction",{hero:pickedHero,assignedTo:null});
+  socket.emit("stdAction",{hero:stdSelected});
   stdSelected=null;
-  // Show non-blocking assignment popup
-  showPostPickAssign(pickedHero,team,pickIndex);
 }
 
 // ═══════════════════════════════════════════
@@ -2335,21 +2228,16 @@ function renderStdDraft(){
   [0,1].forEach(t=>{
     if(t===1)bannerHtml+=`<div class="std-vs">VS</div>`;
     const picks=std.picks[t]||[];
-    const assignments=std.playerAssignments?.[t]||[];
     const isEnemy=myTeam>=0&&t!==myTeam;
     for(let i=0;i<6;i++){
       const hero=picks[i];
-      const assign=assignments[i];
       const filled=!!hero;
       const teamCls=t===1?"t2s":"";
       if(filled){
         const imgUrl=heroImgUrl(hero);
-        const nameText=isEnemy?(assign?"???":""): (assign||"");
-        const canReassign=isCap&&myTeam===t;
-        const dragAttr=canReassign?` draggable="true" ondragstart="dragHero(event,'${esc(hero)}')"`:'';;
-        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}"${canReassign?` style="cursor:pointer" onclick="showReassign(${t},${i})" title="Drag or click to reassign"`:` title="${hero}"`}${dragAttr}>`;
+        bannerHtml+=`<div class="std-pick-slot filled ${teamCls}" title="${hero}">`;
         bannerHtml+=`<div class="sp-img"><img src="${imgUrl}" alt="${hero}" draggable="false"></div>`;
-        bannerHtml+=`<div class="sp-name${isEnemy&&assign?' hidden-name':''}">${nameText||hero}</div>`;
+        bannerHtml+=`<div class="sp-name">${hero}</div>`;
         bannerHtml+=`</div>`;
       } else {
         bannerHtml+=`<div class="std-pick-slot empty-ps ${teamCls}"><div class="sp-img">${i+1}</div><div class="sp-name">—</div></div>`;
@@ -2381,7 +2269,6 @@ function renderStdDraft(){
     const isEnemy=myTeam>=0&&t!==myTeam;
     const isMyTeam=myTeam===t;
     const isMyCap=isCap&&isMyTeam;
-    const assignments=std.playerAssignments?.[t]||[];
     const picks=std.picks[t]||[];
     // Build player list: captain, players (spectators on team), ghosts, fillers
     const playerRows=[];
@@ -2393,32 +2280,22 @@ function renderStdDraft(){
     const fillers=(S.fillerPlayers||[[],[]])[t]||[];
     fillers.forEach((fp,fi)=>playerRows.push({name:fp.name,type:"filler",fillerIndex:fi}));
 
-    // Determine which heroes each player is assigned to
-    const assignedMap={};
-    assignments.forEach((name,idx)=>{if(name)assignedMap[name]=picks[idx];});
-
     // Player prefs — only visible for own team
     const prefs=isMyTeam?(S.playerPrefs||{}):{};
 
     let ph="";
     playerRows.forEach(pr=>{
-      const assignedHero=assignedMap[pr.name];
       const isFiller=pr.type==="filler";
       const isGhost=pr.type==="ghost";
       let rowCls="std-player-row";
-      if(assignedHero)rowCls+=" assigned";
       if(isFiller)rowCls+=" filler";
-      const dropHandler=isMyCap?` ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-player')" ondragleave="this.classList.remove('drag-over-player')" ondrop="this.classList.remove('drag-over-player');dropHeroOnPlayer(event,'${esc(pr.name)}',${t})"`:''
-      ph+=`<div class="${rowCls}"${dropHandler}>`;
+      ph+=`<div class="${rowCls}">`;
       ph+=`<div class="std-pr-top">`;
       ph+=`<div class="std-pr-dot${isFiller?' filler-dot':''}"></div>`;
       if(isFiller&&isMyCap){
         ph+=`<span class="std-pr-name is-filler" onclick="renameFiller(${t},${pr.fillerIndex})">${pr.name}</span>`;
       } else {
         ph+=`<span class="std-pr-name">${isGhost?'👻 ':''}${isEnemy?'???':pr.name}${pr.isCaptain?' ⭐':''}</span>`;
-      }
-      if(assignedHero&&!isEnemy){
-        ph+=`<span class="std-pr-assigned">${assignedHero}</span>`;
       }
       ph+=`</div>`;
       // Show pref chips and hero preferences under player name
@@ -2431,7 +2308,7 @@ function renderStdDraft(){
         }
         // Player preferences (resolved by name)
         const playerHeroPrefs=prefs[pr.name]||[];
-        if(playerHeroPrefs.length>0&&!assignedHero){
+        if(playerHeroPrefs.length>0){
           ph+=`<div class="std-pr-prefs">`;
           playerHeroPrefs.forEach(h=>{ph+=`<span class="std-pref-chip">${heroImg(h,16)} ${h}</span>`;});
           ph+=`</div>`;
@@ -2474,7 +2351,7 @@ function renderStdDraft(){
 
     if(prefCount>0&&isCap)cls+=" has-pref";
     const clickable=!isBanned&&!isPicked&&(isMyTurn||canVote);
-    return`<div class="${cls}" style="--i:${i}" draggable="true" ondragstart="dragHero(event,'${esc(h)}')"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
+    return`<div class="${cls}" style="--i:${i}"${clickable?` onclick="stdClickHero('${esc(h)}')"`:''}>
       ${heroImg(h,68)}<div class="pref-badge">${prefCount}👍</div><div class="hl">${h}</div></div>`;
   }).join("");
 
@@ -2535,11 +2412,6 @@ function renderStdDraft(){
     statusEl.innerHTML=`${S.teamNames[activeTurn.team]} is ${activeTurn.type}ing... (${step+1}/${totalSteps})`;
   }
 
-  // Hide assign area if no pending assignment
-  if(!pendingAssign&&!reassignIndex){
-    const area=document.getElementById("stdAssignArea");
-    if(area){area.innerHTML="";area.classList.add("hidden");}
-  }
 }
 
 // ═══════════════════════════════════════════

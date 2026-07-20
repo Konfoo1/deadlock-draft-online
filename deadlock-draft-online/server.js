@@ -150,7 +150,7 @@ const lobbies = new Map();
  * @property {string} mode - Draft mode: 'phase', 'standard', or 'duel'.
  * @property {number} timerDuration - Phase timer duration in seconds.
  * @property {string} phase - Current lobby phase (e.g., 'waiting', 'phase1',
- *   'phase2', 'std_drafting', 'complete').
+ *   'phase2', 'std_drafting', 'hero_select', 'complete').
  * @property {string[]} teamNames - Display names for [Team 0, Team 1].
  * @property {Array<?{id: string, name: string}>} captains - Captain info
  *   per team slot; null if unfilled.
@@ -203,6 +203,10 @@ const lobbies = new Map();
  * @property {number[]} reserve - Remaining reserve time per team in seconds.
  * @property {number} turnStart - Unix timestamp of when the current turn began.
  * @property {boolean} inReserve - Whether the active turn has entered reserve time.
+ * @property {?Object<string, string>} heroSelections - Map of socketId → hero
+ *   name for locked-in hero selections during hero_select phase.
+ * @property {?Array<string[]>} selectablePools - Heroes available for each
+ *   team during hero_select phase (the team's drafted picks).
  */
 
 /**
@@ -395,17 +399,10 @@ function stateFor(lobby, sid) {
   // ── STANDARD DRAFT ──
   if (lobby.mode === "standard" && lobby.std) {
     const st = lobby.std;
-    // Hide enemy player assignments during draft; reveal all on completion.
-    const draftComplete = st.step >= STD_TURNS.length;
-    let assignments;
-    if (draftComplete || myTeam < 0) {
-      assignments = [st.playerAssignments?.[0] || [], st.playerAssignments?.[1] || []];
-    } else {
-      const myAssignments = st.playerAssignments?.[myTeam] || [];
-      const oppAssignments = (st.playerAssignments?.[oppTeam] || []).map(() => null);
-      assignments = myTeam === 0 ? [myAssignments, oppAssignments]
-                  : [oppAssignments, myAssignments];
-    }
+    // Player assignments are only built after the hero_select phase.
+    const assignments = st.playerAssignments
+      ? [st.playerAssignments[0] || [], st.playerAssignments[1] || []]
+      : [[], []];
 
     s.std = {
       step: st.step,
@@ -420,6 +417,39 @@ function stateFor(lobby, sid) {
     };
     if (st.step < STD_TURNS.length) {
       s.std.activeTurn = STD_TURNS[st.step];
+    }
+
+    // Hero selection phase state.
+    if (lobby.phase === "hero_select" && st.heroSelections) {
+      // Build per-team locked maps: playerName → hero.
+      const teamLocked = [{}, {}];
+      for (const [lockSid, hero] of Object.entries(st.heroSelections)) {
+        const lockP = findPerson(lobby, lockSid);
+        if (!lockP) continue;
+        const lockTeam = (lockP.role === "captain" || lockP.role === "spectator") ? lockP.team : -1;
+        if (lockTeam >= 0) {
+          const lockName = getPlayerName(lobby, lockSid);
+          teamLocked[lockTeam][lockName] = hero;
+        }
+      }
+      if (myTeam >= 0) {
+        s.std.heroSelect = {
+          myPool: st.picks[myTeam] || [],
+          oppPool: st.picks[oppTeam] || [],
+          myTeamLocked: teamLocked[myTeam],
+          oppTeamLocked: teamLocked[oppTeam],
+          mySelection: st.heroSelections[sid] || null,
+        };
+      } else {
+        // Unassigned viewers see both teams.
+        s.std.heroSelect = {
+          myPool: st.picks[0] || [],
+          oppPool: st.picks[1] || [],
+          myTeamLocked: teamLocked[0],
+          oppTeamLocked: teamLocked[1],
+          mySelection: null,
+        };
+      }
     }
   }
 
@@ -772,7 +802,6 @@ function startStdDraft(lobby) {
     step: 0,
     bans: [[], []],
     picks: [[], []],
-    playerAssignments: [[], []],
     baseTime: baseTime,
     reserve: [reserveTime, reserveTime],
     turnStart: Date.now(),
@@ -836,8 +865,8 @@ function stdBaseExpired(lobby) {
 /**
  * Perform an automatic random action when the timer expires with no input.
  *
- * Randomly selects an available hero for the current turn (ban or pick)
- * and assigns picks to a random unassigned team member.
+ * Randomly selects an available hero for the current turn (ban or pick).
+ * Player assignment happens in the post-draft hero_select phase.
  *
  * @param {LobbyState} lobby - The lobby to auto-act for.
  */
@@ -850,27 +879,8 @@ function stdAutoAction(lobby) {
   const avail = HEROES.filter(h => !used.has(h));
   if (avail.length === 0) { stdFinish(lobby); return; }
   const hero = avail[Math.floor(Math.random() * avail.length)];
-  if (turn.type === "ban") {
-    st.bans[turn.team].push(hero);
-  } else {
-    st.picks[turn.team].push(hero);
-    if (!st.playerAssignments) st.playerAssignments = [[], []];
-    // Auto-assign the pick to a random unassigned team member.
-    const assigned = new Set(st.playerAssignments[turn.team].filter(Boolean));
-    const teamPlayers = [];
-    const cap = lobby.captains[turn.team];
-    if (cap) teamPlayers.push(cap.name);
-    for (const s of lobby.spectators[turn.team]) teamPlayers.push(s.name);
-    if (lobby.ghostPlayers && lobby.ghostPlayers[turn.team]) {
-      for (const gp of lobby.ghostPlayers[turn.team]) teamPlayers.push(gp.name);
-    }
-    if (lobby.fillerPlayers && lobby.fillerPlayers[turn.team]) {
-      for (const fp of lobby.fillerPlayers[turn.team]) teamPlayers.push(fp.name);
-    }
-    const unassigned = teamPlayers.filter(p => !assigned.has(p));
-    const pick = unassigned.length > 0 ? unassigned[Math.floor(Math.random() * unassigned.length)] : null;
-    st.playerAssignments[turn.team].push(pick);
-  }
+  if (turn.type === "ban") st.bans[turn.team].push(hero);
+  else st.picks[turn.team].push(hero);
   stdAdvance(lobby);
 }
 
@@ -908,16 +918,174 @@ function stdAdvance(lobby) {
 }
 
 /**
- * Complete the standard draft and transition to the 'complete' phase.
+ * Complete the standard draft picks/bans and start the hero selection phase.
  *
- * @param {LobbyState} lobby - The lobby to finish.
+ * Players have 60 seconds to claim one of their team's drafted heroes.
+ * If all players lock in before the timer expires, the phase ends early.
+ *
+ * @param {LobbyState} lobby - The lobby to finish drafting.
  */
 function stdFinish(lobby) {
   clearTimer(lobby);
+  const st = lobby.std;
+  st.heroSelections = {};
+  st.selectablePools = [
+    [...(st.picks[0] || [])],
+    [...(st.picks[1] || [])],
+  ];
+  lobby.phase = "hero_select";
+  // 60-second hero selection timer.
+  const selectDuration = 60;
+  lobby.timerDuration = selectDuration;
+  startTimer(lobby, () => finishHeroSelect(lobby));
+  broadcast(lobby);
+}
+
+/**
+ * Finalize the hero selection phase.
+ *
+ * Any player who didn't lock in gets randomly assigned an unclaimed hero
+ * from their team's pool. Transitions to 'complete' phase.
+ *
+ * @param {LobbyState} lobby - The lobby to finalize hero selection for.
+ */
+function finishHeroSelect(lobby) {
+  clearTimer(lobby);
+  const st = lobby.std;
+  if (!st) return;
+  const selections = st.heroSelections || {};
+
+  // Auto-assign unclaimed heroes to players who didn't lock in.
+  for (let t = 0; t < 2; t++) {
+    const teamPicks = st.picks[t] || [];
+    const teamPlayers = getTeamPlayerList(lobby, t);
+    // Which heroes are already claimed by someone on this team?
+    const claimed = new Set();
+    for (const [sid, hero] of Object.entries(selections)) {
+      const p = findPerson(lobby, sid);
+      if (p && ((p.role === "captain" && p.team === t) || (p.role === "spectator" && p.team === t))) {
+        claimed.add(hero);
+      }
+    }
+    // Assign unclaimed heroes to unselected players.
+    const unclaimed = teamPicks.filter(h => !claimed.has(h));
+    const unselectedPlayers = teamPlayers.filter(pName => {
+      // Find if this player has a selection.
+      for (const [sid, hero] of Object.entries(selections)) {
+        const p = findPerson(lobby, sid);
+        if (p && ((p.role === "captain" && p.team === t) || (p.role === "spectator" && p.team === t))) {
+          if (getPlayerName(lobby, sid) === pName) return false;
+        }
+      }
+      return true;
+    });
+    for (const pName of unselectedPlayers) {
+      if (unclaimed.length === 0) break;
+      const randIdx = Math.floor(Math.random() * unclaimed.length);
+      const hero = unclaimed.splice(randIdx, 1)[0];
+      // Find or fabricate a socket ID for assignment tracking.
+      const sid = findSidByName(lobby, pName, t);
+      if (sid) selections[sid] = hero;
+    }
+  }
+
+  // Rebuild playerAssignments from hero selections.
+  st.playerAssignments = [[], []];
+  for (let t = 0; t < 2; t++) {
+    const teamPicks = st.picks[t] || [];
+    // Build hero→playerName map for this team.
+    const heroToPlayer = {};
+    for (const [sid, hero] of Object.entries(selections)) {
+      const p = findPerson(lobby, sid);
+      if (p && ((p.role === "captain" && p.team === t) || (p.role === "spectator" && p.team === t))) {
+        heroToPlayer[hero] = getPlayerName(lobby, sid);
+      }
+    }
+    for (const hero of teamPicks) {
+      st.playerAssignments[t].push(heroToPlayer[hero] || null);
+    }
+  }
+
   lobby.phase = "complete";
-  lobby.champions = [null, null]; // Standard draft has no single champion.
+  lobby.champions = [null, null];
   broadcast(lobby);
   if (lobby.tourneyMatch) onTourneyDraftComplete(lobby);
+}
+
+/**
+ * Get the list of player names on a team.
+ *
+ * @param {LobbyState} lobby - The lobby.
+ * @param {number} team - Team index (0 or 1).
+ * @returns {string[]} List of player names.
+ */
+function getTeamPlayerList(lobby, team) {
+  const players = [];
+  const cap = lobby.captains[team];
+  if (cap) players.push(cap.name);
+  for (const s of lobby.spectators[team]) players.push(s.name);
+  if (lobby.ghostPlayers?.[team]) {
+    for (const gp of lobby.ghostPlayers[team]) players.push(gp.name);
+  }
+  if (lobby.fillerPlayers?.[team]) {
+    for (const fp of lobby.fillerPlayers[team]) players.push(fp.name);
+  }
+  return players;
+}
+
+/**
+ * Get a player's display name from their socket ID.
+ *
+ * @param {LobbyState} lobby - The lobby.
+ * @param {string} sid - Socket ID.
+ * @returns {?string} Player name, or null if not found.
+ */
+function getPlayerName(lobby, sid) {
+  for (let t = 0; t < 2; t++) {
+    if (lobby.captains[t]?.id === sid) return lobby.captains[t].name;
+    for (const s of lobby.spectators[t]) {
+      if (s.id === sid) return s.name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find a socket ID by player name and team.
+ *
+ * @param {LobbyState} lobby - The lobby.
+ * @param {string} name - Player display name.
+ * @param {number} team - Team index.
+ * @returns {?string} Socket ID, or null if not found (ghost/filler).
+ */
+function findSidByName(lobby, name, team) {
+  if (lobby.captains[team]?.name === name) return lobby.captains[team].id;
+  for (const s of lobby.spectators[team]) {
+    if (s.name === name) return s.id;
+  }
+  return null;
+}
+
+/**
+ * Check if all real players on both teams have locked in a hero.
+ *
+ * @param {LobbyState} lobby - The lobby.
+ * @returns {boolean} True if every connected player has a selection.
+ */
+function allPlayersLocked(lobby) {
+  const st = lobby.std;
+  if (!st || !st.heroSelections) return false;
+  const selections = st.heroSelections;
+  for (let t = 0; t < 2; t++) {
+    // Check captain.
+    const cap = lobby.captains[t];
+    if (cap && !selections[cap.id]) return false;
+    // Check spectators (players on team).
+    for (const s of lobby.spectators[t]) {
+      if (!selections[s.id]) return false;
+    }
+  }
+  return true;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2001,11 +2169,11 @@ io.on("connection", (socket) => {
   /**
    * @event stdAction
    * @description Captain makes a pick or ban in the standard draft.
+   * Player assignment happens in the post-draft hero_select phase.
    * @param {Object} data
    * @param {string} data.hero - The hero to pick or ban.
-   * @param {string} [data.assignedTo] - Player name to assign the pick to.
    */
-  socket.on("stdAction", ({ hero, assignedTo }) => {
+  socket.on("stdAction", ({ hero }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
     if (!lobby || lobby.mode !== "standard" || lobby.phase !== "std_drafting" || !lobby.std) return;
@@ -2018,26 +2186,44 @@ io.on("connection", (socket) => {
     if (used.has(hero) || !HEROES.includes(hero)) return;
     clearTimer(lobby);
     if (turn.type === "ban") st.bans[turn.team].push(hero);
-    else {
-      st.picks[turn.team].push(hero);
-      if (!st.playerAssignments) st.playerAssignments = [[], []];
-      st.playerAssignments[turn.team].push(assignedTo || null);
-    }
+    else st.picks[turn.team].push(hero);
     stdAdvance(lobby);
   });
 
-  /** @event reassignPick - Captain reassigns a hero pick to a different player. */
-  socket.on("reassignPick", ({ team, pickIndex, assignedTo }) => {
+  // Player assignment is now handled entirely in the post-draft hero_select phase.
+
+  /**
+   * @event lockHero - Player locks in a hero during the hero_select phase.
+   * @param {Object} data
+   * @param {string} data.hero - The hero to lock in.
+   */
+  socket.on("lockHero", ({ hero }) => {
     if (!myLobby) return;
     const lobby = lobbies.get(myLobby);
-    if (!lobby || lobby.mode !== "standard" || !lobby.std) return;
-    const me = findPerson(lobby, socket.id);
-    if (!me || me.role !== "captain" || me.team !== team) return;
+    if (!lobby || lobby.phase !== "hero_select" || !lobby.std) return;
     const st = lobby.std;
-    if (!st.playerAssignments) st.playerAssignments = [[], []];
-    if (pickIndex < 0 || pickIndex >= st.picks[team].length) return;
-    st.playerAssignments[team][pickIndex] = assignedTo || null;
+    const me = findPerson(lobby, socket.id);
+    if (!me || (me.role !== "captain" && me.role !== "spectator")) return;
+    const myTeam = me.team;
+    // Validate the hero is in this team's pool.
+    if (!st.picks[myTeam]?.includes(hero)) return;
+    // Check the hero hasn't been claimed by another teammate.
+    for (const [otherSid, otherHero] of Object.entries(st.heroSelections || {})) {
+      if (otherSid === socket.id) continue;
+      if (otherHero === hero) {
+        const otherP = findPerson(lobby, otherSid);
+        if (otherP && ((otherP.role === "captain" && otherP.team === myTeam) ||
+                       (otherP.role === "spectator" && otherP.team === myTeam))) {
+          return; // Already claimed by a teammate.
+        }
+      }
+    }
+    st.heroSelections[socket.id] = hero;
     broadcast(lobby);
+    // If all connected players have locked in, end the phase early.
+    if (allPlayersLocked(lobby)) {
+      finishHeroSelect(lobby);
+    }
   });
 
   /** @event specPref - Spectator toggles a hero preference vote. */
