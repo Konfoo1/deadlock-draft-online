@@ -167,6 +167,40 @@ input,select{font-family:inherit}
 .pause-box h2{font-size:1.6rem;color:var(--accent);margin-bottom:8px}
 .pause-box p{color:#888;font-size:.9rem}
 
+/* ── HERO SELECT SCREEN ───────────────── */
+.hs-container{display:flex;flex-direction:column;height:100vh;width:100%;position:relative;z-index:1}
+.hs-header{display:flex;align-items:center;justify-content:center;padding:20px 24px 10px;gap:20px;flex-direction:column}
+.hs-title{font-size:1.8rem;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--accent),#ffcc00,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin:0}
+.hs-timer-wrap{display:flex;align-items:center;justify-content:center}
+.hs-timer{font-size:3rem;font-weight:900;font-variant-numeric:tabular-nums;color:#fff;min-width:80px;text-align:center;transition:color .3s}
+.hs-timer.urgent{color:#ff4444;animation:hsPulseText 1s infinite alternate}
+@keyframes hsPulseText{from{opacity:1;transform:scale(1)}to{opacity:.7;transform:scale(1.08)}}
+.hs-body{flex:1;display:flex;gap:0;overflow-y:auto;padding:10px 24px 20px}
+.hs-team-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px}
+.hs-divider{width:2px;background:linear-gradient(to bottom,transparent,#333,transparent);margin:0 10px}
+.hs-team-name{font-size:1.1rem;font-weight:700;color:#ccc;margin:0 0 6px;letter-spacing:1px}
+.hs-heroes{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width:100%}
+.hs-hero-card{width:120px;background:var(--panel);border:2px solid #333;border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;transition:all .25s;position:relative}
+.hs-hero-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 4px 16px rgba(232,122,32,.2)}
+.hs-hero-card.selected{border-color:var(--accent);background:rgba(232,122,32,.1)}
+.hs-hero-card.locked{border-color:#4caf50;background:rgba(76,175,80,.1);cursor:default;pointer-events:none}
+.hs-hero-card.locked::after{content:"LOCKED";position:absolute;top:4px;right:4px;font-size:.55rem;font-weight:800;color:#4caf50;letter-spacing:1px;background:rgba(0,0,0,.5);padding:2px 5px;border-radius:4px}
+.hs-hero-card.taken{opacity:.35;cursor:not-allowed;pointer-events:none}
+.hs-hero-card.enemy{cursor:default;pointer-events:none}
+.hs-hero-card .hs-hero-img{width:64px;height:64px;border-radius:8px;object-fit:cover;margin-bottom:6px}
+.hs-hero-card .hs-hero-name{font-size:.78rem;font-weight:700;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hs-hero-card .hs-claimed-by{font-size:.65rem;color:#888;margin-top:3px;min-height:14px}
+.hs-lock-btn{margin-top:6px;padding:4px 14px;font-size:.7rem;font-weight:700;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#000;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.hs-lock-btn:hover{transform:scale(1.05);background:#ffaa33}
+.hs-lock-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.hs-status{text-align:center;padding:12px;font-size:.85rem;color:#888;font-weight:600;letter-spacing:.5px}
+.hs-border-pulse{position:fixed;inset:0;pointer-events:none;z-index:0;border:4px solid transparent;transition:border-color .3s}
+.hs-border-pulse.warning{border-color:rgba(255,68,68,.5);animation:hsBorderPulse 1s infinite alternate}
+@keyframes hsBorderPulse{from{border-color:rgba(255,68,68,.2)}to{border-color:rgba(255,68,68,.8)}}
+.hs-my-selection{text-align:center;padding:10px;display:flex;align-items:center;justify-content:center;gap:10px}
+.hs-my-selection .hs-sel-label{font-size:.85rem;color:#aaa}
+.hs-my-selection .hs-sel-hero{font-size:1rem;font-weight:700;color:var(--accent)}
+
 /* ── HERO GRID ──────────────────────────── */
 .draft-app{display:flex;flex-direction:column;height:100vh;width:100%}
 .draft-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;justify-content:center}
@@ -902,6 +936,31 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
   <p class="waiting-text hidden" id="rvWait">Waiting for host…</p>
 </div>
 
+<!-- ═══════ HERO SELECT ═══════ -->
+<div class="screen" id="heroSelectScreen" style="padding:0">
+  <div class="hs-container">
+    <div class="hs-header">
+      <h1 class="hs-title">SELECT YOUR HERO</h1>
+      <div class="hs-timer-wrap">
+        <div class="hs-timer" id="hsTimer">60</div>
+      </div>
+    </div>
+    <div class="hs-body">
+      <div class="hs-team-col" id="hsTeam0">
+        <h3 class="hs-team-name" id="hsTeamName0"></h3>
+        <div class="hs-heroes" id="hsHeroes0"></div>
+      </div>
+      <div class="hs-divider"></div>
+      <div class="hs-team-col" id="hsTeam1">
+        <h3 class="hs-team-name" id="hsTeamName1"></h3>
+        <div class="hs-heroes" id="hsHeroes1"></div>
+      </div>
+    </div>
+    <div class="hs-status" id="hsStatus">Click a hero to claim it, then lock in!</div>
+  </div>
+  <div class="hs-border-pulse" id="hsBorderPulse"></div>
+</div>
+
 <!-- ═══════ COMPLETE ═══════ -->
 <div class="screen" id="completeScreen" style="overflow-y:auto">
   <h1>✦ DRAFT COMPLETE ✦</h1>
@@ -1310,10 +1369,10 @@ function updateGlobalUI(screenId){
   const backBtn=document.getElementById("globalBackBtn");
   const modeLabel=document.getElementById("globalModeLabel");
   // Back button: show on mode select, lobby, reveal, complete, tourney setup — NOT on home or active draft/tourney lobby/bracket screens
-  const showBack=["modeSelect","lobby","revealScreen","completeScreen","tourneySetup"].includes(screenId);
+  const showBack=["modeSelect","lobby","revealScreen","completeScreen","heroSelectScreen","tourneySetup"].includes(screenId);
   backBtn.classList.toggle("visible",showBack);
   // Mode label: show on lobby, reveal, complete, draft, stdDraft, tourneyLobby, bracket screens
-  const showMode=["lobby","revealScreen","completeScreen","draft","stdDraft","tourneyLobby","tourneyBracket","tourneyMatch","tourneyReveal","tourneyComplete"].includes(screenId);
+  const showMode=["lobby","revealScreen","completeScreen","heroSelectScreen","draft","stdDraft","tourneyLobby","tourneyBracket","tourneyMatch","tourneyReveal","tourneyComplete"].includes(screenId);
   modeLabel.classList.toggle("visible",showMode);
   if(showMode){
     if(["tourneyLobby","tourneyBracket","tourneyMatch","tourneyReveal","tourneyComplete"].includes(screenId))modeLabel.textContent="Tournament";
@@ -1525,7 +1584,8 @@ socket.on("state",(state)=>{
     renderStdDraft();showScreen("stdDraft");startStdTimer();
   }
   else if(p==="phase1_reveal"||p==="phase2_reveal"){lastDraftPhase=null;setPhaseAccent(null);renderReveal();showScreen("revealScreen");clearInterval(timerInterval);}
-  else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
+  else if(p==="hero_select"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent("pick");renderHeroSelect();showScreen("heroSelectScreen");startHsTimer();}
+  else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);clearInterval(hsTimerInterval);hsSelectedHero=null;renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
 });
 
 socket.on("lobbyCreated",({code})=>history.replaceState(null,"","?lobby="+code));
@@ -2480,6 +2540,125 @@ function renderStdDraft(){
     const area=document.getElementById("stdAssignArea");
     if(area){area.innerHTML="";area.classList.add("hidden");}
   }
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: HERO SELECT (post-draft player claiming)
+// ═══════════════════════════════════════════
+let hsTimerInterval=null;
+let hsSelectedHero=null;
+
+function renderHeroSelect(){
+  if(!S||!S.std||!S.std.heroSelect)return;
+  const hs=S.std.heroSelect;
+  const myTeam=S.myTeam;
+  const iAmPlayer=S.role==="captain"||S.role==="spectator";
+
+  // Team names
+  document.getElementById("hsTeamName0").textContent=S.teamNames[0];
+  document.getElementById("hsTeamName1").textContent=S.teamNames[1];
+
+  // Map columns to the correct pools.
+  // Column 0 = Team 0, Column 1 = Team 1 — always.
+  // myPool/oppPool are relative to the viewer's team.
+  const pools=[null,null];
+  const lockedMaps=[null,null];
+  if(myTeam===0){
+    pools[0]=hs.myPool; pools[1]=hs.oppPool;
+    lockedMaps[0]=hs.myTeamLocked; lockedMaps[1]=hs.oppTeamLocked;
+  } else if(myTeam===1){
+    pools[0]=hs.oppPool; pools[1]=hs.myPool;
+    lockedMaps[0]=hs.oppTeamLocked; lockedMaps[1]=hs.myTeamLocked;
+  } else {
+    // Unassigned: myPool=team0, oppPool=team1
+    pools[0]=hs.myPool; pools[1]=hs.oppPool;
+    lockedMaps[0]=hs.myTeamLocked; lockedMaps[1]=hs.oppTeamLocked;
+  }
+
+  // Render each team's hero pool
+  [0,1].forEach(t=>{
+    const isMyTeam=t===myTeam;
+    const picks=pools[t]||[];
+    const locked=lockedMaps[t]||{};
+    const container=document.getElementById("hsHeroes"+t);
+    let h="";
+    picks.forEach(hero=>{
+      const claimedBy=Object.entries(locked).find(([n,hh])=>hh===hero);
+      const isClaimed=!!claimedBy;
+      const isMySelection=hs.mySelection===hero&&isMyTeam;
+      const isLockedByMe=isMySelection&&isClaimed;
+      const isTakenByOther=isClaimed&&!isMySelection&&isMyTeam;
+
+      let cls="hs-hero-card";
+      if(!isMyTeam) cls+=" enemy";
+      else if(isLockedByMe) cls+=" locked";
+      else if(isTakenByOther) cls+=" taken";
+      else if(hsSelectedHero===hero&&isMyTeam) cls+=" selected";
+
+      const imgUrl=heroImgUrl(hero);
+      const canClick=isMyTeam&&iAmPlayer&&!hs.mySelection&&!isClaimed;
+
+      h+=`<div class="${cls}"${canClick?` onclick="selectHsHero('${esc(hero)}')"`:""}>`;
+      h+=`<img class="hs-hero-img" src="${imgUrl}" alt="${hero}" draggable="false">`;
+      h+=`<div class="hs-hero-name">${hero}</div>`;
+      h+=`<div class="hs-claimed-by">${isClaimed?claimedBy[0]:""}</div>`;
+      h+=`</div>`;
+    });
+    container.innerHTML=h;
+  });
+
+  // Status message and lock button
+  const statusEl=document.getElementById("hsStatus");
+  if(!iAmPlayer||myTeam<0){
+    statusEl.innerHTML="<em>Spectating — players are selecting heroes…</em>";
+  } else if(hs.mySelection){
+    const lockedValues=Object.values(hs.myTeamLocked||{});
+    if(lockedValues.includes(hs.mySelection)){
+      statusEl.innerHTML=`You locked in <strong style="color:var(--accent)">${hs.mySelection}</strong>! Waiting for others…`;
+    } else {
+      statusEl.innerHTML=`Selected <strong style="color:var(--accent)">${hs.mySelection}</strong> — waiting for server confirmation…`;
+    }
+  } else if(hsSelectedHero){
+    statusEl.innerHTML=`<button class="hs-lock-btn" onclick="lockHsHero()">LOCK IN ${hsSelectedHero.toUpperCase()}</button>`;
+  } else {
+    statusEl.textContent="Click a hero from your team to claim it!";
+  }
+}
+
+function selectHsHero(hero){
+  if(!S||!S.std||!S.std.heroSelect)return;
+  if(S.std.heroSelect.mySelection)return; // Already locked in
+  hsSelectedHero=hero;
+  renderHeroSelect();
+}
+
+function lockHsHero(){
+  if(!hsSelectedHero)return;
+  socket.emit("lockHero",{hero:hsSelectedHero});
+  hsSelectedHero=null;
+}
+
+function startHsTimer(){
+  clearInterval(hsTimerInterval);
+  hsTimerInterval=setInterval(tickHsTimer,200);
+  tickHsTimer();
+}
+
+function tickHsTimer(){
+  if(!S||S.phase!=="hero_select"){clearInterval(hsTimerInterval);return;}
+  if(S.paused){
+    document.getElementById("hsTimer").textContent="⏸";
+    return;
+  }
+  const end=S.timerEnd;
+  if(!end){document.getElementById("hsTimer").textContent="—";return;}
+  const left=Math.max(0,Math.ceil((end-Date.now())/1000));
+  const el=document.getElementById("hsTimer");
+  el.textContent=left;
+  // Urgency effects at 10 seconds
+  el.classList.toggle("urgent",left<=10);
+  const pulse=document.getElementById("hsBorderPulse");
+  pulse.classList.toggle("warning",left<=10);
 }
 
 // ═══════════════════════════════════════════
