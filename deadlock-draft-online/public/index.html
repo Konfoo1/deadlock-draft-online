@@ -1299,13 +1299,19 @@ fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
     // Pre-fill name from Steam if name field is empty
     const nameInput=document.getElementById("nameInput");
     if(!nameInput.value)nameInput.value=data.displayName||"";
+  } else if(!data.steamEnabled){
+    // Steam auth not configured on server — hide the login button entirely
+    document.getElementById("steamBar").classList.add("hidden");
   }
   // Check URL params for steam login result
   const params=new URLSearchParams(window.location.search);
   if(params.get("steamLogin")==="success"||params.get("steamError")){
     window.history.replaceState({},"",window.location.pathname+window.location.hash);
   }
-}).catch(()=>{});
+}).catch(()=>{
+  // Server might not have Steam auth at all — hide the button
+  document.getElementById("steamBar").classList.add("hidden");
+});
 
 function steamLogout(){
   fetch("/auth/steam/logout").then(()=>{

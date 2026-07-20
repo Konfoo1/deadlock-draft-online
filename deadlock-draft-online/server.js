@@ -52,11 +52,23 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 
-const steam = new SteamAuth({
-  realm: BASE_URL,
-  returnUrl: `${BASE_URL}/auth/steam/callback`,
-  apiKey: process.env.STEAM_API_KEY || "", // Get from https://steamcommunity.com/dev/apikey
-});
+// Steam auth is optional — only enabled when STEAM_API_KEY is set.
+let steam = null;
+const STEAM_API_KEY = process.env.STEAM_API_KEY || "";
+if (STEAM_API_KEY) {
+  try {
+    steam = new SteamAuth({
+      realm: BASE_URL,
+      returnUrl: `${BASE_URL}/auth/steam/callback`,
+      apiKey: STEAM_API_KEY,
+    });
+    console.log("[Steam Auth] Enabled — STEAM_API_KEY is set");
+  } catch (err) {
+    console.warn(`[Steam Auth] Failed to initialize: ${err.message}`);
+  }
+} else {
+  console.log("[Steam Auth] Disabled — set STEAM_API_KEY env var to enable (get one at https://steamcommunity.com/dev/apikey)");
+}
 
 // Share session with Socket.IO
 const io = new Server(server);
@@ -64,9 +76,10 @@ io.engine.use(sessionMiddleware);
 
 app.use(express.static("public"));
 
-// ── Steam Auth Routes ──
+// ── Steam Auth Routes (gracefully disabled if no API key) ──
 
 app.get("/auth/steam", async (req, res) => {
+  if (!steam) return res.redirect("/?steamError=not_configured");
   try {
     const redirectUrl = await steam.getRedirectUrl();
     res.redirect(redirectUrl);
@@ -77,6 +90,7 @@ app.get("/auth/steam", async (req, res) => {
 });
 
 app.get("/auth/steam/callback", async (req, res) => {
+  if (!steam) return res.redirect("/?steamError=not_configured");
   try {
     const user = await steam.authenticate(req);
     // Store Steam profile in session
@@ -95,10 +109,10 @@ app.get("/auth/steam/callback", async (req, res) => {
 });
 
 app.get("/auth/steam/status", (req, res) => {
-  if (req.session.steam) {
-    res.json({ loggedIn: true, ...req.session.steam });
+  if (req.session?.steam) {
+    res.json({ loggedIn: true, steamEnabled: true, ...req.session.steam });
   } else {
-    res.json({ loggedIn: false });
+    res.json({ loggedIn: false, steamEnabled: !!steam });
   }
 });
 
