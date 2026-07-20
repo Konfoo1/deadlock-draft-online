@@ -1309,19 +1309,16 @@ function showSteamLoggedOut(){
 fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
   if(data.loggedIn){
     showSteamLoggedIn(data);
-  } else if(!data.steamEnabled){
-    // Steam auth not configured on server — hide entirely
-    document.getElementById("steamBar").classList.add("hidden");
   }
   // Check URL params for steam login result
   const params=new URLSearchParams(window.location.search);
+  if(params.get("steamError")==="not_configured"){
+    alert("Steam login is not configured on the server yet. The host needs to set the STEAM_API_KEY environment variable.");
+  }
   if(params.get("steamLogin")==="success"||params.get("steamError")){
     window.history.replaceState({},"",window.location.pathname+window.location.hash);
   }
-}).catch(()=>{
-  // Server might not have Steam auth at all — hide the button
-  document.getElementById("steamBar").classList.add("hidden");
-});
+}).catch(()=>{});
 
 function steamLogout(){
   fetch("/auth/steam/logout").then(()=>{ showSteamLoggedOut(); });
