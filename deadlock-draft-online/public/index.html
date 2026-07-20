@@ -65,16 +65,17 @@ input,select{font-family:inherit}
 .footer-dates{color:#333;font-size:.62rem;letter-spacing:.5px}
 .code-display{font-size:2.8rem;font-weight:700;letter-spacing:8px;color:var(--accent);margin:8px 0;font-family:monospace;text-shadow:0 0 20px rgba(232,122,32,.3);animation:fadeIn .5s ease-out}
 
-/* ── STEAM LOGIN ──────────────────────────────── */
-.steam-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0;animation:fadeIn .4s ease-out}
-.steam-login-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;background:#171a21;border:2px solid #2a475e;border-radius:6px;color:#c7d5e0;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .25s;text-decoration:none}
-.steam-login-btn:hover{background:#1b2838;border-color:#66c0f4;color:#fff;box-shadow:0 0 12px rgba(102,192,244,.2)}
-.steam-login-btn svg{width:20px;height:20px;fill:#c7d5e0}
+/* ── STEAM LOGIN (global top-right) ───────────── */
+.steam-global{position:fixed;top:12px;right:16px;z-index:900;display:flex;align-items:center;gap:8px;animation:fadeIn .4s ease-out}
+.steam-login-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(23,26,33,.85);border:1px solid #2a475e;border-radius:6px;color:#c7d5e0;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .25s;text-decoration:none;backdrop-filter:blur(8px)}
+.steam-login-btn:hover{background:rgba(27,40,56,.95);border-color:#66c0f4;color:#fff;box-shadow:0 0 12px rgba(102,192,244,.2)}
+.steam-login-btn svg{width:18px;height:18px;fill:#c7d5e0}
 .steam-login-btn:hover svg{fill:#fff}
-.steam-profile{display:inline-flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;background:#171a21;border:2px solid #2a475e;border-radius:6px;font-size:.8rem;color:#c7d5e0}
-.steam-profile img{width:28px;height:28px;border-radius:4px}
+.steam-profile-bar{display:flex;align-items:center;gap:6px}
+.steam-profile{display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 4px;background:rgba(23,26,33,.85);border:1px solid #2a475e;border-radius:6px;font-size:.78rem;color:#c7d5e0;backdrop-filter:blur(8px)}
+.steam-profile img{width:24px;height:24px;border-radius:4px}
 .steam-profile .steam-name{font-weight:600;color:#66c0f4}
-.steam-logout-btn{background:none;border:none;color:#666;font-size:.7rem;cursor:pointer;padding:2px 6px}
+.steam-logout-btn{background:none;border:none;color:#555;font-size:.65rem;cursor:pointer;padding:2px 4px;transition:color .2s}
 .steam-logout-btn:hover{color:#cc4444}
 
 /* ── PLAYER STATS TOOLTIP ─────────────────────── */
@@ -699,23 +700,25 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 <button class="back-btn" id="globalBackBtn" onclick="goBack()">← Back</button>
 <div class="mode-label" id="globalModeLabel"></div>
 
-<!-- ═══════ HOME ═══════ -->
-<div class="screen active" id="home">
-  <h1>⚡ Deadlock Drafting Tool</h1>
-  <p id="homeSubtitle">Create a draft lobby or join with a link.</p>
-  <div class="steam-bar" id="steamBar">
-    <a class="steam-login-btn" href="/auth/steam" id="steamLoginBtn">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v6.95c5.05-.5 9-4.76 9-9.95 0-5.52-4.48-10-10-10z"/></svg>
-      Sign in with Steam
-    </a>
-  </div>
-  <div class="steam-bar hidden" id="steamProfileBar">
+<!-- ═══════ GLOBAL STEAM BAR (top-right, all screens) ═══════ -->
+<div id="steamBar" class="steam-global">
+  <a class="steam-login-btn" href="/auth/steam" id="steamLoginBtn">
+    <svg viewBox="0 0 256 259" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M128.015 0C60.106 0 4.154 50.486.457 114.735l68.8 28.428c5.855-4.01 12.916-6.354 20.517-6.354c.685 0 1.363.02 2.037.055l30.704-44.487v-.624c0-27.94 22.733-50.67 50.677-50.67c27.946 0 50.682 22.73 50.682 50.674c0 27.942-22.736 50.674-50.682 50.674c-.388 0-.77-.012-1.155-.022l-43.78 31.24c.02.544.035 1.085.035 1.633c0 20.965-17.054 38.017-38.02 38.017c-18.267 0-33.544-12.935-37.13-30.142L7.592 157.385C24.882 214.49 77.255 256.003 139.62 258.94V259h2.458c.282 0 .558-.01.84-.012C213.344 256.056 271 197.403 271 126.544V126h-.003C268.13 56.054 205.49 0 128.015 0zM81.11 198.137l-15.288-6.317c2.717 5.653 7.254 10.454 13.158 13.314c12.83 6.217 28.237.87 34.455-11.958c3.012-6.218 3.129-13.104.333-19.39c-2.787-6.286-7.943-11.04-14.163-14.052c-6.17-2.99-12.862-3.181-19.053-1.017l15.805 6.53c9.47 3.913 13.953 14.776 10.04 24.244c-3.912 9.468-14.775 13.957-24.247 10.042zm116.956-98.14h.002v-.004c0-18.636-15.166-33.798-33.802-33.798c-18.638 0-33.802 15.162-33.802 33.802c0 18.636 15.164 33.798 33.802 33.798c18.636 0 33.8-15.162 33.8-33.798zm-59.095.097c0-14.05 11.418-25.464 25.47-25.464c14.054 0 25.47 11.414 25.47 25.464c0 14.054-11.416 25.47-25.47 25.47c-14.052 0-25.47-11.416-25.47-25.47z"/></svg>
+    Sign in with Steam
+  </a>
+  <div class="steam-profile-bar hidden" id="steamProfileBar">
     <div class="steam-profile">
       <img id="steamAvatar" src="" alt="">
       <span class="steam-name" id="steamName"></span>
     </div>
     <button class="steam-logout-btn" onclick="steamLogout()">Sign out</button>
   </div>
+</div>
+
+<!-- ═══════ HOME ═══════ -->
+<div class="screen active" id="home">
+  <h1>⚡ Deadlock Drafting Tool</h1>
+  <p id="homeSubtitle">Create a draft lobby or join with a link.</p>
   <input class="input-field" id="nameInput" placeholder="Your name" maxlength="20">
 
   <!-- Default: create or manual join -->
@@ -1288,19 +1291,26 @@ let myJoinRole = null;    // "captain" or "spectator"
 let myJoinTeam = null;    // team index if relevant
 
 // ── Steam Auth: Check login status on load ──
+function showSteamLoggedIn(data){
+  steamUser=data;
+  document.getElementById("steamLoginBtn").classList.add("hidden");
+  document.getElementById("steamProfileBar").classList.remove("hidden");
+  document.getElementById("steamAvatar").src=data.avatar||"";
+  document.getElementById("steamName").textContent=data.displayName||"Steam User";
+  // Pre-fill name from Steam if name field is empty
+  const nameInput=document.getElementById("nameInput");
+  if(!nameInput.value)nameInput.value=data.displayName||"";
+}
+function showSteamLoggedOut(){
+  steamUser=null;
+  document.getElementById("steamLoginBtn").classList.remove("hidden");
+  document.getElementById("steamProfileBar").classList.add("hidden");
+}
 fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
   if(data.loggedIn){
-    steamUser=data;
-    document.getElementById("steamLoginBtn").parentElement.classList.add("hidden");
-    const bar=document.getElementById("steamProfileBar");
-    bar.classList.remove("hidden");
-    document.getElementById("steamAvatar").src=data.avatar||"";
-    document.getElementById("steamName").textContent=data.displayName||"Steam User";
-    // Pre-fill name from Steam if name field is empty
-    const nameInput=document.getElementById("nameInput");
-    if(!nameInput.value)nameInput.value=data.displayName||"";
+    showSteamLoggedIn(data);
   } else if(!data.steamEnabled){
-    // Steam auth not configured on server — hide the login button entirely
+    // Steam auth not configured on server — hide entirely
     document.getElementById("steamBar").classList.add("hidden");
   }
   // Check URL params for steam login result
@@ -1314,11 +1324,7 @@ fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
 });
 
 function steamLogout(){
-  fetch("/auth/steam/logout").then(()=>{
-    steamUser=null;
-    document.getElementById("steamLoginBtn").parentElement.classList.remove("hidden");
-    document.getElementById("steamProfileBar").classList.add("hidden");
-  });
+  fetch("/auth/steam/logout").then(()=>{ showSteamLoggedOut(); });
 }
 
 socket.on("connect", () => {
