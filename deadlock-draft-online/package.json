@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "express-session": "^1.18.1",
+    "node-steam-openid": "^1.1.1",
     "socket.io": "^4.7.4"
   },
   "engines": {

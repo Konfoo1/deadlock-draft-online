@@ -31,12 +31,182 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const session = require("express-session");
+const SteamAuth = require("node-steam-openid");
 
 const app = express();
 const server = http.createServer(app);
+
+// ═══════════════════════════════════════════════════════════
+//  SESSION + STEAM AUTH
+// ═══════════════════════════════════════════════════════════
+
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET || "deadlock-draft-secret-change-me",
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 24 * 60 * 60 * 1000 }, // 24 hours
+});
+
+app.use(sessionMiddleware);
+
+const steam = new SteamAuth({
+  realm: BASE_URL,
+  returnUrl: `${BASE_URL}/auth/steam/callback`,
+  apiKey: process.env.STEAM_API_KEY || "", // Get from https://steamcommunity.com/dev/apikey
+});
+
+// Share session with Socket.IO
 const io = new Server(server);
+io.engine.use(sessionMiddleware);
 
 app.use(express.static("public"));
+
+// ── Steam Auth Routes ──
+
+app.get("/auth/steam", async (req, res) => {
+  try {
+    const redirectUrl = await steam.getRedirectUrl();
+    res.redirect(redirectUrl);
+  } catch (err) {
+    console.error("[Steam Auth] Redirect error:", err.message);
+    res.redirect("/?steamError=redirect_failed");
+  }
+});
+
+app.get("/auth/steam/callback", async (req, res) => {
+  try {
+    const user = await steam.authenticate(req);
+    // Store Steam profile in session
+    req.session.steam = {
+      steamId64: user.steamid,
+      accountId: Number(BigInt(user.steamid) - BigInt("76561197960265728")),
+      displayName: user.username,
+      avatar: user.avatar?.large || user.avatar?.medium || user.avatar?.small || "",
+    };
+    console.log(`[Steam Auth] ${user.username} logged in (${user.steamid})`);
+    res.redirect("/?steamLogin=success");
+  } catch (err) {
+    console.error("[Steam Auth] Callback error:", err.message);
+    res.redirect("/?steamError=auth_failed");
+  }
+});
+
+app.get("/auth/steam/status", (req, res) => {
+  if (req.session.steam) {
+    res.json({ loggedIn: true, ...req.session.steam });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
+app.get("/auth/steam/logout", (req, res) => {
+  req.session.steam = null;
+  res.json({ loggedIn: false });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  DEADLOCK API — PLAYER STATS
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * In-memory cache for Deadlock API player stats.
+ * Key: accountId (number), Value: { data, fetchedAt }.
+ * Cached for 10 minutes to avoid hammering the API.
+ * @type {Map<number, {data: Object, fetchedAt: number}>}
+ */
+const statsCache = new Map();
+const STATS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Fetch player hero stats from the Deadlock API.
+ * Uses only_stored_history mode for generous rate limits (100 req/s).
+ * @param {number} accountId - Steam account ID (32-bit).
+ * @returns {Promise<Object|null>} Player stats object or null on failure.
+ */
+async function fetchPlayerStats(accountId) {
+  // Check cache first
+  const cached = statsCache.get(accountId);
+  if (cached && Date.now() - cached.fetchedAt < STATS_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    // Fetch hero stats and match history in parallel
+    const [heroRes, historyRes] = await Promise.all([
+      fetch(`https://api.deadlock-api.com/v1/players/${accountId}/hero-stats`),
+      fetch(`https://api.deadlock-api.com/v1/players/${accountId}/match-history?only_stored_history=true`),
+    ]);
+
+    const result = { accountId, heroes: {}, recentMatches: [], totalGames: 0, overallWinRate: 0 };
+
+    // Process hero stats
+    if (heroRes.ok) {
+      const heroData = await heroRes.json();
+      if (Array.isArray(heroData)) {
+        for (const entry of heroData) {
+          const heroId = entry.hero_id;
+          result.heroes[heroId] = {
+            heroId,
+            wins: entry.wins || 0,
+            losses: entry.losses || 0,
+            matches: entry.matches || (entry.wins || 0) + (entry.losses || 0),
+            winRate: entry.matches > 0 ? ((entry.wins || 0) / entry.matches * 100).toFixed(1) : "0.0",
+            avgKills: entry.kills_per_match || 0,
+            avgDeaths: entry.deaths_per_match || 0,
+            avgAssists: entry.assists_per_match || 0,
+          };
+        }
+      }
+    }
+
+    // Process match history (last 20 matches)
+    if (historyRes.ok) {
+      const historyData = await historyRes.json();
+      if (Array.isArray(historyData)) {
+        const recent = historyData.slice(0, 20);
+        let wins = 0;
+        result.totalGames = historyData.length;
+        for (const m of historyData) {
+          const won = m.player_team !== undefined && m.match_result !== undefined
+            ? (m.player_team === m.match_result) : false;
+          if (won) wins++;
+        }
+        result.overallWinRate = historyData.length > 0
+          ? (wins / historyData.length * 100).toFixed(1) : "0.0";
+        result.recentMatches = recent.map(m => ({
+          matchId: m.match_id,
+          heroId: m.hero_id,
+          kills: m.player_kills || 0,
+          deaths: m.player_deaths || 0,
+          assists: m.player_assists || 0,
+          won: m.player_team !== undefined && m.match_result !== undefined
+            ? (m.player_team === m.match_result) : false,
+          duration: m.match_duration_s || 0,
+        }));
+      }
+    }
+
+    // Cache the result
+    statsCache.set(accountId, { data: result, fetchedAt: Date.now() });
+    console.log(`[Deadlock API] Fetched stats for account ${accountId}: ${Object.keys(result.heroes).length} heroes, ${result.totalGames} games`);
+    return result;
+  } catch (err) {
+    console.error(`[Deadlock API] Error fetching stats for ${accountId}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Mapping of Deadlock hero IDs → display names.
+ * Built from the HEROES list + Deadlock Assets API data.
+ * Updated alongside HEROES at startup and every 6 hours.
+ * @type {Object<number, string>}
+ */
+let HERO_ID_TO_NAME = {};
+let HERO_NAME_TO_ID = {};
 
 // ═══════════════════════════════════════════════════════════
 //  HEROES — fetched from Deadlock Assets API at startup
@@ -76,6 +246,8 @@ async function fetchHeroData() {
     const heroes = await res.json();
     const names = [];
     const images = {};
+    const idToName = {};
+    const nameToId = {};
     for (const hero of heroes) {
       if (!hero.name || hero.disabled) continue;
       names.push(hero.name);
@@ -84,11 +256,18 @@ async function fetchHeroData() {
         || hero.images?.icon_hero_card
         || null;
       if (img) images[hero.name] = img;
+      // Build ID↔Name mappings for stats integration
+      if (hero.id !== undefined) {
+        idToName[hero.id] = hero.name;
+        nameToId[hero.name] = hero.id;
+      }
     }
     if (names.length > 0) {
       HEROES = names.sort();
       HERO_IMAGES = images;
-      console.log(`[HeroData] Loaded ${HEROES.length} heroes from Deadlock API`);
+      HERO_ID_TO_NAME = idToName;
+      HERO_NAME_TO_ID = nameToId;
+      console.log(`[HeroData] Loaded ${HEROES.length} heroes from Deadlock API (${Object.keys(idToName).length} IDs mapped)`);
     }
   } catch (err) {
     console.warn(`[HeroData] Failed to fetch from API, using fallback list: ${err.message}`);
@@ -104,7 +283,7 @@ setInterval(fetchHeroData, 6 * 60 * 60 * 1000);
  * Clients can fetch this on load to stay in sync without hardcoding.
  */
 app.get("/api/heroes", (req, res) => {
-  res.json({ heroes: HEROES, images: HERO_IMAGES });
+  res.json({ heroes: HEROES, images: HERO_IMAGES, heroIdToName: HERO_ID_TO_NAME, heroNameToId: HERO_NAME_TO_ID });
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -323,7 +502,34 @@ function stateFor(lobby, sid) {
     teamChat: myTeam >= 0 ? (lobby.teamChat?.[myTeam] || []) : [],
     teamChat0: (role === "unassigned") ? (lobby.teamChat?.[0] || []) : undefined,
     teamChat1: (role === "unassigned") ? (lobby.teamChat?.[1] || []) : undefined,
+    heroIdToName: HERO_ID_TO_NAME,
   };
+
+  // Include Steam profiles — map socket IDs to player names for client use.
+  if (lobby.steamProfiles) {
+    const profiles = {};
+    for (const [pSid, profile] of Object.entries(lobby.steamProfiles)) {
+      // Resolve the socket ID to a player name.
+      let pName = null;
+      for (let t = 0; t < 2; t++) {
+        if (lobby.captains[t]?.id === pSid) { pName = lobby.captains[t].name; break; }
+        const sp = lobby.spectators[t].find(p => p.id === pSid);
+        if (sp) { pName = sp.name; break; }
+      }
+      if (!pName) {
+        const ua = lobby.unassigned.find(u => u.id === pSid);
+        if (ua) pName = ua.name;
+      }
+      if (pName) {
+        profiles[pName] = {
+          accountId: profile.accountId,
+          displayName: profile.displayName,
+          avatar: profile.avatar,
+        };
+      }
+    }
+    s.steamProfiles = profiles;
+  }
 
   // ── PHASE DRAFT (Clone Wars) + DUEL MODE ──
   if (lobby.mode === "phase" || lobby.mode === "duel") {
@@ -1729,6 +1935,59 @@ io.on("connection", (socket) => {
   let myLobby = null;
   /** @type {?string} Tournament code this socket is connected to. */
   let myTourney = null;
+
+  // ── Steam Session ──
+  // Access the HTTP session shared with Express via the engine middleware.
+  const steamProfile = socket.request?.session?.steam || null;
+
+  /**
+   * @event linkSteam
+   * @description Associate this socket's player with their Steam profile in a lobby.
+   * Stores the Steam data on the lobby so other players can see stats.
+   */
+  socket.on("linkSteam", () => {
+    if (!steamProfile || !myLobby) return;
+    const lobby = lobbies.get(myLobby);
+    if (!lobby) return;
+    if (!lobby.steamProfiles) lobby.steamProfiles = {};
+    lobby.steamProfiles[socket.id] = {
+      steamId64: steamProfile.steamId64,
+      accountId: steamProfile.accountId,
+      displayName: steamProfile.displayName,
+      avatar: steamProfile.avatar,
+    };
+    console.log(`[Steam] ${steamProfile.displayName} linked in lobby ${myLobby}`);
+    broadcast(lobby);
+  });
+
+  /**
+   * @event requestPlayerStats
+   * @description Fetch Deadlock API stats for a player by their Steam account ID.
+   * Returns hero win rates, K/D/A, and match history.
+   * @param {Object} data
+   * @param {number} data.accountId - Steam account ID (32-bit).
+   */
+  socket.on("requestPlayerStats", async ({ accountId }) => {
+    if (!accountId) return;
+    const stats = await fetchPlayerStats(accountId);
+    if (!stats) return socket.emit("playerStats", { accountId, error: "Could not fetch stats" });
+    // Convert hero IDs to names using our mapping
+    const namedHeroes = {};
+    for (const [heroId, data] of Object.entries(stats.heroes)) {
+      const heroName = HERO_ID_TO_NAME[heroId] || `Hero #${heroId}`;
+      namedHeroes[heroName] = { ...data, heroName };
+    }
+    for (const m of stats.recentMatches) {
+      m.heroName = HERO_ID_TO_NAME[m.heroId] || `Hero #${m.heroId}`;
+    }
+    socket.emit("playerStats", {
+      accountId: stats.accountId,
+      heroes: namedHeroes,
+      recentMatches: stats.recentMatches,
+      totalGames: stats.totalGames,
+      overallWinRate: stats.overallWinRate,
+    });
+  });
 
   // ── Lobby Creation ──
 

@@ -65,6 +65,44 @@ input,select{font-family:inherit}
 .footer-dates{color:#333;font-size:.62rem;letter-spacing:.5px}
 .code-display{font-size:2.8rem;font-weight:700;letter-spacing:8px;color:var(--accent);margin:8px 0;font-family:monospace;text-shadow:0 0 20px rgba(232,122,32,.3);animation:fadeIn .5s ease-out}
 
+/* ── STEAM LOGIN ──────────────────────────────── */
+.steam-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0;animation:fadeIn .4s ease-out}
+.steam-login-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;background:#171a21;border:2px solid #2a475e;border-radius:6px;color:#c7d5e0;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .25s;text-decoration:none}
+.steam-login-btn:hover{background:#1b2838;border-color:#66c0f4;color:#fff;box-shadow:0 0 12px rgba(102,192,244,.2)}
+.steam-login-btn svg{width:20px;height:20px;fill:#c7d5e0}
+.steam-login-btn:hover svg{fill:#fff}
+.steam-profile{display:inline-flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;background:#171a21;border:2px solid #2a475e;border-radius:6px;font-size:.8rem;color:#c7d5e0}
+.steam-profile img{width:28px;height:28px;border-radius:4px}
+.steam-profile .steam-name{font-weight:600;color:#66c0f4}
+.steam-logout-btn{background:none;border:none;color:#666;font-size:.7rem;cursor:pointer;padding:2px 6px}
+.steam-logout-btn:hover{color:#cc4444}
+
+/* ── PLAYER STATS TOOLTIP ─────────────────────── */
+.stats-badge{display:inline-flex;align-items:center;gap:3px;font-size:.62rem;padding:1px 6px;background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;color:#66cc88;cursor:pointer;margin-left:4px;vertical-align:middle;transition:all .2s}
+.stats-badge:hover{background:#1a3a1a;border-color:#44aa66}
+.stats-badge.loading{color:#888;border-color:#333;background:#1a1a1a}
+
+.stats-popup{position:fixed;z-index:9999;background:#12121a;border:2px solid var(--border);border-radius:12px;padding:16px;max-width:380px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.6);animation:scaleIn .2s ease-out}
+.stats-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#666;font-size:1.2rem;cursor:pointer}
+.stats-popup-close:hover{color:#fff}
+.stats-popup h3{font-size:1rem;color:var(--accent);margin-bottom:4px}
+.stats-popup .stats-summary{display:flex;gap:16px;margin:8px 0 12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.stats-popup .stat-item{text-align:center;flex:1}
+.stats-popup .stat-val{font-size:1.1rem;font-weight:700;color:#fff}
+.stats-popup .stat-label{font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.5px}
+.stats-popup .stat-wr-good{color:#66cc88}
+.stats-popup .stat-wr-ok{color:#cccc66}
+.stats-popup .stat-wr-bad{color:#cc6666}
+.stats-hero-table{width:100%;font-size:.75rem;border-collapse:collapse;margin-top:6px}
+.stats-hero-table th{text-align:left;color:#666;font-weight:600;padding:3px 6px;border-bottom:1px solid #222;font-size:.65rem;text-transform:uppercase}
+.stats-hero-table td{padding:3px 6px;color:#ccc;border-bottom:1px solid #1a1a22}
+.stats-hero-table tr:hover td{background:#1a1a2a}
+.stats-hero-table .hero-name-cell{display:flex;align-items:center;gap:4px}
+.stats-match-list{max-height:180px;overflow-y:auto;margin-top:8px}
+.stats-tabs{display:flex;gap:4px;margin-bottom:8px}
+.stats-tab{padding:4px 10px;background:#1a1a22;border:1px solid #2a2a35;border-radius:4px;color:#888;font-size:.72rem;cursor:pointer;transition:all .2s}
+.stats-tab.active{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+
 /* ── LOBBY ──────────────────────────────── */
 .links-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:10px 0;max-width:520px;width:100%;text-align:left;animation:fadeIn .4s ease-out}
 .links-box .link-label{font-size:.72rem;font-weight:700;letter-spacing:1px;color:var(--dim);margin-bottom:4px}
@@ -665,6 +703,19 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 <div class="screen active" id="home">
   <h1>⚡ Deadlock Drafting Tool</h1>
   <p id="homeSubtitle">Create a draft lobby or join with a link.</p>
+  <div class="steam-bar" id="steamBar">
+    <a class="steam-login-btn" href="/auth/steam" id="steamLoginBtn">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v6.95c5.05-.5 9-4.76 9-9.95 0-5.52-4.48-10-10-10z"/></svg>
+      Sign in with Steam
+    </a>
+  </div>
+  <div class="steam-bar hidden" id="steamProfileBar">
+    <div class="steam-profile">
+      <img id="steamAvatar" src="" alt="">
+      <span class="steam-name" id="steamName"></span>
+    </div>
+    <button class="steam-logout-btn" onclick="steamLogout()">Sign out</button>
+  </div>
   <input class="input-field" id="nameInput" placeholder="Your name" maxlength="20">
 
   <!-- Default: create or manual join -->
@@ -1209,6 +1260,10 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
   </div>
 </div>
 
+<!-- Stats popup container (rendered dynamically) -->
+<div id="statsPopupOverlay" class="hidden" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4)" onclick="closeStatsPopup()"></div>
+<div id="statsPopup" class="stats-popup hidden"></div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 50 });
@@ -1221,17 +1276,52 @@ let lastStdStep = -1; // track std draft step for animation
 let chosenMode = null; // selected game mode
 let stdSelected = null; // captain's pending hero selection in standard draft
 
+// ── Steam + Stats state ──
+let steamUser = null; // { steamId64, accountId, displayName, avatar }
+let playerStatsCache = {}; // accountId → stats data
+let heroIdToName = {}; // hero ID → display name mapping
+
 // ── Reconnection state ──
 let myLobbyCode = null;  // lobby code we joined
 let myPlayerName = null;  // name we joined with
 let myJoinRole = null;    // "captain" or "spectator"
 let myJoinTeam = null;    // team index if relevant
 
+// ── Steam Auth: Check login status on load ──
+fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
+  if(data.loggedIn){
+    steamUser=data;
+    document.getElementById("steamLoginBtn").parentElement.classList.add("hidden");
+    const bar=document.getElementById("steamProfileBar");
+    bar.classList.remove("hidden");
+    document.getElementById("steamAvatar").src=data.avatar||"";
+    document.getElementById("steamName").textContent=data.displayName||"Steam User";
+    // Pre-fill name from Steam if name field is empty
+    const nameInput=document.getElementById("nameInput");
+    if(!nameInput.value)nameInput.value=data.displayName||"";
+  }
+  // Check URL params for steam login result
+  const params=new URLSearchParams(window.location.search);
+  if(params.get("steamLogin")==="success"||params.get("steamError")){
+    window.history.replaceState({},"",window.location.pathname+window.location.hash);
+  }
+}).catch(()=>{});
+
+function steamLogout(){
+  fetch("/auth/steam/logout").then(()=>{
+    steamUser=null;
+    document.getElementById("steamLoginBtn").parentElement.classList.remove("hidden");
+    document.getElementById("steamProfileBar").classList.add("hidden");
+  });
+}
+
 socket.on("connect", () => {
   // If we had a lobby, rejoin it
   if (myLobbyCode && myPlayerName) {
     socket.emit("rejoinLobby", { code: myLobbyCode, name: myPlayerName, role: myJoinRole, team: myJoinTeam });
   }
+  // Link Steam profile to lobby if logged in
+  if(steamUser&&myLobbyCode){socket.emit("linkSteam");}
   // Hide any disconnect banner
   const dcBanner = document.getElementById("disconnectBanner");
   if (dcBanner) dcBanner.classList.add("hidden");
@@ -1571,6 +1661,8 @@ socket.on("state",(state)=>{
   S=state;
   // Sync hero image map from server (Deadlock Assets API CDN URLs)
   if(S.heroImages&&Object.keys(S.heroImages).length>0) heroImageMap=S.heroImages;
+  // Sync hero ID→name mapping for stats display
+  if(S.heroIdToName&&Object.keys(S.heroIdToName).length>0) heroIdToName=S.heroIdToName;
   updatePauseUI();
   const p=S.phase;
   if(p==="waiting"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);renderLobby();showScreen("lobby");}
@@ -1587,8 +1679,8 @@ socket.on("state",(state)=>{
   else if(p==="complete"){lastDraftPhase=null;lastStdStep=-1;setPhaseAccent(null);clearInterval(hsTimerInterval);hsSelectedHero=null;renderComplete();showScreen("completeScreen");clearInterval(timerInterval);}
 });
 
-socket.on("lobbyCreated",({code})=>history.replaceState(null,"","?lobby="+code));
-socket.on("joined",({code,role})=>{myLobbyCode=code;history.replaceState(null,"","?lobby="+code+(role?"&role="+role:""));});
+socket.on("lobbyCreated",({code})=>{history.replaceState(null,"","?lobby="+code);if(steamUser)socket.emit("linkSteam");});
+socket.on("joined",({code,role})=>{myLobbyCode=code;history.replaceState(null,"","?lobby="+code+(role?"&role="+role:""));if(steamUser)socket.emit("linkSteam");});
 socket.on("err",(msg)=>{
   if(document.getElementById("home").classList.contains("active"))document.getElementById("homeErr").textContent=msg;
   else document.getElementById("lobbyErr").textContent=msg;
@@ -1637,7 +1729,7 @@ function renderLobby(){
     let h="";
     const cap=S.captains[t];
     if(cap){
-      h+=`<div class="person">${cap.name}<span><span class="tag cap">CAPTAIN</span>${cap.id===socket.id?'<span class="tag you">YOU</span>':''}</span></div>`;
+      h+=`<div class="person">${cap.name}${statsBadgeHtml(cap.name)}<span><span class="tag cap">CAPTAIN</span>${cap.id===socket.id?'<span class="tag you">YOU</span>':''}</span></div>`;
     } else {
       h+=`<div class="person empty">Waiting for captain…</div>`;
     }
@@ -1647,7 +1739,7 @@ function renderLobby(){
         btns=`<button class="promote-btn" onclick="event.stopPropagation();promoteToCaptain('${s.id}',${t})">⬆ Captain</button>`;
       }
       const draggable=isHost&&s.id!==socket.id;
-      h+=`<div class="person${draggable?' draggable-player':''}"${draggable?` draggable="true" ondragstart="event.dataTransfer.setData('playerId','${s.id}')"`:''}>${s.name}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
+      h+=`<div class="person${draggable?' draggable-player':''}"${draggable?` draggable="true" ondragstart="event.dataTransfer.setData('playerId','${s.id}')"`:''}>${s.name}${statsBadgeHtml(s.name)}<span>${s.id===socket.id?'<span class="tag you">YOU</span>':''}${btns}</span></div>`;
     });
     // Ghost players
     const ghosts=(S.ghostPlayers||[[],[]])[t]||[];
@@ -2295,7 +2387,8 @@ function renderStdDraft(){
       if(isFiller&&isMyCap){
         ph+=`<span class="std-pr-name is-filler" onclick="renameFiller(${t},${pr.fillerIndex})">${pr.name}</span>`;
       } else {
-        ph+=`<span class="std-pr-name">${isGhost?'👻 ':''}${isEnemy?'???':pr.name}${pr.isCaptain?' ⭐':''}</span>`;
+        const badge=(!isEnemy&&!isGhost&&!isFiller)?statsBadgeHtml(pr.name):"";
+        ph+=`<span class="std-pr-name">${isGhost?'👻 ':''}${isEnemy?'???':pr.name}${pr.isCaptain?' ⭐':''}${badge}</span>`;
       }
       ph+=`</div>`;
       // Show pref chips and hero preferences under player name
@@ -3269,7 +3362,142 @@ let HEROES_LIST=["Abrams","Apollo","Bebop","Billy","Calico","Celeste","Doorman",
 fetch("/api/heroes").then(r=>r.json()).then(data=>{
   if(data.heroes&&data.heroes.length>0) HEROES_LIST=data.heroes;
   if(data.images&&Object.keys(data.images).length>0) heroImageMap=data.images;
+  if(data.heroIdToName) heroIdToName=data.heroIdToName;
 }).catch(()=>{/* Use fallback list */});
+
+// ═══════════════════════════════════════════
+//  PLAYER STATS (Deadlock API via Steam)
+// ═══════════════════════════════════════════
+
+socket.on("playerStats",(data)=>{
+  if(!data||data.error)return;
+  playerStatsCache[data.accountId]=data;
+  // Re-render if stats popup is open for this player
+  const popup=document.getElementById("statsPopup");
+  if(popup&&!popup.classList.contains("hidden")&&popup.dataset.accountId==data.accountId){
+    renderStatsPopup(data.accountId);
+  }
+  // Update badges to remove loading state
+  document.querySelectorAll(`.stats-badge[data-account="${data.accountId}"]`).forEach(el=>{
+    el.classList.remove("loading");
+    const d=playerStatsCache[data.accountId];
+    if(d)el.innerHTML=`📊 ${d.overallWinRate}% WR · ${d.totalGames} games`;
+  });
+});
+
+function requestStats(accountId){
+  if(playerStatsCache[accountId])return;
+  socket.emit("requestPlayerStats",{accountId});
+}
+
+function showStatsPopup(accountId,event){
+  if(event){event.stopPropagation();event.preventDefault();}
+  const popup=document.getElementById("statsPopup");
+  const overlay=document.getElementById("statsPopupOverlay");
+  popup.dataset.accountId=accountId;
+
+  if(!playerStatsCache[accountId]){
+    popup.innerHTML=`<button class="stats-popup-close" onclick="closeStatsPopup()">✕</button>
+      <h3>Loading stats...</h3>
+      <p style="color:#888;font-size:.85rem">Fetching from Deadlock API...</p>`;
+    socket.emit("requestPlayerStats",{accountId});
+  } else {
+    renderStatsPopup(accountId);
+  }
+  // Position popup in center of viewport
+  popup.style.top="50%";popup.style.left="50%";popup.style.transform="translate(-50%,-50%)";
+  popup.classList.remove("hidden");
+  overlay.classList.remove("hidden");
+}
+
+function closeStatsPopup(){
+  document.getElementById("statsPopup").classList.add("hidden");
+  document.getElementById("statsPopupOverlay").classList.add("hidden");
+}
+
+function renderStatsPopup(accountId){
+  const d=playerStatsCache[accountId];
+  if(!d)return;
+  const popup=document.getElementById("statsPopup");
+
+  // Find player name from steamProfiles
+  let playerName="Player";
+  if(S&&S.steamProfiles){
+    for(const[name,prof]of Object.entries(S.steamProfiles)){
+      if(prof.accountId===accountId){playerName=name;break;}
+    }
+  }
+
+  // Win rate color
+  const wr=parseFloat(d.overallWinRate);
+  const wrCls=wr>=55?"stat-wr-good":wr>=45?"stat-wr-ok":"stat-wr-bad";
+
+  // Sort heroes by matches played (descending), take top 8
+  const heroEntries=Object.entries(d.heroes||{}).sort((a,b)=>(b[1].matches||0)-(a[1].matches||0)).slice(0,8);
+
+  let heroTableHtml="";
+  if(heroEntries.length>0){
+    heroTableHtml=`<table class="stats-hero-table">
+      <tr><th>Hero</th><th>Games</th><th>Win%</th><th>K/D/A</th></tr>`;
+    for(const[heroName,h]of heroEntries){
+      const hwr=parseFloat(h.winRate);
+      const hwrCls=hwr>=55?"stat-wr-good":hwr>=45?"stat-wr-ok":"stat-wr-bad";
+      heroTableHtml+=`<tr>
+        <td><span class="hero-name-cell">${heroImg(heroName,18)} ${heroName}</span></td>
+        <td>${h.matches}</td>
+        <td class="${hwrCls}">${h.winRate}%</td>
+        <td>${(h.avgKills||0).toFixed(1)}/${(h.avgDeaths||0).toFixed(1)}/${(h.avgAssists||0).toFixed(1)}</td>
+      </tr>`;
+    }
+    heroTableHtml+=`</table>`;
+  } else {
+    heroTableHtml=`<p style="color:#666;font-size:.82rem;text-align:center;margin:12px 0">No hero stats available</p>`;
+  }
+
+  // Recent matches
+  let recentHtml="";
+  if(d.recentMatches&&d.recentMatches.length>0){
+    recentHtml=`<div style="font-size:.72rem;color:#666;text-transform:uppercase;font-weight:600;margin:10px 0 4px">Recent Matches</div>
+    <div class="stats-match-list">`;
+    for(const m of d.recentMatches.slice(0,10)){
+      const wl=m.won?`<span style="color:#66cc88">W</span>`:`<span style="color:#cc6666">L</span>`;
+      const dur=Math.floor((m.duration||0)/60);
+      recentHtml+=`<div style="display:flex;gap:8px;align-items:center;padding:3px 4px;font-size:.75rem;border-bottom:1px solid #1a1a22">
+        ${wl}
+        <span style="flex:1">${heroImg(m.heroName||"",16)} ${m.heroName||"?"}</span>
+        <span style="color:#aaa">${m.kills}/${m.deaths}/${m.assists}</span>
+        <span style="color:#555;font-size:.65rem">${dur}m</span>
+      </div>`;
+    }
+    recentHtml+=`</div>`;
+  }
+
+  popup.innerHTML=`<button class="stats-popup-close" onclick="closeStatsPopup()">✕</button>
+    <h3>${playerName}</h3>
+    <div class="stats-summary">
+      <div class="stat-item"><div class="stat-val">${d.totalGames}</div><div class="stat-label">Games</div></div>
+      <div class="stat-item"><div class="stat-val ${wrCls}">${d.overallWinRate}%</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat-item"><div class="stat-val">${heroEntries.length}</div><div class="stat-label">Heroes Played</div></div>
+    </div>
+    ${heroTableHtml}
+    ${recentHtml}`;
+}
+
+/** Build a stats badge HTML string for a player (inline in player lists). */
+function statsBadgeHtml(playerName){
+  if(!S||!S.steamProfiles)return"";
+  const prof=S.steamProfiles[playerName];
+  if(!prof)return"";
+  const accountId=prof.accountId;
+  const cached=playerStatsCache[accountId];
+  if(cached){
+    return` <span class="stats-badge" data-account="${accountId}" onclick="showStatsPopup(${accountId},event)">📊 ${cached.overallWinRate}% WR · ${cached.totalGames} games</span>`;
+  } else {
+    // Request stats in background
+    requestStats(accountId);
+    return` <span class="stats-badge loading" data-account="${accountId}" onclick="showStatsPopup(${accountId},event)">📊 loading...</span>`;
+  }
+}
 
 // ═══════════════════════════════════════════
 //  REACTIVE BACKGROUND
