@@ -115,21 +115,22 @@ app.get("/api/heroes", (req, res) => {
  * Turn sequence for the Standard draft mode.
  *
  * A 16-turn snake draft: BAN BAN | PICK x6 | BAN BAN | PICK x6.
+ * The second half mirrors team order for fairness.
  * Each entry specifies the action type and which team acts.
  *
  * @const {Array<{type: string, team: number}>}
  */
 const STD_TURNS = [
-  // Ban Phase 1
+  // Ban Phase 1 — Team 1 bans first
   {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 1 — snake order (6 picks, 3 per team)
+  // Pick Phase 1 — snake: 1p 2p 2p 1p 1p 2p
   {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
   {type:"pick",team:0},{type:"pick",team:1},
-  // Ban Phase 2
-  {type:"ban",team:0},{type:"ban",team:1},
-  // Pick Phase 2 — snake order (6 picks, 3 per team)
-  {type:"pick",team:0},{type:"pick",team:1},{type:"pick",team:1},{type:"pick",team:0},
-  {type:"pick",team:0},{type:"pick",team:1},
+  // Ban Phase 2 — Team 2 bans first (mirrored)
+  {type:"ban",team:1},{type:"ban",team:0},
+  // Pick Phase 2 — snake mirrored: 2p 1p 1p 2p 2p 1p
+  {type:"pick",team:1},{type:"pick",team:0},{type:"pick",team:0},{type:"pick",team:1},
+  {type:"pick",team:1},{type:"pick",team:0},
 ];
 
 // ═══════════════════════════════════════════════════════════
