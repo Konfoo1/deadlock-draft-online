@@ -255,6 +255,7 @@ input,select{font-family:inherit}
 .hero-card:hover:not(.disabled):not(.banned) .hl{color:#ddd}
 .hero-card.sel{border-color:var(--phase-accent);background:color-mix(in srgb,var(--phase-accent) 10%,transparent);box-shadow:0 0 14px var(--phase-glow)}
 .hero-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--phase-accent);font-size:1rem;font-weight:700;animation:scaleIn .2s ease-out}
+body.phase-ban .hero-card.sel::after{content:'✕';font-size:1.3rem;top:1px;right:4px}
 .hero-card.banned{border-color:#2a0a0a;pointer-events:none;opacity:.25;animation:banStrike .4s ease-out both}
 .hero-card.banned::after{content:'✕';position:absolute;top:3px;right:5px;color:var(--ban);font-size:1rem;font-weight:700}
 .hero-card.disabled{pointer-events:none;opacity:.15}
@@ -3447,7 +3448,7 @@ function renderStatsPopup(accountId){
   let heroTableHtml="";
   if(heroEntries.length>0){
     heroTableHtml=`<table class="stats-hero-table">
-      <tr><th>Hero</th><th>Games</th><th>Win%</th><th>K/D/A</th></tr>`;
+      <tr><th>Hero</th><th>Games</th><th>Win%</th><th>K/D/A /min</th></tr>`;
     for(const[heroName,h]of heroEntries){
       const hwr=parseFloat(h.winRate);
       const hwrCls=hwr>=55?"stat-wr-good":hwr>=45?"stat-wr-ok":"stat-wr-bad";

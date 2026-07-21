@@ -162,15 +162,20 @@ async function fetchPlayerStats(accountId) {
       if (Array.isArray(heroData)) {
         for (const entry of heroData) {
           const heroId = entry.hero_id;
+          // matches is an array of match IDs from the API (groupUniqArray)
+          const matchCount = Array.isArray(entry.matches) ? entry.matches.length : (entry.matches || 0);
+          const w = entry.wins || 0;
+          const l = entry.losses || 0;
+          const totalGames = matchCount || (w + l);
           result.heroes[heroId] = {
             heroId,
-            wins: entry.wins || 0,
-            losses: entry.losses || 0,
-            matches: entry.matches || (entry.wins || 0) + (entry.losses || 0),
-            winRate: entry.matches > 0 ? ((entry.wins || 0) / entry.matches * 100).toFixed(1) : "0.0",
-            avgKills: entry.kills_per_match || 0,
-            avgDeaths: entry.deaths_per_match || 0,
-            avgAssists: entry.assists_per_match || 0,
+            wins: w,
+            losses: l,
+            matches: totalGames,
+            winRate: totalGames > 0 ? (w / totalGames * 100).toFixed(1) : "0.0",
+            avgKills: entry.kills_per_min || 0,
+            avgDeaths: entry.deaths_per_min || 0,
+            avgAssists: entry.assists_per_min || 0,
           };
         }
       }
