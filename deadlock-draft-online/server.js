@@ -32,6 +32,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const session = require("express-session");
+const cookieParser = require("cookie-parser");
 const SteamAuth = require("node-steam-openid");
 
 const app = express();
@@ -43,13 +44,16 @@ const server = http.createServer(app);
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
+const SESSION_SECRET = process.env.SESSION_SECRET || "deadlock-draft-secret-change-me";
+const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || "deadlock-draft-secret-change-me",
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 }, // 24 hours
+  cookie: { maxAge: THIRTY_DAYS },
 });
 
+app.use(cookieParser());
 app.use(sessionMiddleware);
 
 // Steam auth is optional — only enabled when STEAM_API_KEY is set.
@@ -94,12 +98,19 @@ app.get("/auth/steam/callback", async (req, res) => {
   try {
     const user = await steam.authenticate(req);
     // Store Steam profile in session
-    req.session.steam = {
+    const profile = {
       steamId64: user.steamid,
       accountId: Number(BigInt(user.steamid) - BigInt("76561197960265728")),
       displayName: user.username,
       avatar: user.avatar?.large || user.avatar?.medium || user.avatar?.small || "",
     };
+    req.session.steam = profile;
+    // Also set a persistent cookie so login survives server restarts
+    res.cookie("steamProfile", JSON.stringify(profile), {
+      maxAge: THIRTY_DAYS,
+      httpOnly: true,
+      sameSite: "lax",
+    });
     console.log(`[Steam Auth] ${user.username} logged in (${user.steamid})`);
     res.redirect("/?steamLogin=success");
   } catch (err) {
@@ -109,6 +120,13 @@ app.get("/auth/steam/callback", async (req, res) => {
 });
 
 app.get("/auth/steam/status", (req, res) => {
+  // If session lost (server restart) but persistent cookie exists, restore it
+  if (!req.session.steam && req.cookies?.steamProfile) {
+    try {
+      req.session.steam = JSON.parse(req.cookies.steamProfile);
+      console.log(`[Steam Auth] Restored session from cookie for ${req.session.steam.displayName}`);
+    } catch (e) { /* corrupt cookie, ignore */ }
+  }
   if (req.session?.steam) {
     res.json({ loggedIn: true, steamEnabled: true, ...req.session.steam });
   } else {
@@ -118,6 +136,7 @@ app.get("/auth/steam/status", (req, res) => {
 
 app.get("/auth/steam/logout", (req, res) => {
   req.session.steam = null;
+  res.clearCookie("steamProfile");
   res.json({ loggedIn: false });
 });
 
@@ -173,26 +192,48 @@ async function fetchPlayerStats(accountId) {
             losses: l,
             matches: totalGames,
             winRate: totalGames > 0 ? (w / totalGames * 100).toFixed(1) : "0.0",
-            avgKills: entry.kills_per_min || 0,
-            avgDeaths: entry.deaths_per_min || 0,
-            avgAssists: entry.assists_per_min || 0,
+            avgKills: 0,
+            avgDeaths: 0,
+            avgAssists: 0,
           };
         }
       }
     }
 
-    // Process match history (last 20 matches)
+    // Process match history
     if (historyRes.ok) {
       const historyData = await historyRes.json();
       if (Array.isArray(historyData)) {
         const recent = historyData.slice(0, 20);
         let wins = 0;
         result.totalGames = historyData.length;
+
+        // Aggregate per-hero KDA from all match history
+        const heroKda = {}; // heroId -> { kills, deaths, assists, count }
         for (const m of historyData) {
           const won = m.player_team !== undefined && m.match_result !== undefined
             ? (m.player_team === m.match_result) : false;
           if (won) wins++;
+
+          const hid = m.hero_id;
+          if (hid !== undefined) {
+            if (!heroKda[hid]) heroKda[hid] = { kills: 0, deaths: 0, assists: 0, count: 0 };
+            heroKda[hid].kills += m.player_kills || 0;
+            heroKda[hid].deaths += m.player_deaths || 0;
+            heroKda[hid].assists += m.player_assists || 0;
+            heroKda[hid].count++;
+          }
         }
+
+        // Merge average KDA into hero stats
+        for (const [hid, kda] of Object.entries(heroKda)) {
+          if (result.heroes[hid]) {
+            result.heroes[hid].avgKills = (kda.kills / kda.count).toFixed(1);
+            result.heroes[hid].avgDeaths = (kda.deaths / kda.count).toFixed(1);
+            result.heroes[hid].avgAssists = (kda.assists / kda.count).toFixed(1);
+          }
+        }
+
         result.overallWinRate = historyData.length > 0
           ? (wins / historyData.length * 100).toFixed(1) : "0.0";
         result.recentMatches = recent.map(m => ({
@@ -1957,6 +1998,19 @@ io.on("connection", (socket) => {
 
   // ── Steam Session ──
   // Access the HTTP session shared with Express via the engine middleware.
+  // If session was lost (server restart) but persistent cookie exists, restore it.
+  if (!socket.request?.session?.steam) {
+    try {
+      const raw = socket.request?.headers?.cookie || "";
+      const match = raw.match(/steamProfile=([^;]+)/);
+      if (match) {
+        const profile = JSON.parse(decodeURIComponent(match[1]));
+        if (profile?.steamId64 && socket.request.session) {
+          socket.request.session.steam = profile;
+        }
+      }
+    } catch (e) { /* corrupt cookie, ignore */ }
+  }
   const steamProfile = socket.request?.session?.steam || null;
 
   /**

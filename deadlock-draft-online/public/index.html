@@ -3449,7 +3449,7 @@ function renderStatsPopup(accountId){
   let heroTableHtml="";
   if(heroEntries.length>0){
     heroTableHtml=`<table class="stats-hero-table">
-      <tr><th>Hero</th><th>Games</th><th>Win%</th><th>K/D/A /min</th></tr>`;
+      <tr><th>Hero</th><th>Games</th><th>Win%</th><th>Avg K/D/A</th></tr>`;
     for(const[heroName,h]of heroEntries){
       const hwr=parseFloat(h.winRate);
       const hwrCls=hwr>=55?"stat-wr-good":hwr>=45?"stat-wr-ok":"stat-wr-bad";
