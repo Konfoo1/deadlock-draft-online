@@ -79,7 +79,7 @@ input,select{font-family:inherit}
 .steam-logout-btn:hover{color:#cc4444}
 
 /* ── PLAYER STATS TOOLTIP ─────────────────────── */
-.stats-badge{display:inline-flex;align-items:center;gap:3px;font-size:.62rem;padding:1px 6px;background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;color:#66cc88;cursor:pointer;margin-left:4px;vertical-align:middle;transition:all .2s}
+.stats-badge{display:inline-flex;align-items:center;gap:3px;font-size:.62rem;padding:1px 6px;background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;color:#66cc88;cursor:pointer;margin-left:4px;vertical-align:middle;transition:all .2s;position:relative;z-index:2;flex-shrink:0}
 .stats-badge:hover{background:#1a3a1a;border-color:#44aa66}
 .stats-badge.loading{color:#888;border-color:#333;background:#1a1a1a}
 
@@ -375,7 +375,7 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 .t1 .std-pr-dot{background:var(--t1m)}
 .t2 .std-pr-dot{background:var(--t2m)}
 .std-pr-dot.filler-dot{opacity:.35}
-.std-pr-name{font-size:.82rem;color:#ccc;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.std-pr-name{font-size:.82rem;color:#ccc;flex:1;white-space:nowrap;overflow:visible;display:flex;align-items:center;gap:2px}
 .std-pr-name.is-filler{color:#777;cursor:pointer}
 .std-pr-name.is-filler:hover{color:var(--accent)}
 .std-pr-assigned{font-size:.6rem;color:#22aa44;margin-left:auto;white-space:nowrap}
@@ -721,6 +721,19 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 <div class="screen active" id="home">
   <h1>⚡ Deadlock Drafting Tool</h1>
   <p id="homeSubtitle">Create a draft lobby or join with a link.</p>
+
+  <!-- Steam login gate — shown when not signed in -->
+  <div id="steamGate" style="margin:30px auto;text-align:center;max-width:320px">
+    <p style="color:#888;font-size:.9rem;margin-bottom:16px">Sign in with Steam to get started</p>
+    <a class="steam-login-btn" href="/auth/steam" style="display:inline-flex;padding:10px 24px;font-size:.95rem">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="margin-right:8px"><path d="M12 2a10 10 0 0 0-9.96 9.04l5.35 2.21a2.83 2.83 0 0 1 1.6-.49c.05 0 .1 0 .16.01l2.4-3.47v-.05a3.78 3.78 0 1 1 3.78 3.78h-.09l-3.41 2.44c0 .05.01.1.01.15a2.84 2.84 0 0 1-5.66.22L1.2 13.53A10 10 0 1 0 12 2z"/></svg>
+      Sign in with Steam
+    </a>
+    <p style="color:#555;font-size:.72rem;margin-top:12px">Your Steam name will be used in the draft</p>
+  </div>
+
+  <!-- Main content — hidden until signed in -->
+  <div id="homeContent" class="hidden">
   <input class="input-field" id="nameInput" placeholder="Your name" maxlength="20">
 
   <!-- Default: create or manual join -->
@@ -763,6 +776,8 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
     </div>
     <div style="font-size:.8rem;color:#555;margin-top:10px" id="linkJoinHint"></div>
   </div>
+
+  </div><!-- /homeContent -->
 
   <div class="error-msg" id="homeErr"></div>
   <div class="site-footer">
@@ -1299,14 +1314,22 @@ function showSteamLoggedIn(data){
   document.getElementById("steamProfileBar").classList.remove("hidden");
   document.getElementById("steamAvatar").src=data.avatar||"";
   document.getElementById("steamName").textContent=data.displayName||"Steam User";
-  // Pre-fill name from Steam if name field is empty
+  // Use Steam name automatically
   const nameInput=document.getElementById("nameInput");
-  if(!nameInput.value)nameInput.value=data.displayName||"";
+  nameInput.value=data.displayName||"";
+  nameInput.style.display="none";
+  // Show home content, hide login gate
+  document.getElementById("steamGate").classList.add("hidden");
+  document.getElementById("homeContent").classList.remove("hidden");
 }
 function showSteamLoggedOut(){
   steamUser=null;
   document.getElementById("steamLoginBtn").classList.remove("hidden");
   document.getElementById("steamProfileBar").classList.add("hidden");
+  document.getElementById("nameInput").style.display="";
+  // Show login gate, hide home content
+  document.getElementById("steamGate").classList.remove("hidden");
+  document.getElementById("homeContent").classList.add("hidden");
 }
 fetch("/auth/steam/status").then(r=>r.json()).then(data=>{
   if(data.loggedIn){
@@ -1503,19 +1526,21 @@ function setPhaseAccent(type){
 //  HOME
 // ═══════════════════════════════════════════
 function createLobby(){
-  const name=document.getElementById("nameInput").value.trim();
+  if(!steamUser){document.getElementById("homeErr").textContent="Sign in with Steam first.";return;}
+  const name=document.getElementById("nameInput").value.trim()||steamUser.displayName;
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   // Show mode select screen instead of immediately creating
   showScreen("modeSelect");
 }
 function selectMode(mode){
   chosenMode=mode;
-  const name=document.getElementById("nameInput").value.trim();
+  const name=document.getElementById("nameInput").value.trim()||steamUser?.displayName||"";
   myPlayerName=name; myJoinRole="captain"; myJoinTeam=null;
   socket.emit("createLobby",{name,timerDuration:120,mode});
 }
 function joinManual(){
-  const name=document.getElementById("nameInput").value.trim();
+  if(!steamUser){document.getElementById("homeErr").textContent="Sign in with Steam first.";return;}
+  const name=document.getElementById("nameInput").value.trim()||steamUser.displayName;
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   const c=document.getElementById("codeInput").value.trim();
   if(!c){document.getElementById("homeErr").textContent="Enter a lobby code.";return;}
@@ -1523,21 +1548,24 @@ function joinManual(){
   socket.emit("joinAsSpectator",{code:c,name});
 }
 function joinViaLink(){
-  const name=document.getElementById("nameInput").value.trim();
+  if(!steamUser){document.getElementById("homeErr").textContent="Sign in with Steam first.";return;}
+  const name=document.getElementById("nameInput").value.trim()||steamUser.displayName;
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
   myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="spectator"; myJoinTeam=null;
   socket.emit("joinAsSpectator",{code:urlCode,name});
 }
 function joinViaLinkPlayerTeam(team){
-  const name=document.getElementById("nameInput").value.trim();
+  if(!steamUser){document.getElementById("homeErr").textContent="Sign in with Steam first.";return;}
+  const name=document.getElementById("nameInput").value.trim()||steamUser.displayName;
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
   myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="spectator"; myJoinTeam=team;
   socket.emit("joinAsSpectator",{code:urlCode,name,team});
 }
 function joinViaLinkTeam(team){
-  const name=document.getElementById("nameInput").value.trim();
+  if(!steamUser){document.getElementById("homeErr").textContent="Sign in with Steam first.";return;}
+  const name=document.getElementById("nameInput").value.trim()||steamUser.displayName;
   if(!name){document.getElementById("homeErr").textContent="Enter your name.";return;}
   if(!urlCode)return;
   myPlayerName=name; myLobbyCode=urlCode.toUpperCase(); myJoinRole="captain"; myJoinTeam=team;
