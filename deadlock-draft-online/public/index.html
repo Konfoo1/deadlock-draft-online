@@ -619,8 +619,18 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 .start-tourney-btn:hover{transform:scale(1.03);box-shadow:0 4px 20px rgba(240,160,48,.4)}
 .start-tourney-btn:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
 
-/* ── BACKGROUND CANVAS ─────────────────── */
-#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
+/* ── PARALLAX BACKGROUND ─────────────────── */
+.parallax-bg{position:fixed;top:-30px;left:-30px;right:-30px;bottom:-30px;pointer-events:none;z-index:-1;overflow:hidden}
+.parallax-layer{position:absolute;inset:-60px;transition:transform .15s ease-out;will-change:transform}
+.parallax-layer.layer-back{background:
+  radial-gradient(ellipse 600px 500px at 20% 30%, rgba(232,68,32,.06) 0%, transparent 70%),
+  radial-gradient(ellipse 500px 600px at 80% 70%, rgba(74,138,223,.06) 0%, transparent 70%);
+}
+.parallax-layer.layer-front{background:
+  radial-gradient(ellipse 300px 300px at 65% 25%, rgba(232,122,32,.04) 0%, transparent 70%),
+  radial-gradient(ellipse 350px 280px at 30% 75%, rgba(100,160,240,.04) 0%, transparent 70%),
+  radial-gradient(ellipse 200px 200px at 50% 50%, rgba(255,255,255,.015) 0%, transparent 70%);
+}
 
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2a2a35;border-radius:3px}
 
@@ -698,7 +708,10 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
 </style>
 </head>
 <body>
-<canvas id="bgCanvas"></canvas>
+<div class="parallax-bg">
+  <div class="parallax-layer layer-back" id="parallaxBack"></div>
+  <div class="parallax-layer layer-front" id="parallaxFront"></div>
+</div>
 <button class="back-btn" id="globalBackBtn" onclick="goBack()">← Back</button>
 <div class="mode-label" id="globalModeLabel"></div>
 
@@ -894,18 +907,18 @@ body.phase-ban .std-tc.active{box-shadow:0 0 8px rgba(204,68,68,.4)}
   </div>
 
   <div class="lobby-row">
-    <div class="lobby-slot t1" id="slot0" onclick="joinTeam(0)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,0)">
+    <div class="lobby-slot t1" id="slot0" onclick="joinTeam(0,event)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,0)">
       <h3 id="lt1name">Hidden King</h3>
       <div id="lt1people"></div>
       <div class="join-hint">Click to join</div>
       <button class="host-cap-toggle hidden" id="hostCap0" onclick="event.stopPropagation();hostToggleCaptain(0)">Become Captain</button>
     </div>
-    <div class="lobby-slot unassigned" id="slotU" onclick="joinTeam(-1)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,-1)">
+    <div class="lobby-slot unassigned" id="slotU" onclick="joinTeam(-1,event)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,-1)">
       <h3>Spectators</h3>
       <div id="unassignedList"></div>
       <div class="join-hint">Click to join</div>
     </div>
-    <div class="lobby-slot t2" id="slot1" onclick="joinTeam(1)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,1)">
+    <div class="lobby-slot t2" id="slot1" onclick="joinTeam(1,event)" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over-slot')" ondragleave="this.classList.remove('drag-over-slot')" ondrop="this.classList.remove('drag-over-slot');dropPlayerOnTeam(event,1)">
       <h3 id="lt2name">Archmother</h3>
       <div id="lt2people"></div>
       <div class="join-hint">Click to join</div>
@@ -1575,7 +1588,7 @@ function joinViaLinkTeam(team){
 // ═══════════════════════════════════════════
 //  LOBBY
 // ═══════════════════════════════════════════
-function joinTeam(t){socket.emit("joinTeam",{team:t});}
+function joinTeam(t,ev){if(ev&&ev.target.closest(".stats-badge"))return;socket.emit("joinTeam",{team:t});}
 function toggleReady(){socket.emit("toggleReady");}
 function hostToggleCaptain(t){socket.emit("hostToggleCaptain",{team:t});}
 function promoteToCaptain(pid,t){socket.emit("promoteToCaptain",{playerId:pid,team:t});}
@@ -3548,84 +3561,18 @@ document.addEventListener("click",function(e){
 },true); // useCapture=true to intercept before parent onclick handlers
 
 // ═══════════════════════════════════════════
-//  REACTIVE BACKGROUND
+//  PARALLAX BACKGROUND
 // ═══════════════════════════════════════════
 (function(){
-  const c=document.getElementById("bgCanvas");
-  const ctx=c.getContext("2d");
-  let W,H,mx=0.5,my=0.5,tmx=0.5,tmy=0.5;
-  const particles=[];
-  const PCOUNT=30; // fewer particles for a calmer feel
-
-  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
-  resize();window.addEventListener("resize",resize);
-
-  document.addEventListener("mousemove",e=>{tmx=e.clientX/W;tmy=e.clientY/H;});
-
-  // Particle class — slow, gentle drifters
-  function Particle(){
-    this.reset();
-    this.y=Math.random()*H;
-  }
-  Particle.prototype.reset=function(){
-    this.x=Math.random()*W;
-    this.y=-10;
-    this.vx=(Math.random()-.5)*.08; // very slow horizontal drift
-    this.vy=Math.random()*.12+.03;  // very slow downward drift
-    this.r=Math.random()*2+.8;
-    this.life=1;
-    this.decay=Math.random()*.0008+.0003; // much longer lifespan
-    this.warm=Math.random()<.5;
-  };
-  Particle.prototype.update=function(){
-    // Very gentle attraction toward cursor
-    const dx=(mx*W-this.x)*0.00008;
-    const dy=(my*H-this.y)*0.00008;
-    this.vx+=dx;this.vy+=dy;
-    // Dampen velocity so they don't speed up
-    this.vx*=.998;this.vy*=.998;
-    this.x+=this.vx;this.y+=this.vy;
-    this.life-=this.decay;
-    if(this.life<=0||this.y>H+10||this.x<-10||this.x>W+10)this.reset();
-  };
-  Particle.prototype.draw=function(){
-    const a=this.life*.25; // subtler opacity
-    if(this.warm){
-      ctx.fillStyle=`rgba(232,100,32,${a})`;
-    } else {
-      ctx.fillStyle=`rgba(74,140,223,${a})`;
-    }
-    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();
-  };
-
-  for(let i=0;i<PCOUNT;i++){particles.push(new Particle());}
-
-  function frame(){
-    // Smooth, slow cursor follow
-    mx+=(tmx-mx)*.025;my+=(tmy-my)*.025;
-
-    ctx.clearRect(0,0,W,H);
-
-    // Big gradient orbs that follow cursor
-    const grd1=ctx.createRadialGradient(mx*W*.6,my*H*.7,0,mx*W*.6,my*H*.7,H*.5);
-    grd1.addColorStop(0,"rgba(232,68,32,.04)");grd1.addColorStop(1,"transparent");
-    ctx.fillStyle=grd1;ctx.fillRect(0,0,W,H);
-
-    const grd2=ctx.createRadialGradient(W-mx*W*.4,H-my*H*.6,0,W-mx*W*.4,H-my*H*.6,H*.5);
-    grd2.addColorStop(0,"rgba(74,138,223,.04)");grd2.addColorStop(1,"transparent");
-    ctx.fillStyle=grd2;ctx.fillRect(0,0,W,H);
-
-    // Subtle center glow near cursor
-    const grd3=ctx.createRadialGradient(mx*W,my*H,0,mx*W,my*H,180);
-    grd3.addColorStop(0,"rgba(255,255,255,.015)");grd3.addColorStop(1,"transparent");
-    ctx.fillStyle=grd3;ctx.fillRect(0,0,W,H);
-
-    // Particles
-    for(const p of particles){p.update();p.draw();}
-
-    requestAnimationFrame(frame);
-  }
-  frame();
+  const back=document.getElementById("parallaxBack");
+  const front=document.getElementById("parallaxFront");
+  let mx=0,my=0;
+  document.addEventListener("mousemove",e=>{
+    mx=(e.clientX/window.innerWidth-.5)*2; // -1 to 1
+    my=(e.clientY/window.innerHeight-.5)*2;
+    back.style.transform=`translate(${mx*12}px, ${my*10}px)`;
+    front.style.transform=`translate(${mx*25}px, ${my*20}px)`;
+  });
 })();
 </script>
 </body>
