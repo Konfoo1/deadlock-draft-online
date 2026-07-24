@@ -3530,13 +3530,22 @@ function statsBadgeHtml(playerName){
   const accountId=prof.accountId;
   const cached=playerStatsCache[accountId];
   if(cached){
-    return` <span class="stats-badge" data-account="${accountId}" onclick="showStatsPopup(${accountId},event)">📊 ${cached.overallWinRate}% WR · ${cached.totalGames} games</span>`;
+    return` <span class="stats-badge" data-account="${accountId}" onclick="event.stopPropagation();event.preventDefault();showStatsPopup(${accountId},event)">📊 ${cached.overallWinRate}% WR · ${cached.totalGames} games</span>`;
   } else {
     // Request stats in background
     requestStats(accountId);
-    return` <span class="stats-badge loading" data-account="${accountId}" onclick="showStatsPopup(${accountId},event)">📊 loading...</span>`;
+    return` <span class="stats-badge loading" data-account="${accountId}" onclick="event.stopPropagation();event.preventDefault();showStatsPopup(${accountId},event)">📊 loading...</span>`;
   }
 }
+// Global click delegation for stats badges (backup for dynamically rendered badges)
+document.addEventListener("click",function(e){
+  const badge=e.target.closest(".stats-badge");
+  if(badge){
+    e.stopPropagation();e.preventDefault();
+    const acct=badge.dataset.account;
+    if(acct)showStatsPopup(Number(acct),e);
+  }
+},true); // useCapture=true to intercept before parent onclick handlers
 
 // ═══════════════════════════════════════════
 //  REACTIVE BACKGROUND
