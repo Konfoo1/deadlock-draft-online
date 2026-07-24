@@ -1589,7 +1589,7 @@ function joinViaLinkTeam(team){
 // ═══════════════════════════════════════════
 //  LOBBY
 // ═══════════════════════════════════════════
-function joinTeam(t,ev){if(ev&&ev.target.closest(".stats-badge"))return;socket.emit("joinTeam",{team:t});}
+function joinTeam(t,ev){if(_statsBadgeClicked)return;if(ev&&ev.target&&ev.target.closest&&ev.target.closest(".stats-badge"))return;socket.emit("joinTeam",{team:t});}
 function toggleReady(){socket.emit("toggleReady");}
 function hostToggleCaptain(t){socket.emit("hostToggleCaptain",{team:t});}
 function promoteToCaptain(pid,t){socket.emit("promoteToCaptain",{playerId:pid,team:t});}
@@ -3550,16 +3550,25 @@ function statsBadgeHtml(playerName){
     return` <button type="button" class="stats-badge loading" data-account="${accountId}">📊 loading...</button>`;
   }
 }
-// Single global handler for all stats badges — capture phase fires before any parent onclick
-document.addEventListener("click",function(e){
-  const badge=e.target.closest(".stats-badge");
+// Global flag to block parent click handlers when a stats badge is clicked
+let _statsBadgeClicked=false;
+
+// Mousedown on badge: set flag + open popup immediately (fires before click)
+document.addEventListener("mousedown",function(e){
+  const badge=e.target.closest?e.target.closest(".stats-badge"):null;
   if(!badge)return;
-  e.stopImmediatePropagation();
-  e.stopPropagation();
-  e.preventDefault();
+  _statsBadgeClicked=true;
+  setTimeout(()=>{_statsBadgeClicked=false;},300);
+  e.stopPropagation();e.preventDefault();
   const acct=badge.dataset.account;
-  if(acct)showStatsPopup(Number(acct),e);
-  return false;
+  if(acct)showStatsPopup(Number(acct),null);
+},true);
+
+// Also catch click to prevent any parent handler from firing
+document.addEventListener("click",function(e){
+  const badge=e.target.closest?e.target.closest(".stats-badge"):null;
+  if(!badge&&!_statsBadgeClicked)return;
+  e.stopImmediatePropagation();e.stopPropagation();e.preventDefault();
 },true);
 
 // ═══════════════════════════════════════════
